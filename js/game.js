@@ -22,6 +22,8 @@
   // used to paint the round swatch button.
   const NATURAL = "#ffeef0"; // an unpainted, soft natural nail
 
+  // A curated set of twelve colors — a clean two rows on a phone, so a
+  // little one can see every color at once without scrolling.
   const COLORS = [
     { value: "#ff8fab", css: "#ff8fab" }, // pink
     { value: "#ff4f8b", css: "#ff4f8b" }, // hot pink
@@ -33,11 +35,8 @@
     { value: "#6cc6ff", css: "#6cc6ff" }, // sky
     { value: "#6c8cff", css: "#6c8cff" }, // blue
     { value: "#b28dff", css: "#b28dff" }, // purple
-    { value: "#e58cff", css: "#e58cff" }, // violet
-    { value: "#ffb3de", css: "#ffb3de" }, // baby pink
     { value: "url(#rainbow)", css: "linear-gradient(135deg,#ff6b6b,#ffd166,#8ee06a,#6cc6ff,#b28dff)" }, // rainbow
     { value: "#ffffff", css: "#ffffff" }, // white
-    { value: "#3a3a4a", css: "#3a3a4a" }, // midnight
   ];
 
   /* ---- Hand geometry ------------------------------------- */
@@ -56,12 +55,26 @@
   // Where each nail sits, so decorations can be centered later.
   const nailGeom = {}; // id -> {cx, cy, rx, ry}
 
+  /* ---- Stickers & effects -------------------------------- */
+  const TOOLS = [
+    { id: "glitter", emoji: "✨", label: "Glitter" },
+    { id: "gem",     emoji: "💎", label: "Gem" },
+    { id: "heart",   emoji: "❤️", label: "Heart" },
+    { id: "star",    emoji: "⭐", label: "Star" },
+    { id: "flower",  emoji: "🌸", label: "Flower" },
+    { id: "erase",   emoji: "🧽", label: "Eraser" },
+  ];
+  const STICKER_EMOJI = { gem: "💎", heart: "❤️", star: "⭐", flower: "🌸" };
+
   /* ---- Game state ---------------------------------------- */
   const NAIL_IDS = ["thumb", "index", "middle", "ring", "pinky"];
+  const freshNail = () => ({ color: NATURAL, sticker: null, glitter: false });
   const state = {};
-  NAIL_IDS.forEach((id) => (state[id] = { color: NATURAL }));
+  NAIL_IDS.forEach((id) => (state[id] = freshNail()));
 
   let currentColor = COLORS[0].value;
+  // What a tap on a nail does: "paint" (use currentColor) or a tool id.
+  let mode = "paint";
 
   /* ---- Build the SVG hand -------------------------------- */
   const handWrap = document.getElementById("hand-wrap");
@@ -145,32 +158,94 @@
   buildThumb();
   handWrap.appendChild(svg);
 
-  /* ---- Painting ------------------------------------------ */
+  /* ---- Painting & decorating ----------------------------- */
   function fillEl(id) {
     return svg.querySelector(`.nail-fill[data-fill="${id}"]`);
   }
-
-  function paintNail(id) {
-    state[id].color = currentColor;
-    fillEl(id).setAttribute("fill", currentColor);
+  function decoEl(id) {
+    return svg.querySelector(`.deco[data-deco="${id}"]`);
   }
 
-  // Tapping anywhere on a finger paints its nail.
+  // Scatter tiny shimmering dots inside the nail for a glitter effect.
+  function addGlitter(deco, g) {
+    for (let i = 0; i < 16; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.sqrt(Math.random()); // even spread across the ellipse
+      el("circle", {
+        cx: g.cx + Math.cos(angle) * radius * g.rx,
+        cy: g.cy + Math.sin(angle) * radius * g.ry,
+        r: 0.9 + Math.random() * 1.7,
+        fill: i % 2 ? "#ffffff" : "#ffe9a8",
+        opacity: 0.9,
+      }, deco);
+    }
+  }
+
+  // Stamp a cute emoji sticker in the middle of the nail.
+  function addSticker(deco, g, kind) {
+    const t = el("text", {
+      x: g.cx, y: g.cy,
+      "text-anchor": "middle", "dominant-baseline": "central",
+      "font-size": g.ry * 1.5,
+    }, deco);
+    t.textContent = STICKER_EMOJI[kind];
+  }
+
+  // Redraw one nail from its state (color + decorations).
+  function renderNail(id) {
+    fillEl(id).setAttribute("fill", state[id].color);
+    const deco = decoEl(id);
+    while (deco.firstChild) deco.removeChild(deco.firstChild);
+    const g = nailGeom[id];
+    if (state[id].glitter) addGlitter(deco, g);
+    if (state[id].sticker) addSticker(deco, g, state[id].sticker);
+  }
+
+  // Apply the current tool/color to a nail.
+  function applyToNail(id) {
+    if (mode === "paint") {
+      state[id].color = currentColor;
+    } else if (mode === "erase") {
+      state[id] = freshNail();
+    } else if (mode === "glitter") {
+      state[id].glitter = true;
+    } else {
+      state[id].sticker = mode; // gem / heart / star / flower
+    }
+    renderNail(id);
+  }
+
+  // Tapping anywhere on a finger decorates its nail.
   svg.querySelectorAll(".finger").forEach((finger) => {
     const id = finger.getAttribute("data-nail");
     finger.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      paintNail(id);
+      applyToNail(id);
     });
   });
 
-  /* ---- Color palette ------------------------------------- */
+  /* ---- Color palette & tools ----------------------------- */
   const palette = document.getElementById("palette");
+  const toolbar = document.getElementById("tools");
 
+  function clearSelected() {
+    palette.querySelectorAll(".swatch").forEach((s) => s.classList.remove("selected"));
+    toolbar.querySelectorAll(".tool").forEach((t) => t.classList.remove("selected"));
+  }
+
+  // Picking a color switches back to plain painting.
   function selectColor(value, swatchEl) {
     currentColor = value;
-    palette.querySelectorAll(".swatch").forEach((s) => s.classList.remove("selected"));
+    mode = "paint";
+    clearSelected();
     if (swatchEl) swatchEl.classList.add("selected");
+  }
+
+  // Picking a tool switches to stamping/erasing.
+  function selectTool(id, toolEl) {
+    mode = id;
+    clearSelected();
+    toolEl.classList.add("selected");
   }
 
   COLORS.forEach((color, i) => {
@@ -187,12 +262,26 @@
     palette.appendChild(swatch);
   });
 
+  TOOLS.forEach((tool) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tool";
+    btn.textContent = tool.emoji;
+    btn.setAttribute("aria-label", tool.label);
+    btn.setAttribute("title", tool.label);
+    btn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      selectTool(tool.id, btn);
+    });
+    toolbar.appendChild(btn);
+  });
+
   /* ---- Start over ---------------------------------------- */
   const resetBtn = document.getElementById("reset-btn");
   function startOver() {
     NAIL_IDS.forEach((id) => {
-      state[id] = { color: NATURAL };
-      fillEl(id).setAttribute("fill", NATURAL);
+      state[id] = freshNail();
+      renderNail(id);
     });
   }
   resetBtn.addEventListener("click", startOver);

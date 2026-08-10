@@ -13,7 +13,7 @@
   --shadow: 0 8px 20px rgba(150, 90, 130, 0.18);
   --shadow-soft: 0 4px 10px rgba(150, 90, 130, 0.14);
   --ring: #ff7ab8;
-  --tap: min(15vw, 74px); /* base touch-target size */
+  --tap: clamp(42px, 12.5vw, 64px); /* base touch-target size for swatches */
 }
 
 * {
@@ -128,27 +128,20 @@ body {
 .tool-row,
 .color-row {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
   padding: 10px;
   background: var(--card);
   border-radius: 24px;
   box-shadow: var(--shadow);
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
 }
-.tool-row::-webkit-scrollbar,
-.color-row::-webkit-scrollbar { display: none; }
-
-.tool-row { justify-content: center; }
 
 /* Sticker / effect buttons */
 .tool {
   flex: 0 0 auto;
-  width: 56px;
-  height: 56px;
+  width: clamp(46px, 12vw, 58px);
+  height: clamp(46px, 12vw, 58px);
   font-size: 28px;
   line-height: 1;
   display: grid;
