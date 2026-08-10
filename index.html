@@ -16,7 +16,7 @@
     <header id="topbar">
       <h1 class="title">✨ Nail Salon ✨</h1>
       <div class="topbar-buttons">
-        <button id="skin-btn" class="icon-btn" type="button" aria-label="Change skin color" title="Skin color">✋</button>
+        <button id="surface-btn" class="icon-btn" type="button" aria-label="Switch between hand and foot" title="Hand or foot">✋</button>
         <button id="sound-btn" class="icon-btn" type="button" aria-label="Turn sound on or off" title="Sound">🔊</button>
         <button id="save-btn" class="icon-btn" type="button" aria-label="Save a picture" title="Save a picture">📸</button>
         <button id="reset-btn" class="icon-btn" type="button" aria-label="Start over" title="Start over">🧼</button>
@@ -24,17 +24,17 @@
     </header>
 
     <main id="stage">
-      <!-- The hand is drawn here by js/game.js -->
+      <!-- The salon scene, hand, and foot are drawn here by js/game.js -->
       <div id="hand-wrap"></div>
       <!-- Sparkle animations pop up here -->
       <div id="sparkle-layer" aria-hidden="true"></div>
     </main>
 
     <footer id="tray">
-      <!-- Sticker / effect tools -->
-      <div id="tools" class="tool-row" role="toolbar" aria-label="Stickers"></div>
-      <!-- Colors -->
-      <div id="palette" class="color-row" role="toolbar" aria-label="Colors"></div>
+      <!-- Category tabs: Colors / Stickers / Shapes / Skin / Eraser -->
+      <div id="tabs" class="tab-row" role="tablist" aria-label="Tools"></div>
+      <!-- Options for the chosen tab -->
+      <div id="panel" class="panel" aria-label="Options"></div>
     </footer>
   </div>
 

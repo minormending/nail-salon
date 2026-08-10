@@ -1,29 +1,32 @@
 /* ===========================================================
    ✨ Nail Salon ✨  —  game
-   A tiny, ad-free nail painting game for little kids.
-   Everything is drawn with SVG so it stays crisp on any screen.
+   A tiny, ad-free nail salon for little kids.
+   One SVG holds the salon scene plus a hand and a foot you can
+   swap between. Nails can change shape, colour, and get glittery
+   themed stickers. Everything is drawn with SVG/CSS — no images.
    =========================================================== */
 
 (() => {
   "use strict";
 
   const SVGNS = "http://www.w3.org/2000/svg";
-
-  /* ---- Small SVG helper ---------------------------------- */
-  function el(name, attrs = {}, parent = null) {
+  const el = (name, attrs = {}, parent = null) => {
     const node = document.createElementNS(SVGNS, name);
-    for (const key in attrs) node.setAttribute(key, attrs[key]);
+    for (const k in attrs) node.setAttribute(k, attrs[k]);
     if (parent) parent.appendChild(node);
     return node;
-  }
+  };
+  const rand = () => Math.random();
 
-  /* ---- Cute icons, hand-drawn in a 24x24 box (center 12,12).
-         Solid fills + white highlights (no gradient ids) so the exact
-         same icon works both on a nail and inside a button. ---------- */
-  function starPoints(cx, cy, outer, inner, points) {
+  /* =========================================================
+     ICONS — each drawn in a 24x24 box (centre 12,12), using
+     solid fills + white highlights so the very same icon looks
+     right on a nail and inside a button.
+     ========================================================= */
+  function starPoints(cx, cy, outer, inner, pts) {
     let d = "";
-    const step = Math.PI / points;
-    for (let i = 0; i < points * 2; i++) {
+    const step = Math.PI / pts;
+    for (let i = 0; i < pts * 2; i++) {
       const r = i % 2 ? inner : outer;
       const a = -Math.PI / 2 + i * step;
       d += (i ? "L" : "M") + (cx + Math.cos(a) * r).toFixed(2) + "," + (cy + Math.sin(a) * r).toFixed(2);
@@ -36,76 +39,133 @@
       fill: color, transform: `translate(${x},${y}) scale(${s})`,
     }, g);
   }
-  function drawHeart(g) {
-    el("path", {
-      d: "M12 20.5 C12 20.5 3.5 13.7 3.5 8.7 C3.5 5.8 5.7 4 8 4 C9.9 4 11.2 5.2 12 6.7 C12.8 5.2 14.1 4 16 4 C18.3 4 20.5 5.8 20.5 8.7 C20.5 13.7 12 20.5 12 20.5 Z",
-      fill: "#ff4d6d", stroke: "#e23b5a", "stroke-width": 0.6, "stroke-linejoin": "round",
-    }, g);
+  const drawHeart = (g) => {
+    el("path", { d: "M12 20.5 C12 20.5 3.5 13.7 3.5 8.7 C3.5 5.8 5.7 4 8 4 C9.9 4 11.2 5.2 12 6.7 C12.8 5.2 14.1 4 16 4 C18.3 4 20.5 5.8 20.5 8.7 C20.5 13.7 12 20.5 12 20.5 Z", fill: "#ff4d6d", stroke: "#e23b5a", "stroke-width": 0.6, "stroke-linejoin": "round" }, g);
     el("ellipse", { cx: 8.6, cy: 8.2, rx: 2.1, ry: 1.3, fill: "#fff", opacity: 0.55, transform: "rotate(-35 8.6 8.2)" }, g);
-  }
-  function drawGem(g) {
+  };
+  const drawStar = (g) => {
+    el("path", { d: starPoints(12, 12.5, 10, 4.4, 5), fill: "#ffcf33", stroke: "#f2a900", "stroke-width": 0.7, "stroke-linejoin": "round" }, g);
+    el("circle", { cx: 9.4, cy: 9.6, r: 1.4, fill: "#fff4b8", opacity: 0.85 }, g);
+  };
+  const drawFlower = (g) => {
+    for (let i = 0; i < 5; i++) el("ellipse", { cx: 12, cy: 5.7, rx: 3.4, ry: 4.6, fill: "#ff9ecb", stroke: "#f77fb4", "stroke-width": 0.5, transform: `rotate(${i * 72} 12 12)` }, g);
+    el("circle", { cx: 12, cy: 12, r: 3.1, fill: "#ffd23f", stroke: "#f2b807", "stroke-width": 0.5 }, g);
+    el("circle", { cx: 10.9, cy: 10.9, r: 1, fill: "#fff0b0", opacity: 0.9 }, g);
+  };
+  const drawBow = (g) => {
+    el("path", { d: "M12 12 L4 7 Q2.4 12 4 17 Z", fill: "#ff7fb0", stroke: "#f2589a", "stroke-width": 0.5, "stroke-linejoin": "round" }, g);
+    el("path", { d: "M12 12 L20 7 Q21.6 12 20 17 Z", fill: "#ff7fb0", stroke: "#f2589a", "stroke-width": 0.5, "stroke-linejoin": "round" }, g);
+    el("circle", { cx: 12, cy: 12, r: 2.5, fill: "#ff5c9e" }, g);
+    el("ellipse", { cx: 6.4, cy: 9.4, rx: 1, ry: 1.6, fill: "#fff", opacity: 0.5 }, g);
+  };
+  const drawRainbow = (g) => {
+    ["#ff6b6b", "#ffb14e", "#ffd23f", "#7ed957", "#4fc3f7", "#b28dff"].forEach((c, i) => {
+      const r = 10 - i * 1.4;
+      el("path", { d: `M ${12 - r} 16 A ${r} ${r} 0 0 1 ${12 + r} 16`, fill: "none", stroke: c, "stroke-width": 1.3, "stroke-linecap": "round" }, g);
+    });
+    el("circle", { cx: 5, cy: 16.4, r: 2.4, fill: "#fff" }, g);
+    el("circle", { cx: 19, cy: 16.4, r: 2.4, fill: "#fff" }, g);
+  };
+  const drawShell = (g) => {
+    el("path", { d: "M12 5 C5 5 3 12 4 17 L20 17 C21 12 19 5 12 5 Z", fill: "#ffc1d9", stroke: "#f28fb4", "stroke-width": 0.6, "stroke-linejoin": "round" }, g);
+    for (let i = -2; i <= 2; i++) el("line", { x1: 12, y1: 7, x2: 12 + i * 4, y2: 17, stroke: "#f28fb4", "stroke-width": 0.5, opacity: 0.7 }, g);
+    el("circle", { cx: 12, cy: 6.4, r: 1.7, fill: "#ffe0ec", stroke: "#f28fb4", "stroke-width": 0.4 }, g);
+  };
+  const drawStarfish = (g) => {
+    el("path", { d: starPoints(12, 12.5, 9.5, 5.2, 5), fill: "#ff9a52", stroke: "#f07f2e", "stroke-width": 0.6, "stroke-linejoin": "round" }, g);
+    [[12, 9.5], [9.2, 13], [14.8, 13], [10.6, 16], [13.4, 16]].forEach((p) => el("circle", { cx: p[0], cy: p[1], r: 0.7, fill: "#fff", opacity: 0.85 }, g));
+  };
+  const drawFish = (g) => {
+    el("path", { d: "M16 12 L22 8 L22 16 Z", fill: "#5ec8e8", stroke: "#3aa7c9", "stroke-width": 0.5, "stroke-linejoin": "round" }, g);
+    el("ellipse", { cx: 11, cy: 12, rx: 7, ry: 5, fill: "#5ec8e8", stroke: "#3aa7c9", "stroke-width": 0.5 }, g);
+    el("ellipse", { cx: 10, cy: 9.6, rx: 2.4, ry: 1.1, fill: "#fff", opacity: 0.4 }, g);
+    el("circle", { cx: 8, cy: 11, r: 1.2, fill: "#fff" }, g);
+    el("circle", { cx: 7.7, cy: 11, r: 0.55, fill: "#333" }, g);
+  };
+  const drawBubble = (g) => {
+    el("circle", { cx: 12, cy: 12, r: 7.2, fill: "#bfeaff", stroke: "#8fd3f0", "stroke-width": 0.6 }, g);
+    el("ellipse", { cx: 9.5, cy: 9.5, rx: 2.3, ry: 1.5, fill: "#fff", opacity: 0.85, transform: "rotate(-30 9.5 9.5)" }, g);
+  };
+  const drawBalloon = (g) => {
+    el("line", { x1: 12, y1: 19, x2: 13, y2: 23, stroke: "#c9a86f", "stroke-width": 0.5 }, g);
+    el("path", { d: "M12 16.5 L10.6 19.5 L13.4 19.5 Z", fill: "#e85555" }, g);
+    el("ellipse", { cx: 12, cy: 9.5, rx: 6, ry: 7.5, fill: "#ff6b6b", stroke: "#e85555", "stroke-width": 0.5 }, g);
+    el("ellipse", { cx: 9.6, cy: 6.8, rx: 1.6, ry: 2.4, fill: "#fff", opacity: 0.45, transform: "rotate(-20 9.6 6.8)" }, g);
+  };
+  const drawCake = (g) => {
+    el("rect", { x: 5, y: 12, width: 14, height: 8, rx: 1.6, fill: "#ffd9a0", stroke: "#e8b877", "stroke-width": 0.5 }, g);
+    el("path", { d: "M5 13.5 Q8 16 11 13.5 T17 13.5 Q18.4 14 19 13.2 L19 12 L5 12 Z", fill: "#ff9ec4" }, g);
+    el("rect", { x: 11.2, y: 5.5, width: 1.6, height: 5, fill: "#ffd23f" }, g);
+    el("path", { d: "M12 3.4 C13 4.6 13 5.6 12 5.8 C11 5.6 11 4.6 12 3.4 Z", fill: "#ff7a1a" }, g);
+  };
+  const drawGift = (g) => {
+    el("rect", { x: 5, y: 9.5, width: 14, height: 10.5, rx: 1.4, fill: "#8ed0ff", stroke: "#5cb3e8", "stroke-width": 0.5 }, g);
+    el("rect", { x: 11, y: 9.5, width: 2, height: 10.5, fill: "#ff6b9d" }, g);
+    el("rect", { x: 5, y: 13, width: 14, height: 2, fill: "#ff6b9d" }, g);
+    el("path", { d: "M12 9.5 C9.5 5.5 6 7 8.4 8.6 C9.6 9.4 11 9.5 12 9.5 C13 9.5 14.4 9.4 15.6 8.6 C18 7 14.5 5.5 12 9.5 Z", fill: "#ff6b9d" }, g);
+  };
+  const drawCrown = (g) => {
+    el("path", { d: "M4 17 L5 8 L9 12 L12 5.5 L15 12 L19 8 L20 17 Z", fill: "#ffd23f", stroke: "#eab308", "stroke-width": 0.6, "stroke-linejoin": "round" }, g);
+    el("rect", { x: 4, y: 16, width: 16, height: 2.6, rx: 0.8, fill: "#f2b807" }, g);
+    [[5, 8, "#ff6b9d"], [12, 5.6, "#66d1ff"], [19, 8, "#ff6b9d"]].forEach((p) => el("circle", { cx: p[0], cy: p[1], r: 1.2, fill: p[2] }, g));
+  };
+  const drawDiamond = (g) => {
     el("polygon", { points: "7,6 17,6 21,10.5 12,20.5 3,10.5", fill: "#4ec2ff", stroke: "#2f9fe0", "stroke-width": 0.7, "stroke-linejoin": "round" }, g);
     el("polygon", { points: "7,6 17,6 19,10.5 5,10.5", fill: "#bce8ff", opacity: 0.9 }, g);
     el("polyline", { points: "3,10.5 21,10.5", fill: "none", stroke: "#fff", "stroke-width": 0.6, opacity: 0.55 }, g);
     el("polyline", { points: "7,6 12,20.5 17,6", fill: "none", stroke: "#fff", "stroke-width": 0.5, opacity: 0.45 }, g);
     el("polygon", { points: "8,7 10.6,7 9.3,10", fill: "#fff", opacity: 0.65 }, g);
-  }
-  function drawStar(g) {
-    el("path", { d: starPoints(12, 12.5, 10, 4.4, 5), fill: "#ffcf33", stroke: "#f2a900", "stroke-width": 0.7, "stroke-linejoin": "round" }, g);
-    el("circle", { cx: 9.4, cy: 9.6, r: 1.4, fill: "#fff4b8", opacity: 0.85 }, g);
-  }
-  function drawFlower(g) {
-    for (let i = 0; i < 5; i++) {
-      el("ellipse", { cx: 12, cy: 5.7, rx: 3.4, ry: 4.6, fill: "#ff9ecb", stroke: "#f77fb4", "stroke-width": 0.5, transform: `rotate(${i * 72} 12 12)` }, g);
-    }
-    el("circle", { cx: 12, cy: 12, r: 3.1, fill: "#ffd23f", stroke: "#f2b807", "stroke-width": 0.5 }, g);
-    el("circle", { cx: 10.9, cy: 10.9, r: 1, fill: "#fff0b0", opacity: 0.9 }, g);
-  }
-  function drawGlitterIcon(g) {
+  };
+  const roundGem = (color) => (g) => {
+    el("circle", { cx: 12, cy: 12, r: 8, fill: color, stroke: "#ffffff", "stroke-width": 0.9 }, g);
+    el("polygon", { points: "12,5 17,9 15,15 9,15 7,9", fill: "#ffffff", opacity: 0.22 }, g);
+    el("circle", { cx: 9.5, cy: 9.5, r: 1.9, fill: "#fff", opacity: 0.8 }, g);
+  };
+  const drawGlitterIcon = (g) => {
     sparkle(g, 12, 12, 0.92, "#ffdd57");
     sparkle(g, 19, 6, 0.34, "#ffffff");
     sparkle(g, 5.5, 17.5, 0.3, "#ffffff");
-  }
-  function drawEraser(g) {
+  };
+  const drawEraser = (g) => {
     const e = el("g", { transform: "rotate(-18 12 12)" }, g);
     el("rect", { x: 3.5, y: 8, width: 17, height: 8, rx: 2.4, fill: "#ffffff", stroke: "#e58ba9", "stroke-width": 0.7 }, e);
     el("path", { d: "M5.9 8 H18.1 A2.4 2.4 0 0 1 20.5 10.4 V11.4 H3.5 V10.4 A2.4 2.4 0 0 1 5.9 8 Z", fill: "#ff8fab" }, e);
     el("line", { x1: 9, y1: 8, x2: 9, y2: 16, stroke: "#e58ba9", "stroke-width": 0.5, opacity: 0.6 }, e);
+  };
+
+  // Build a small standalone SVG of an icon for a button.
+  function iconSVG(drawFn, size = 34) {
+    const s = el("svg", { viewBox: "0 0 24 24", width: size, height: size });
+    drawFn(el("g", {}, s));
+    return s;
   }
-  const ICON_DRAW = { gem: drawGem, heart: drawHeart, star: drawStar, flower: drawFlower, glitter: drawGlitterIcon, erase: drawEraser };
 
-  // A small standalone SVG of an icon, for the tool buttons.
-  function iconButtonSVG(kind) {
-    const svgEl = el("svg", { viewBox: "0 0 24 24", width: "32", height: "32" });
-    (ICON_DRAW[kind] || drawGem)(el("g", {}, svgEl));
-    return svgEl;
-  }
+  /* =========================================================
+     DATA
+     ========================================================= */
+  const NATURAL = "#ffeef0";
 
-  /* ---- Colors -------------------------------------------- */
-  // Each color has a `value` used to fill the SVG nail and a `css`
-  // used to paint the round swatch button.
-  const NATURAL = "#ffeef0"; // an unpainted, soft natural nail
-
-  // A curated set of twelve colors — a clean two rows on a phone, so a
-  // little one can see every color at once without scrolling.
-  const COLORS = [
-    { value: "#ff8fab", css: "#ff8fab" }, // pink
-    { value: "#ff4f8b", css: "#ff4f8b" }, // hot pink
-    { value: "#ff5c5c", css: "#ff5c5c" }, // red
-    { value: "#ff9f5c", css: "#ff9f5c" }, // orange
-    { value: "#ffd166", css: "#ffd166" }, // yellow
-    { value: "#8ee06a", css: "#8ee06a" }, // green
-    { value: "#5ad1c5", css: "#5ad1c5" }, // teal
-    { value: "#6cc6ff", css: "#6cc6ff" }, // sky
-    { value: "#6c8cff", css: "#6c8cff" }, // blue
-    { value: "#b28dff", css: "#b28dff" }, // purple
-    { value: "url(#rainbow)", css: "linear-gradient(135deg,#ff6b6b,#ffd166,#8ee06a,#6cc6ff,#b28dff)" }, // rainbow
-    { value: "#ffffff", css: "#ffffff" }, // white
+  // Polishes: solids + a few gradients. `value` fills the SVG nail,
+  // `css` fills the little bottle in the picker.
+  const POLISHES = [
+    { value: "#ff8fab", css: "#ff8fab" },
+    { value: "#ff4f8b", css: "#ff4f8b" },
+    { value: "#ff5c5c", css: "#ff5c5c" },
+    { value: "#ff9f5c", css: "#ff9f5c" },
+    { value: "#ffd166", css: "#ffd166" },
+    { value: "#8ee06a", css: "#8ee06a" },
+    { value: "#5ad1c5", css: "#5ad1c5" },
+    { value: "#6cc6ff", css: "#6cc6ff" },
+    { value: "#6c8cff", css: "#6c8cff" },
+    { value: "#b28dff", css: "#b28dff" },
+    { value: "#ffffff", css: "#ffffff" },
+    { value: "#3a3a4a", css: "#3a3a4a" },
+    { value: "url(#g-rainbow)", css: "linear-gradient(135deg,#ff6b6b,#ffd166,#8ee06a,#6cc6ff,#b28dff)" },
+    { value: "url(#g-sunset)", css: "linear-gradient(160deg,#ff8fb0,#ffb347)" },
+    { value: "url(#g-ocean)", css: "linear-gradient(160deg,#6cc6ff,#5ad1c5)" },
+    { value: "url(#g-grape)", css: "linear-gradient(160deg,#b28dff,#ff8fd0)" },
   ];
 
-  /* ---- Hand geometry ------------------------------------- */
-  // Fingertips point up; the palm enters from the bottom of the frame.
-  // A few skin tones so every child can pick a hand that looks like theirs.
   const SKIN_TONES = [
     { skin: "#ffe0bd", shade: "#f0c9a0" },
     { skin: "#f6c9a8", shade: "#e9b291" },
@@ -113,295 +173,269 @@
     { skin: "#a2703f", shade: "#87592e" },
     { skin: "#6f4a2f", shade: "#573823" },
   ];
-  let skinIndex = 1;
-  let SKIN = SKIN_TONES[skinIndex].skin;
-  let SKIN_SHADE = SKIN_TONES[skinIndex].shade;
 
-  // Four fingers (thumb handled separately). Bottoms tuck under the palm.
+  const SHAPES = ["oval", "round", "almond", "square", "coffin"];
+
+  // Themed sticker packs. `glitter` is a special sparkly effect.
+  const PACKS = [
+    { id: "cute", label: "Cute", items: [
+      { id: "glitter", label: "Glitter", draw: drawGlitterIcon },
+      { id: "heart", label: "Heart", draw: drawHeart },
+      { id: "star", label: "Star", draw: drawStar },
+      { id: "flower", label: "Flower", draw: drawFlower },
+      { id: "bow", label: "Bow", draw: drawBow },
+      { id: "rainbow", label: "Rainbow", draw: drawRainbow },
+    ]},
+    { id: "sea", label: "Sea", items: [
+      { id: "shell", label: "Shell", draw: drawShell },
+      { id: "starfish", label: "Starfish", draw: drawStarfish },
+      { id: "fish", label: "Fish", draw: drawFish },
+      { id: "pearl", label: "Pearl", draw: drawBubble },
+    ]},
+    { id: "party", label: "Party", items: [
+      { id: "balloon", label: "Balloon", draw: drawBalloon },
+      { id: "cake", label: "Cake", draw: drawCake },
+      { id: "gift", label: "Gift", draw: drawGift },
+      { id: "crown", label: "Crown", draw: drawCrown },
+    ]},
+    { id: "gems", label: "Gems", items: [
+      { id: "gem-diamond", label: "Diamond", draw: drawDiamond },
+      { id: "gem-pink", label: "Pink gem", draw: roundGem("#ff6bb0") },
+      { id: "gem-blue", label: "Blue gem", draw: roundGem("#5cc8ff") },
+      { id: "gem-purple", label: "Purple gem", draw: roundGem("#b98cff") },
+      { id: "gem-green", label: "Green gem", draw: roundGem("#7ed957") },
+      { id: "gem-red", label: "Red gem", draw: roundGem("#ff6b6b") },
+    ]},
+  ];
+  // id -> draw function, for rendering a saved sticker.
+  const STICKER_DRAW = {};
+  PACKS.forEach((p) => p.items.forEach((it) => { if (it.id !== "glitter") STICKER_DRAW[it.id] = it.draw; }));
+
+  const CATEGORIES = [
+    { id: "colors", ico: "💅", label: "Colors" },
+    { id: "stickers", ico: "✨", label: "Stickers" },
+    { id: "shapes", ico: "💠", label: "Shapes" },
+    { id: "skin", ico: "✋", label: "Skin" },
+    { id: "erase", ico: "🧽", label: "Wipe" },
+  ];
+
+  /* =========================================================
+     GEOMETRY — hand fingers and foot toes
+     ========================================================= */
   const FINGERS = [
     { id: "index",  cx: 112, top: 104, w: 42, bottom: 268 },
     { id: "middle", cx: 160, top: 72,  w: 44, bottom: 268 },
     { id: "ring",   cx: 208, top: 104, w: 42, bottom: 268 },
     { id: "pinky",  cx: 250, top: 150, w: 36, bottom: 268 },
   ];
-
-  // Where each nail sits, so decorations can be centered later.
-  const nailGeom = {}; // id -> {cx, cy, rx, ry}
-
-  /* ---- Stickers & effects -------------------------------- */
-  const TOOLS = [
-    { id: "glitter", label: "Glitter" },
-    { id: "gem",     label: "Gem" },
-    { id: "heart",   label: "Heart" },
-    { id: "star",    label: "Star" },
-    { id: "flower",  label: "Flower" },
-    { id: "erase",   label: "Eraser" },
+  const TOES = [
+    { id: "toe1", cx: 118, top: 150, w: 52, bottom: 214 },
+    { id: "toe2", cx: 164, top: 150, w: 34, bottom: 210 },
+    { id: "toe3", cx: 194, top: 160, w: 30, bottom: 210 },
+    { id: "toe4", cx: 220, top: 174, w: 26, bottom: 210 },
+    { id: "toe5", cx: 244, top: 190, w: 22, bottom: 210 },
   ];
+  const HAND_NAILS = ["thumb", "index", "middle", "ring", "pinky"];
+  const FOOT_NAILS = ["toe1", "toe2", "toe3", "toe4", "toe5"];
 
-  /* ---- Game state ---------------------------------------- */
-  const NAIL_IDS = ["thumb", "index", "middle", "ring", "pinky"];
+  /* =========================================================
+     STATE
+     ========================================================= */
   const freshNail = () => ({ color: NATURAL, sticker: null, glitter: false });
   const state = {};
-  NAIL_IDS.forEach((id) => (state[id] = freshNail()));
+  [...HAND_NAILS, ...FOOT_NAILS].forEach((id) => (state[id] = freshNail()));
+  const nailMeta = {}; // id -> {cx,cy,rx,ry,surface}
+  const surfaceShape = { hand: "oval", foot: "oval" };
 
-  let currentColor = COLORS[0].value;
-  // What a tap on a nail does: "paint" (use currentColor) or a tool id.
-  let mode = "paint";
+  let currentSurface = "hand";
+  let currentColor = POLISHES[0].value;
+  let mode = "paint"; // "paint" | "erase" | "glitter" | <stickerId>
+  let currentCategory = "colors";
+  let currentPack = "cute";
+  let skinIndex = 1;
+  let SKIN = SKIN_TONES[skinIndex].skin;
+  let SKIN_SHADE = SKIN_TONES[skinIndex].shade;
 
-  /* ---- Build the SVG hand -------------------------------- */
+  /* =========================================================
+     NAIL SHAPES (paths around a centre)
+     ========================================================= */
+  function ellipsePath(cx, cy, rx, ry) {
+    const k = 0.5523;
+    return `M${cx},${cy - ry}` +
+      `C${cx + rx * k},${cy - ry} ${cx + rx},${cy - ry * k} ${cx + rx},${cy}` +
+      `C${cx + rx},${cy + ry * k} ${cx + rx * k},${cy + ry} ${cx},${cy + ry}` +
+      `C${cx - rx * k},${cy + ry} ${cx - rx},${cy + ry * k} ${cx - rx},${cy}` +
+      `C${cx - rx},${cy - ry * k} ${cx - rx * k},${cy - ry} ${cx},${cy - ry}Z`;
+  }
+  function shapePath(shape, cx, cy, rx, ry) {
+    if (shape === "round") return ellipsePath(cx, cy, rx * 1.02, ry * 0.82);
+    if (shape === "almond") {
+      return `M${cx},${cy - ry}` +
+        `C${cx + rx * 0.85},${cy - ry * 0.6} ${cx + rx},${cy - ry * 0.1} ${cx + rx},${cy + ry * 0.15}` +
+        `C${cx + rx},${cy + ry * 0.7} ${cx + rx * 0.55},${cy + ry} ${cx},${cy + ry}` +
+        `C${cx - rx * 0.55},${cy + ry} ${cx - rx},${cy + ry * 0.7} ${cx - rx},${cy + ry * 0.15}` +
+        `C${cx - rx},${cy - ry * 0.1} ${cx - rx * 0.85},${cy - ry * 0.6} ${cx},${cy - ry}Z`;
+    }
+    if (shape === "square") {
+      const r = Math.min(rx, ry) * 0.5, l = cx - rx, t = cy - ry, R = cx + rx, B = cy + ry;
+      return `M${l + r},${t} L${R - r},${t} Q${R},${t} ${R},${t + r} L${R},${B - r} Q${R},${B} ${R - r},${B} L${l + r},${B} Q${l},${B} ${l},${B - r} L${l},${t + r} Q${l},${t} ${l + r},${t} Z`;
+    }
+    if (shape === "coffin") {
+      const tw = rx * 0.55;
+      return `M${cx - tw},${cy - ry} L${cx + tw},${cy - ry} L${cx + rx},${cy + ry * 0.72} Q${cx + rx},${cy + ry} ${cx + rx * 0.68},${cy + ry} L${cx - rx * 0.68},${cy + ry} Q${cx - rx},${cy + ry} ${cx - rx},${cy + ry * 0.72} Z`;
+    }
+    return ellipsePath(cx, cy, rx, ry); // oval
+  }
+
+  /* =========================================================
+     BUILD THE SVG
+     ========================================================= */
   const handWrap = document.getElementById("hand-wrap");
-  const svg = el("svg", { viewBox: "0 0 320 400", role: "img", "aria-label": "A hand with five nails to paint" });
+  const svg = el("svg", { viewBox: "0 0 320 470", role: "img", "aria-label": "A hand to paint nails on" });
   const defs = el("defs", {}, svg);
 
-  // Rainbow gradient for the rainbow color.
-  const rainbow = el("linearGradient", { id: "rainbow", x1: "0", y1: "0", x2: "1", y2: "1" }, defs);
-  ["#ff6b6b", "#ffd166", "#8ee06a", "#6cc6ff", "#b28dff"].forEach((c, i, a) => {
-    el("stop", { offset: `${(i / (a.length - 1)) * 100}%`, "stop-color": c }, rainbow);
-  });
-
-  // A soft blur so the shading on the hand reads as gentle light, not shapes.
+  function grad(id, stops) {
+    const lg = el("linearGradient", { id, x1: "0", y1: "0", x2: "1", y2: "1" }, defs);
+    stops.forEach((c, i) => el("stop", { offset: `${(i / (stops.length - 1)) * 100}%`, "stop-color": c }, lg));
+  }
+  grad("g-rainbow", ["#ff6b6b", "#ffd166", "#8ee06a", "#6cc6ff", "#b28dff"]);
+  grad("g-sunset", ["#ff8fb0", "#ffb347"]);
+  grad("g-ocean", ["#6cc6ff", "#5ad1c5"]);
+  grad("g-grape", ["#b28dff", "#ff8fd0"]);
   const soft = el("filter", { id: "soft", x: "-40%", y: "-40%", width: "180%", height: "180%" }, defs);
   el("feGaussianBlur", { in: "SourceGraphic", stdDeviation: "16" }, soft);
 
-  // Draw a single finger: a rounded capsule plus a nail on top.
-  function buildFinger(f) {
-    const g = el("g", { class: "finger", "data-nail": f.id, style: "cursor:pointer" }, svg);
-
-    // Finger capsule (this is also the tap target).
-    el("rect", {
-      x: f.cx - f.w / 2, y: f.top, width: f.w, height: f.bottom - f.top,
-      rx: f.w / 2, fill: SKIN, class: "skin",
-    }, g);
-
-    // A soft shaded edge for a little depth.
-    el("rect", {
-      x: f.cx - f.w / 2, y: f.top, width: f.w, height: f.bottom - f.top,
-      rx: f.w / 2, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5,
-      class: "skin-edge",
-    }, g);
-
-    // A soft lengthwise sheen so the finger looks rounded.
-    el("rect", {
-      x: f.cx - f.w * 0.15, y: f.top + 8, width: f.w * 0.3, height: f.bottom - f.top - 14,
-      rx: f.w * 0.15, fill: "#ffffff", opacity: 0.12,
-    }, g);
-
-    buildNail(f.id, f.cx, f.top + 22, f.w * 0.34, 24, g);
-    return g;
+  /* ---- Salon scene (table, cushion, bottles, lamp) -------- */
+  function buildBottle(g, cx, baseY, color) {
+    el("ellipse", { cx, cy: baseY + 2, rx: 13, ry: 3.5, fill: "#00000012" }, g);
+    el("rect", { x: cx - 10, y: baseY - 30, width: 20, height: 30, rx: 6, fill: color, stroke: "#ffffff", "stroke-width": 1.5 }, g);
+    el("rect", { x: cx - 7, y: baseY - 27, width: 3.5, height: 20, rx: 1.75, fill: "#ffffff", opacity: 0.42 }, g);
+    el("rect", { x: cx - 4, y: baseY - 36, width: 8, height: 7, fill: "#e9c9a0" }, g);
+    el("rect", { x: cx - 6, y: baseY - 50, width: 12, height: 15, rx: 3, fill: "#6b4a63" }, g);
+  }
+  function buildLamp(g, cx, baseY) {
+    el("ellipse", { cx, cy: baseY + 2, rx: 30, ry: 4, fill: "#00000012" }, g);
+    el("rect", { x: cx - 26, y: baseY - 12, width: 52, height: 14, rx: 6, fill: "#ffd0e6", stroke: "#fff", "stroke-width": 1.5 }, g);
+    el("path", { d: `M${cx - 25} ${baseY - 10} Q${cx - 27} ${baseY - 46} ${cx} ${baseY - 46} Q${cx + 27} ${baseY - 46} ${cx + 25} ${baseY - 10} Z`, fill: "#ffffff", stroke: "#ececf4", "stroke-width": 1.5 }, g);
+    el("ellipse", { cx, cy: baseY - 26, rx: 17, ry: 9, fill: "#e9d5ff", opacity: 0.85 }, g);
+    [-9, 0, 9].forEach((dx) => el("circle", { cx: cx + dx, cy: baseY - 26, r: 1.5, fill: "#b98cff" }, g));
+  }
+  function buildScene(g) {
+    // A soft cushion the hand rests on, with polish bottles and a UV lamp.
+    el("ellipse", { cx: 160, cy: 442, rx: 140, ry: 30, fill: "#00000010", filter: "url(#soft)" }, g);
+    el("rect", { x: 30, y: 360, width: 260, height: 92, rx: 44, fill: "#e7dcff", stroke: "#d8c9ff", "stroke-width": 2 }, g);
+    el("rect", { x: 40, y: 364, width: 240, height: 40, rx: 34, fill: "#f4eeff", opacity: 0.75 }, g);
+    buildLamp(g, 44, 452);
+    buildBottle(g, 292, 448, "#ff6b9d");
+    buildBottle(g, 256, 458, "#ffd23f");
   }
 
-  // Draw a nail (paintable) with a glossy highlight. Returns nothing,
-  // but records the geometry for later decoration.
-  function buildNail(id, cx, cy, rx, ry, parent) {
-    nailGeom[id] = { cx, cy, rx, ry };
+  /* ---- Nails --------------------------------------------- */
+  function buildNail(id, cx, cy, rx, ry, parent, surface) {
+    nailMeta[id] = { cx, cy, rx, ry, surface };
+    const d = shapePath(surfaceShape[surface], cx, cy, rx, ry);
 
-    // Clip path so future decorations stay inside the nail shape.
     const clip = el("clipPath", { id: `clip-${id}` }, defs);
-    el("ellipse", { cx, cy, rx, ry }, clip);
+    el("path", { d }, clip);
 
-    const ng = el("g", { class: "nail-group", "data-nail-group": id }, parent);
-
-    // A soft bed shadow so the nail sits on the finger.
+    const ng = el("g", { class: "nail-group", "data-ng": id }, parent);
     el("ellipse", { cx, cy: cy + 1.5, rx: rx + 1.5, ry: ry + 1.5, fill: "#00000018" }, ng);
+    el("path", { d, class: "nail-fill", "data-fill": id, fill: state[id].color, stroke: "#e7b9c6", "stroke-width": 1.3 }, ng);
 
-    // The paintable surface.
-    el("ellipse", {
-      cx, cy, rx, ry, class: "nail-fill", "data-fill": id,
-      fill: state[id].color, stroke: "#e7b9c6", "stroke-width": 1.3,
-    }, ng);
-
-    // Gloss and depth, kept inside the nail shape.
     const shine = el("g", { "clip-path": `url(#clip-${id})` }, ng);
     el("ellipse", { cx, cy: cy - ry * 0.42, rx: rx * 0.85, ry: ry * 0.5, fill: "#ffffff", opacity: 0.5 }, shine);
     el("ellipse", { cx: cx - rx * 0.32, cy: cy - ry * 0.52, rx: rx * 0.3, ry: ry * 0.18, fill: "#ffffff", opacity: 0.9 }, shine);
     el("ellipse", { cx, cy: cy + ry * 0.72, rx: rx * 1.25, ry: ry * 0.5, fill: "#00000012" }, shine);
 
-    // Layer where decorations get added later.
     el("g", { class: "deco", "data-deco": id, "clip-path": `url(#clip-${id})` }, ng);
   }
 
-  // The palm: a big rounded shape that runs off the bottom of the frame.
-  function buildPalm() {
-    el("rect", { x: 86, y: 208, width: 182, height: 220, rx: 60, fill: SKIN, class: "skin" }, svg);
-    // A gentle highlight up top and a soft shadow near the wrist give form.
-    // Blurred so they read as soft light rather than distinct ovals.
-    el("ellipse", { cx: 172, cy: 248, rx: 66, ry: 40, fill: "#ffffff", opacity: 0.16, filter: "url(#soft)" }, svg);
-    el("ellipse", { cx: 177, cy: 408, rx: 92, ry: 52, fill: "#000000", opacity: 0.06, filter: "url(#soft)" }, svg);
+  /* ---- Hand ---------------------------------------------- */
+  function buildFinger(f, parent) {
+    const g = el("g", { class: "nailhit", "data-nail": f.id, style: "cursor:pointer" }, parent);
+    el("rect", { x: f.cx - f.w / 2, y: f.top, width: f.w, height: f.bottom - f.top, rx: f.w / 2, fill: SKIN, class: "skin" }, g);
+    el("rect", { x: f.cx - f.w / 2, y: f.top, width: f.w, height: f.bottom - f.top, rx: f.w / 2, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, g);
+    el("rect", { x: f.cx - f.w * 0.15, y: f.top + 8, width: f.w * 0.3, height: f.bottom - f.top - 14, rx: f.w * 0.15, fill: "#ffffff", opacity: 0.12 }, g);
+    buildNail(f.id, f.cx, f.top + 22, f.w * 0.34, 24, g, "hand");
+  }
+  function buildHand(root) {
+    FINGERS.forEach((f) => buildFinger(f, root));
+    el("rect", { x: 86, y: 208, width: 182, height: 240, rx: 60, fill: SKIN, class: "skin" }, root);
+    el("ellipse", { cx: 172, cy: 248, rx: 66, ry: 40, fill: "#ffffff", opacity: 0.16, filter: "url(#soft)" }, root);
+    el("ellipse", { cx: 177, cy: 420, rx: 92, ry: 52, fill: "#000000", opacity: 0.06, filter: "url(#soft)" }, root);
+    const t = el("g", { class: "nailhit", "data-nail": "thumb", style: "cursor:pointer", transform: "rotate(-38 96 300)" }, root);
+    el("rect", { x: 74, y: 214, width: 44, height: 130, rx: 22, fill: SKIN, class: "skin" }, t);
+    el("rect", { x: 74, y: 214, width: 44, height: 130, rx: 22, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, t);
+    el("rect", { x: 89, y: 224, width: 14, height: 108, rx: 7, fill: "#ffffff", opacity: 0.12 }, t);
+    buildNail("thumb", 96, 236, 16, 22, t, "hand");
   }
 
-  // The thumb: a capsule angled out to the lower left, drawn on top of
-  // the palm so it reads as being closer to us.
-  function buildThumb() {
-    const g = el("g", { class: "finger", "data-nail": "thumb", style: "cursor:pointer",
-      transform: "rotate(-38 96 300)" }, svg);
-
-    el("rect", { x: 96 - 22, y: 214, width: 44, height: 130, rx: 22, fill: SKIN, class: "skin" }, g);
-    el("rect", { x: 96 - 22, y: 214, width: 44, height: 130, rx: 22,
-      fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, g);
-    el("rect", { x: 96 - 7, y: 224, width: 14, height: 108, rx: 7, fill: "#ffffff", opacity: 0.12 }, g);
-
-    buildNail("thumb", 96, 236, 16, 22, g);
+  /* ---- Foot ---------------------------------------------- */
+  function buildToe(t, parent) {
+    const g = el("g", { class: "nailhit", "data-nail": t.id, style: "cursor:pointer" }, parent);
+    el("rect", { x: t.cx - t.w / 2, y: t.top, width: t.w, height: t.bottom - t.top, rx: t.w / 2, fill: SKIN, class: "skin" }, g);
+    el("rect", { x: t.cx - t.w / 2, y: t.top, width: t.w, height: t.bottom - t.top, rx: t.w / 2, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, g);
+    buildNail(t.id, t.cx, t.top + t.w * 0.42, t.w * 0.4, t.w * 0.3, g, "foot");
+  }
+  function buildFoot(root) {
+    // Foot body (cute, top-down), then toes on top.
+    el("path", { d: "M84 250 C74 202 104 188 170 188 C236 188 264 202 256 252 C262 330 250 452 170 452 C90 452 78 330 84 250 Z", fill: SKIN, class: "skin" }, root);
+    el("ellipse", { cx: 170, cy: 250, rx: 70, ry: 40, fill: "#ffffff", opacity: 0.16, filter: "url(#soft)" }, root);
+    el("ellipse", { cx: 172, cy: 430, rx: 92, ry: 46, fill: "#000000", opacity: 0.06, filter: "url(#soft)" }, root);
+    TOES.forEach((t) => buildToe(t, root));
   }
 
-  // Assemble in back-to-front order.
-  FINGERS.forEach(buildFinger);
-  buildPalm();
-  buildThumb();
+  const sceneG = el("g", { class: "scene" }, svg);
+  buildScene(sceneG);
+  const handG = el("g", { class: "surface", "data-surface": "hand" }, svg);
+  buildHand(handG);
+  const footG = el("g", { class: "surface", "data-surface": "foot", style: "display:none" }, svg);
+  buildFoot(footG);
   handWrap.appendChild(svg);
 
-  /* ---- Painting & decorating ----------------------------- */
-  function fillEl(id) {
-    return svg.querySelector(`.nail-fill[data-fill="${id}"]`);
-  }
-  function decoEl(id) {
-    return svg.querySelector(`.deco[data-deco="${id}"]`);
-  }
+  /* =========================================================
+     PAINTING & DECORATING
+     ========================================================= */
+  const fillEl = (id) => svg.querySelector(`.nail-fill[data-fill="${id}"]`);
+  const decoEl = (id) => svg.querySelector(`.deco[data-deco="${id}"]`);
 
-  // Scatter shimmering dots and a few tiny sparkles for glitter.
-  function addGlitter(deco, g) {
+  function addGlitter(deco, m) {
     for (let i = 0; i < 15; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.sqrt(Math.random()); // even spread across the ellipse
-      el("circle", {
-        cx: g.cx + Math.cos(angle) * radius * g.rx,
-        cy: g.cy + Math.sin(angle) * radius * g.ry,
-        r: 0.8 + Math.random() * 1.6,
-        fill: i % 2 ? "#ffffff" : "#ffe9a8",
-        opacity: 0.9,
-      }, deco);
+      const a = rand() * Math.PI * 2, r = Math.sqrt(rand());
+      el("circle", { cx: m.cx + Math.cos(a) * r * m.rx, cy: m.cy + Math.sin(a) * r * m.ry, r: 0.8 + rand() * 1.6, fill: i % 2 ? "#ffffff" : "#ffe9a8", opacity: 0.9 }, deco);
     }
     const sg = el("g", {}, deco);
     for (let i = 0; i < 3; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.sqrt(Math.random());
-      sparkle(sg,
-        g.cx + Math.cos(angle) * radius * g.rx * 0.8,
-        g.cy + Math.sin(angle) * radius * g.ry * 0.8,
-        0.16 + Math.random() * 0.14,
-        i ? "#ffffff" : "#ffdd57");
+      const a = rand() * Math.PI * 2, r = Math.sqrt(rand());
+      sparkle(sg, m.cx + Math.cos(a) * r * m.rx * 0.8, m.cy + Math.sin(a) * r * m.ry * 0.8, 0.16 + rand() * 0.14, i ? "#ffffff" : "#ffdd57");
     }
   }
-
-  // Stamp a hand-drawn sticker in the middle of the nail. Positioning lives
-  // on the outer group; the springy pop animates a separate inner group.
-  function addSticker(deco, g, kind) {
-    const s = (g.rx * 1.9) / 24;
-    const box = el("g", {
-      transform: `translate(${g.cx},${g.cy}) scale(${s.toFixed(3)}) translate(-12,-12)`,
-    }, deco);
-    const inner = el("g", { class: "sticker-pop" }, box);
-    (ICON_DRAW[kind] || drawGem)(inner);
+  function addSticker(deco, m, id) {
+    const draw = STICKER_DRAW[id];
+    if (!draw) return;
+    const s = (m.rx * 1.9) / 24;
+    const box = el("g", { transform: `translate(${m.cx},${m.cy}) scale(${s.toFixed(3)}) translate(-12,-12)` }, deco);
+    draw(el("g", { class: "sticker-pop" }, box));
   }
-
-  // Redraw one nail from its state (color + decorations).
   function renderNail(id) {
     fillEl(id).setAttribute("fill", state[id].color);
     const deco = decoEl(id);
     while (deco.firstChild) deco.removeChild(deco.firstChild);
-    const g = nailGeom[id];
-    if (state[id].glitter) addGlitter(deco, g);
-    if (state[id].sticker) addSticker(deco, g, state[id].sticker);
+    if (state[id].glitter) addGlitter(deco, nailMeta[id]);
+    if (state[id].sticker) addSticker(deco, nailMeta[id], state[id].sticker);
   }
-
-  // Apply the current tool/color to a nail.
   function applyToNail(id) {
-    if (mode === "paint") {
-      state[id].color = currentColor;
-    } else if (mode === "erase") {
-      state[id] = freshNail();
-    } else if (mode === "glitter") {
-      state[id].glitter = true;
-    } else {
-      state[id].sticker = mode; // gem / heart / star / flower
-    }
+    if (mode === "paint") state[id].color = currentColor;
+    else if (mode === "erase") state[id] = freshNail();
+    else if (mode === "glitter") state[id].glitter = true;
+    else state[id].sticker = mode;
     renderNail(id);
   }
 
-  /* ---- Happy little sounds (made on the fly, no files) ---- */
-  let audioCtx = null;
-  let soundOn = true;
-
-  function ensureAudio() {
-    if (!audioCtx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) audioCtx = new AC();
-    }
-    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
-  }
-
-  // Play a single soft note.
-  function note(freq, start, dur, type = "sine", peak = 0.16) {
-    if (!audioCtx) return;
-    const t0 = audioCtx.currentTime + start;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, t0);
-    gain.gain.setValueAtTime(0.0001, t0);
-    gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.connect(gain).connect(audioCtx.destination);
-    osc.start(t0);
-    osc.stop(t0 + dur + 0.03);
-  }
-
-  function playSound(kind) {
-    if (!soundOn) return;
-    ensureAudio();
-    if (kind === "erase") {
-      note(320, 0, 0.16, "sine", 0.12);
-    } else if (kind === "glitter") {
-      note(784, 0, 0.12, "triangle");
-      note(988, 0.06, 0.12, "triangle");
-      note(1319, 0.12, 0.14, "triangle");
-    } else if (kind === "paint") {
-      note(523, 0, 0.14, "triangle");
-      note(784, 0.02, 0.14, "sine", 0.10);
-    } else {
-      // a sweet two-note twinkle for stickers/gems
-      note(880, 0, 0.10, "sine");
-      note(1319, 0.07, 0.13, "sine");
-    }
-  }
-
-  /* ---- Sparkle burst + a little pop ---------------------- */
-  const sparkleLayer = document.getElementById("sparkle-layer");
-  const SPARK_GLYPHS = ["✨", "⭐", "💖", "🌟", "💫"];
-
-  function spawnSparkles(clientX, clientY) {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const rect = sparkleLayer.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    for (let i = 0; i < 7; i++) {
-      const s = document.createElement("span");
-      s.className = "spark";
-      s.textContent = SPARK_GLYPHS[(Math.random() * SPARK_GLYPHS.length) | 0];
-      s.style.left = x + "px";
-      s.style.top = y + "px";
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 26 + Math.random() * 46;
-      s.style.setProperty("--dx", (Math.cos(angle) * dist).toFixed(1) + "px");
-      s.style.setProperty("--dy", (Math.sin(angle) * dist - 18).toFixed(1) + "px");
-      s.style.setProperty("--rot", (Math.random() * 220 - 110).toFixed(0) + "deg");
-      s.addEventListener("animationend", () => s.remove());
-      sparkleLayer.appendChild(s);
-    }
-  }
-
-  function popNail(id) {
-    const g = svg.querySelector(`.nail-group[data-nail-group="${id}"]`);
-    if (!g) return;
-    g.classList.remove("pop");
-    void g.getBoundingClientRect(); // restart the animation
-    g.classList.add("pop");
-  }
-
-  // Tapping anywhere on a finger decorates its nail — with a happy little
-  // sparkle, pop, and sound.
-  svg.querySelectorAll(".finger").forEach((finger) => {
-    const id = finger.getAttribute("data-nail");
-    finger.addEventListener("pointerdown", (e) => {
+  // Attach tap handlers to every finger and toe.
+  svg.querySelectorAll(".nailhit").forEach((hit) => {
+    const id = hit.getAttribute("data-nail");
+    hit.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       applyToNail(id);
       popNail(id);
@@ -410,87 +444,221 @@
     });
   });
 
-  /* ---- Color palette & tools ----------------------------- */
-  const palette = document.getElementById("palette");
-  const toolbar = document.getElementById("tools");
-
-  function clearSelected() {
-    palette.querySelectorAll(".swatch").forEach((s) => s.classList.remove("selected"));
-    toolbar.querySelectorAll(".tool").forEach((t) => t.classList.remove("selected"));
-  }
-
-  // Picking a color switches back to plain painting.
-  function selectColor(value, swatchEl) {
-    currentColor = value;
-    mode = "paint";
-    clearSelected();
-    if (swatchEl) swatchEl.classList.add("selected");
-  }
-
-  // Picking a tool switches to stamping/erasing.
-  function selectTool(id, toolEl) {
-    mode = id;
-    clearSelected();
-    toolEl.classList.add("selected");
-  }
-
-  COLORS.forEach((color, i) => {
-    const swatch = document.createElement("button");
-    swatch.type = "button";
-    swatch.className = "swatch";
-    swatch.style.background = color.css;
-    swatch.setAttribute("aria-label", "Pick this color");
-    swatch.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      selectColor(color.value, swatch);
-    });
-    if (i === 0) swatch.classList.add("selected");
-    palette.appendChild(swatch);
-  });
-
-  TOOLS.forEach((tool) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "tool";
-    btn.appendChild(iconButtonSVG(tool.id));
-    btn.setAttribute("aria-label", tool.label);
-    btn.setAttribute("title", tool.label);
-    btn.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      selectTool(tool.id, btn);
-    });
-    toolbar.appendChild(btn);
-  });
-
-  /* ---- Start over ---------------------------------------- */
-  const resetBtn = document.getElementById("reset-btn");
-  function startOver() {
-    NAIL_IDS.forEach((id) => {
-      state[id] = freshNail();
+  /* ---- Nail shapes: reshape all nails on a surface -------- */
+  function setShape(shape) {
+    surfaceShape[currentSurface] = shape;
+    const ids = currentSurface === "hand" ? HAND_NAILS : FOOT_NAILS;
+    ids.forEach((id) => {
+      const m = nailMeta[id];
+      const d = shapePath(shape, m.cx, m.cy, m.rx, m.ry);
+      svg.querySelector(`#clip-${id} path`).setAttribute("d", d);
+      fillEl(id).setAttribute("d", d);
       renderNail(id);
     });
-    if (soundOn) {
-      ensureAudio();
-      note(659, 0, 0.12, "sine");
-      note(494, 0.08, 0.12, "sine");
-      note(392, 0.16, 0.16, "sine");
+  }
+
+  /* =========================================================
+     SPARKLES, POP, SOUND
+     ========================================================= */
+  const sparkleLayer = document.getElementById("sparkle-layer");
+  const SPARK_GLYPHS = ["✨", "⭐", "💖", "🌟", "💫"];
+  function spawnSparkles(clientX, clientY) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const rect = sparkleLayer.getBoundingClientRect();
+    const x = clientX - rect.left, y = clientY - rect.top;
+    for (let i = 0; i < 7; i++) {
+      const s = document.createElement("span");
+      s.className = "spark";
+      s.textContent = SPARK_GLYPHS[(rand() * SPARK_GLYPHS.length) | 0];
+      s.style.left = x + "px";
+      s.style.top = y + "px";
+      const a = rand() * Math.PI * 2, dist = 26 + rand() * 46;
+      s.style.setProperty("--dx", (Math.cos(a) * dist).toFixed(1) + "px");
+      s.style.setProperty("--dy", (Math.sin(a) * dist - 18).toFixed(1) + "px");
+      s.style.setProperty("--rot", (rand() * 220 - 110).toFixed(0) + "deg");
+      s.addEventListener("animationend", () => s.remove());
+      sparkleLayer.appendChild(s);
     }
   }
-  resetBtn.addEventListener("click", startOver);
+  function popNail(id) {
+    const g = svg.querySelector(`.nail-group[data-ng="${id}"]`);
+    if (!g) return;
+    g.classList.remove("pop");
+    void g.getBoundingClientRect();
+    g.classList.add("pop");
+  }
 
-  /* ---- Sound on/off -------------------------------------- */
+  let audioCtx = null, soundOn = true;
+  function ensureAudio() {
+    if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audioCtx = new AC(); }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  }
+  function note(freq, start, dur, type = "sine", peak = 0.16) {
+    if (!audioCtx) return;
+    const t0 = audioCtx.currentTime + start;
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.03);
+  }
+  function playSound(kind) {
+    if (!soundOn) return;
+    ensureAudio();
+    if (kind === "erase") note(320, 0, 0.16, "sine", 0.12);
+    else if (kind === "glitter") { note(784, 0, 0.12, "triangle"); note(988, 0.06, 0.12, "triangle"); note(1319, 0.12, 0.14, "triangle"); }
+    else if (kind === "paint") { note(523, 0, 0.14, "triangle"); note(784, 0.02, 0.14, "sine", 0.1); }
+    else { note(880, 0, 0.1, "sine"); note(1319, 0.07, 0.13, "sine"); }
+  }
+  function chime() { if (!soundOn) return; ensureAudio(); note(659, 0, 0.12, "sine"); note(494, 0.08, 0.12, "sine"); note(392, 0.16, 0.16, "sine"); }
+  function blip() { if (!soundOn) return; ensureAudio(); note(660, 0, 0.09, "sine", 0.1); }
+
+  /* =========================================================
+     THE TRAY — category tabs + a panel of options
+     ========================================================= */
+  const tabsEl = document.getElementById("tabs");
+  const panelEl = document.getElementById("panel");
+
+  CATEGORIES.forEach((cat) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tab";
+    b.dataset.cat = cat.id;
+    b.innerHTML = `<span class="tab-ico">${cat.ico}</span><span class="tab-lbl">${cat.label}</span>`;
+    b.addEventListener("pointerdown", (e) => { e.preventDefault(); selectCategory(cat.id); });
+    tabsEl.appendChild(b);
+  });
+
+  function selectCategory(id) {
+    currentCategory = id;
+    tabsEl.querySelectorAll(".tab").forEach((t) => t.classList.toggle("sel", t.dataset.cat === id));
+    if (id === "erase") mode = "erase";
+    renderPanel();
+  }
+
+  function optButton(extraClass, child, onPick) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "opt " + extraClass;
+    if (child) b.appendChild(child);
+    b.addEventListener("pointerdown", (e) => { e.preventDefault(); onPick(b); });
+    return b;
+  }
+
+  function renderPanel() {
+    panelEl.innerHTML = "";
+    panelEl.className = "panel panel-" + currentCategory;
+
+    if (currentCategory === "colors") {
+      POLISHES.forEach((p) => {
+        const cap = document.createElement("span"); cap.className = "b-cap";
+        const body = document.createElement("span"); body.className = "b-body"; body.style.background = p.css;
+        const b = optButton("bottle", null, (btn) => {
+          currentColor = p.value; mode = "paint";
+          markSel(btn); blip();
+        });
+        b.appendChild(cap); b.appendChild(body);
+        if (mode === "paint" && p.value === currentColor) b.classList.add("sel");
+        panelEl.appendChild(b);
+      });
+
+    } else if (currentCategory === "stickers") {
+      const packRow = document.createElement("div");
+      packRow.className = "pack-row";
+      PACKS.forEach((pk) => {
+        const t = document.createElement("button");
+        t.type = "button";
+        t.className = "pack" + (pk.id === currentPack ? " sel" : "");
+        t.textContent = pk.label;
+        t.addEventListener("pointerdown", (e) => { e.preventDefault(); currentPack = pk.id; renderPanel(); blip(); });
+        packRow.appendChild(t);
+      });
+      panelEl.appendChild(packRow);
+
+      const grid = document.createElement("div");
+      grid.className = "sticker-grid";
+      const pack = PACKS.find((p) => p.id === currentPack);
+      pack.items.forEach((it) => {
+        const b = optButton("tool", iconSVG(it.draw), (btn) => {
+          mode = it.id; markSel(btn); playSound(it.id === "glitter" ? "glitter" : it.id);
+        });
+        b.setAttribute("aria-label", it.label);
+        if (mode === it.id) b.classList.add("sel");
+        grid.appendChild(b);
+      });
+      panelEl.appendChild(grid);
+
+    } else if (currentCategory === "shapes") {
+      SHAPES.forEach((sh) => {
+        const s = el("svg", { viewBox: "0 0 40 48", width: 34, height: 40 });
+        el("path", { d: shapePath(sh, 20, 26, 13, 19), fill: "#ffd0e0", stroke: "#f2a6c0", "stroke-width": 1.5 }, s);
+        const b = optButton("shape", s, (btn) => { setShape(sh); markSel(btn); blip(); });
+        if (surfaceShape[currentSurface] === sh) b.classList.add("sel");
+        panelEl.appendChild(b);
+      });
+
+    } else if (currentCategory === "skin") {
+      SKIN_TONES.forEach((tone, i) => {
+        const b = optButton("skinopt", null, (btn) => { setSkin(i); markSel(btn); blip(); });
+        b.style.background = tone.skin;
+        if (i === skinIndex) b.classList.add("sel");
+        panelEl.appendChild(b);
+      });
+
+    } else if (currentCategory === "erase") {
+      const hint = document.createElement("div");
+      hint.className = "erase-hint";
+      hint.appendChild(iconSVG(drawEraser, 44));
+      const txt = document.createElement("span");
+      txt.textContent = "Tap a nail to wipe it clean";
+      hint.appendChild(txt);
+      panelEl.appendChild(hint);
+    }
+  }
+  function markSel(btn) {
+    [...btn.parentElement.children].forEach((c) => c.classList.remove("sel"));
+    btn.classList.add("sel");
+  }
+
+  /* =========================================================
+     SKIN, SURFACE TOGGLE, RESET, SOUND, SAVE
+     ========================================================= */
+  function setSkin(i) {
+    skinIndex = i;
+    SKIN = SKIN_TONES[i].skin; SKIN_SHADE = SKIN_TONES[i].shade;
+    svg.querySelectorAll(".skin").forEach((e) => e.setAttribute("fill", SKIN));
+    svg.querySelectorAll(".skin-edge").forEach((e) => e.setAttribute("stroke", SKIN_SHADE));
+  }
+
+  const surfaceBtn = document.getElementById("surface-btn");
+  surfaceBtn.addEventListener("click", () => {
+    currentSurface = currentSurface === "hand" ? "foot" : "hand";
+    handG.style.display = currentSurface === "hand" ? "" : "none";
+    footG.style.display = currentSurface === "foot" ? "" : "none";
+    surfaceBtn.textContent = currentSurface === "hand" ? "✋" : "🦶";
+    svg.setAttribute("aria-label", currentSurface === "hand" ? "A hand to paint nails on" : "A foot to paint toenails on");
+    if (currentCategory === "shapes") renderPanel(); // reflect this surface's shape
+    blip();
+  });
+
+  const resetBtn = document.getElementById("reset-btn");
+  resetBtn.addEventListener("click", () => {
+    const ids = currentSurface === "hand" ? HAND_NAILS : FOOT_NAILS;
+    ids.forEach((id) => { state[id] = freshNail(); renderNail(id); });
+    chime();
+  });
+
   const soundBtn = document.getElementById("sound-btn");
   soundBtn.addEventListener("click", () => {
     soundOn = !soundOn;
     soundBtn.textContent = soundOn ? "🔊" : "🔇";
     soundBtn.setAttribute("aria-label", soundOn ? "Sound is on" : "Sound is off");
-    if (soundOn) {
-      ensureAudio();
-      note(880, 0, 0.12, "sine");
-    }
+    if (soundOn) { ensureAudio(); note(880, 0, 0.12, "sine"); }
   });
 
-  /* ---- A friendly little message ------------------------- */
   const toast = document.getElementById("toast");
   let toastTimer = 0;
   function showToast(msg) {
@@ -500,107 +668,75 @@
     toastTimer = setTimeout(() => toast.classList.remove("show"), 1900);
   }
 
-  /* ---- Skin tone (so the hand can look like theirs) ------- */
-  const skinBtn = document.getElementById("skin-btn");
-  function applySkin() {
-    const tone = SKIN_TONES[skinIndex];
-    SKIN = tone.skin;
-    SKIN_SHADE = tone.shade;
-    svg.querySelectorAll(".skin").forEach((e) => e.setAttribute("fill", SKIN));
-    svg.querySelectorAll(".skin-edge").forEach((e) => e.setAttribute("stroke", SKIN_SHADE));
-  }
-  skinBtn.addEventListener("click", () => {
-    skinIndex = (skinIndex + 1) % SKIN_TONES.length;
-    applySkin();
-    if (soundOn) {
-      ensureAudio();
-      note(520, 0, 0.09, "sine", 0.1);
-    }
-  });
-
-  /* ---- Save a picture of the nails ----------------------- */
   const saveBtn = document.getElementById("save-btn");
-  function savePicture() {
-    const box = svg.viewBox.baseVal;
-    const scale = 3;
-    const W = box.width * scale;
-    const H = box.height * scale;
-
+  saveBtn.addEventListener("click", () => {
+    const box = svg.viewBox.baseVal, scale = 2.4, W = box.width * scale, H = box.height * scale;
     const clone = svg.cloneNode(true);
     clone.setAttribute("width", box.width);
     clone.setAttribute("height", box.height);
     const xml = new XMLSerializer().serializeToString(clone);
     const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
-
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = W;
-      canvas.height = H;
+      canvas.width = W; canvas.height = H;
       const ctx = canvas.getContext("2d");
-      const grad = ctx.createLinearGradient(0, 0, W, H);
-      grad.addColorStop(0, "#ffe3f3");
-      grad.addColorStop(0.55, "#e7e0ff");
-      grad.addColorStop(1, "#dff3ff");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, W, H);
+      const gr = ctx.createLinearGradient(0, 0, W, H);
+      gr.addColorStop(0, "#ffe3f3"); gr.addColorStop(0.55, "#e7e0ff"); gr.addColorStop(1, "#dff3ff");
+      ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
       ctx.drawImage(img, 0, 0, W, H);
       canvas.toBlob((blob) => {
-        if (!blob) {
-          showToast("Hmm, couldn't save 😅");
-          return;
-        }
+        if (!blob) { showToast("Hmm, couldn't save 😅"); return; }
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
         link.download = "my-nails.png";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+        document.body.appendChild(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(link.href), 1000);
         showToast("Saved your picture! 📸");
       }, "image/png");
     };
     img.onerror = () => showToast("Hmm, couldn't save 😅");
     img.src = url;
-  }
-  saveBtn.addEventListener("click", savePicture);
+  });
 
-  /* ---- Dreamy floating background ------------------------- */
-  function createBackdrop() {
+  /* =========================================================
+     DREAMY FLOATING BACKGROUND
+     ========================================================= */
+  (function createBackdrop() {
     const bd = document.getElementById("backdrop");
     if (!bd) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const colors = ["#ffd1e8", "#ffe0b3", "#d9c7ff", "#c7ecff", "#d6ffd6", "#ffd6ec"];
-
     for (let i = 0; i < 9; i++) {
       const b = document.createElement("div");
       b.className = "blob";
-      const size = 60 + Math.random() * 150;
+      const size = 60 + rand() * 150;
       b.style.width = b.style.height = size + "px";
-      b.style.left = (Math.random() * 100).toFixed(1) + "%";
-      b.style.top = (Math.random() * 100).toFixed(1) + "%";
+      b.style.left = (rand() * 100).toFixed(1) + "%";
+      b.style.top = (rand() * 100).toFixed(1) + "%";
       b.style.background = colors[i % colors.length];
-      b.style.opacity = (0.3 + Math.random() * 0.3).toFixed(2);
-      b.style.setProperty("--dx", ((Math.random() * 2 - 1) * 30).toFixed(0) + "px");
-      b.style.setProperty("--dy", ((Math.random() * 2 - 1) * 30).toFixed(0) + "px");
-      b.style.setProperty("--dur", (10 + Math.random() * 10).toFixed(1) + "s");
+      b.style.opacity = (0.3 + rand() * 0.3).toFixed(2);
+      b.style.setProperty("--dx", ((rand() * 2 - 1) * 30).toFixed(0) + "px");
+      b.style.setProperty("--dy", ((rand() * 2 - 1) * 30).toFixed(0) + "px");
+      b.style.setProperty("--dur", (10 + rand() * 10).toFixed(1) + "s");
       if (reduce) b.style.animation = "none";
       bd.appendChild(b);
     }
-
     const glyphs = ["✨", "⭐", "💖", "🌸", "💫"];
     for (let i = 0; i < 7; i++) {
       const t = document.createElement("div");
       t.className = "twinkle";
       t.textContent = glyphs[i % glyphs.length];
-      t.style.left = (Math.random() * 94 + 3).toFixed(1) + "%";
-      t.style.top = (Math.random() * 90 + 3).toFixed(1) + "%";
-      t.style.fontSize = (14 + Math.random() * 20).toFixed(0) + "px";
-      t.style.setProperty("--dur", (3 + Math.random() * 3).toFixed(1) + "s");
-      t.style.animationDelay = (Math.random() * 3).toFixed(1) + "s";
+      t.style.left = (rand() * 94 + 3).toFixed(1) + "%";
+      t.style.top = (rand() * 90 + 3).toFixed(1) + "%";
+      t.style.fontSize = (14 + rand() * 20).toFixed(0) + "px";
+      t.style.setProperty("--dur", (3 + rand() * 3).toFixed(1) + "s");
+      t.style.animationDelay = (rand() * 3).toFixed(1) + "s";
       if (reduce) { t.style.animation = "none"; t.style.opacity = "0.5"; }
       bd.appendChild(t);
     }
-  }
-  createBackdrop();
+  })();
+
+  /* ---- Go! ----------------------------------------------- */
+  selectCategory("colors");
 })();

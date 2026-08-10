@@ -167,13 +167,17 @@ body {
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  filter: drop-shadow(0 16px 22px rgba(150, 90, 130, 0.25));
+  filter: drop-shadow(0 16px 22px rgba(150, 90, 130, 0.22));
+}
+/* Only the hand/foot gently floats; the salon scene stays put. */
+.surface {
+  transform-box: fill-box;
   transform-origin: center;
   animation: floaty 6.5s ease-in-out infinite;
 }
 @keyframes floaty {
-  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
-  50%      { transform: translateY(-10px) rotate(0.6deg); }
+  0%, 100% { transform: translateY(0) rotate(-0.5deg); }
+  50%      { transform: translateY(-6px) rotate(0.5deg); }
 }
 
 #sparkle-layer {
@@ -184,7 +188,7 @@ body {
   z-index: 2;
 }
 
-/* ----- Tray: tools + colors ------------------------------- */
+/* ----- Tray: category tabs + options panel ---------------- */
 #tray {
   flex: 0 0 auto;
   display: flex;
@@ -192,13 +196,48 @@ body {
   gap: 8px;
 }
 
-.tool-row,
-.color-row {
+/* Category tabs */
+.tab-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.tab {
+  flex: 1 1 0;
+  max-width: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border: 2px solid transparent;
+  border-radius: 16px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  color: var(--ink);
+  transition: transform 0.08s ease, border-color 0.12s ease, background 0.12s ease;
+}
+.tab:active { transform: scale(0.94); }
+.tab .tab-ico { font-size: 22px; line-height: 1; }
+.tab .tab-lbl { font-size: 11px; font-weight: 600; }
+.tab.sel {
+  border-color: var(--ring);
+  background: #fff;
+  box-shadow: 0 6px 14px rgba(255, 94, 168, 0.28);
+}
+
+/* The options panel */
+.panel {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
+  align-content: center;
   gap: 8px;
   padding: 10px;
+  min-height: 84px;
   background: var(--glass);
   -webkit-backdrop-filter: blur(12px) saturate(1.3);
   backdrop-filter: blur(12px) saturate(1.3);
@@ -206,67 +245,122 @@ body {
   border-radius: 26px;
   box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
+.panel-stickers { flex-direction: column; }
 
-/* Sticker / effect buttons */
-.tool {
+/* A generic option button */
+.opt {
   flex: 0 0 auto;
-  width: clamp(46px, 12vw, 58px);
-  height: clamp(46px, 12vw, 58px);
+  border: 3px solid transparent;
+  cursor: pointer;
+  background: none;
+  padding: 0;
+  transition: transform 0.09s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.opt:active { transform: scale(0.9); }
+.opt.sel { border-color: var(--ring); }
+
+/* Polish bottle (colour picker) */
+.opt.bottle {
+  width: clamp(38px, 11vw, 52px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 12px;
+  border-width: 3px;
+  padding: 3px 0 5px;
+}
+.opt.bottle .b-cap {
+  width: 34%;
+  height: 10px;
+  border-radius: 4px 4px 2px 2px;
+  background: #6b4a63;
+}
+.opt.bottle .b-body {
+  width: 74%;
+  height: 34px;
+  margin-top: 2px;
+  border-radius: 7px;
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-soft), inset 0 -3px 6px rgba(0,0,0,0.12), inset 3px 3px 5px rgba(255,255,255,0.5);
+}
+.opt.bottle.sel {
+  border-radius: 14px;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 14px rgba(255, 94, 168, 0.3);
+}
+
+/* Sticker buttons + pack sub-tabs */
+.pack-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 2px;
+}
+.pack {
+  border: none;
+  border-radius: 14px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+}
+.pack.sel { background: var(--ring); color: #fff; }
+.sticker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.opt.tool {
+  width: clamp(46px, 12vw, 56px);
+  height: clamp(46px, 12vw, 56px);
   display: grid;
   place-items: center;
-  border: 3px solid transparent;
   border-radius: 18px;
   background: linear-gradient(180deg, #ffffff, #fff2f9);
   box-shadow: var(--shadow-soft), inset 0 1px 0 #fff;
-  cursor: pointer;
-  transition: transform 0.09s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
-.tool svg { width: 66%; height: 66%; display: block; }
-.tool:active { transform: scale(0.9); }
-.tool.selected {
-  border-color: var(--ring);
-  transform: translateY(-3px) scale(1.04);
-  box-shadow: 0 8px 16px rgba(255, 94, 168, 0.32);
-}
+.opt.tool svg { width: 68%; height: 68%; display: block; }
+.opt.tool.sel { transform: translateY(-3px) scale(1.04); box-shadow: 0 8px 16px rgba(255, 94, 168, 0.32); }
 
-/* Color swatches */
-.swatch {
-  flex: 0 0 auto;
-  width: var(--tap);
-  height: var(--tap);
-  border: 4px solid #fff;
+/* Shape buttons */
+.opt.shape {
+  width: clamp(48px, 13vw, 60px);
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff, #fff2f9);
+  box-shadow: var(--shadow-soft), inset 0 1px 0 #fff;
+}
+.opt.shape.sel { transform: translateY(-3px) scale(1.04); box-shadow: 0 8px 16px rgba(255, 94, 168, 0.32); }
+
+/* Skin tone buttons */
+.opt.skinopt {
+  width: clamp(46px, 12vw, 60px);
+  height: clamp(46px, 12vw, 60px);
   border-radius: 50%;
-  box-shadow: var(--shadow-soft), inset 0 -4px 8px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.09s ease;
+  border-width: 4px;
+  box-shadow: var(--shadow-soft), inset 0 -4px 8px rgba(0, 0, 0, 0.12);
 }
-/* glossy sheen on each swatch */
-.swatch::before {
-  content: "";
-  position: absolute;
-  top: 12%;
-  left: 16%;
-  width: 42%;
-  height: 32%;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.8);
-  filter: blur(1.5px);
-  pointer-events: none;
+.opt.skinopt.sel { transform: translateY(-3px) scale(1.06); }
+
+/* Eraser hint */
+.erase-hint {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
 }
-.swatch:active { transform: scale(0.88); }
-.swatch.selected {
-  outline: 4px solid var(--ring);
-  outline-offset: 2px;
-  transform: translateY(-4px) scale(1.08);
-  animation: pickbounce 0.32s ease;
-}
-@keyframes pickbounce {
-  0% { transform: translateY(0) scale(1); }
-  55% { transform: translateY(-8px) scale(1.14); }
-  100% { transform: translateY(-4px) scale(1.08); }
-}
+.erase-hint svg { flex: 0 0 auto; }
 
 /* ----- Sparkle particles ---------------------------------- */
 .spark {
@@ -338,8 +432,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spark, .pop, .sticker-pop, .blob, .twinkle,
-  #hand-wrap svg, .swatch.selected {
+  .spark, .pop, .sticker-pop, .blob, .twinkle, .surface {
     animation: none !important;
   }
 }
