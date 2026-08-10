@@ -529,7 +529,7 @@
     b.className = "tab";
     b.dataset.cat = cat.id;
     b.innerHTML = `<span class="tab-ico">${cat.ico}</span><span class="tab-lbl">${cat.label}</span>`;
-    b.addEventListener("pointerdown", (e) => { e.preventDefault(); selectCategory(cat.id); });
+    b.addEventListener("click", () => selectCategory(cat.id));
     tabsEl.appendChild(b);
   });
 
@@ -545,7 +545,8 @@
     b.type = "button";
     b.className = "opt " + extraClass;
     if (child) b.appendChild(child);
-    b.addEventListener("pointerdown", (e) => { e.preventDefault(); onPick(b); });
+    // 'click' (not pointerdown) so scrolling the panel never mis-selects.
+    b.addEventListener("click", () => onPick(b));
     return b;
   }
 
@@ -574,7 +575,7 @@
         t.type = "button";
         t.className = "pack" + (pk.id === currentPack ? " sel" : "");
         t.textContent = pk.label;
-        t.addEventListener("pointerdown", (e) => { e.preventDefault(); currentPack = pk.id; renderPanel(); blip(); });
+        t.addEventListener("click", () => { currentPack = pk.id; renderPanel(); blip(); });
         packRow.appendChild(t);
       });
       panelEl.appendChild(packRow);
@@ -737,6 +738,12 @@
       bd.appendChild(t);
     }
   })();
+
+  /* ---- Keep touch gestures from getting in the way -------- */
+  // No long-press context menu, no pinch/double-tap zoom — this is a toy,
+  // not a document, so small hands can tap freely without surprises.
+  document.addEventListener("contextmenu", (e) => e.preventDefault());
+  document.addEventListener("gesturestart", (e) => e.preventDefault());
 
   /* ---- Go! ----------------------------------------------- */
   selectCategory("colors");
