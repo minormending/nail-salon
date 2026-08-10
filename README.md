@@ -53,10 +53,22 @@ files with no dependencies and no tracking.
 
 ```
 nail-salon/
-├── index.html      # the page
-├── css/styles.css  # looks and layout
-├── js/game.js      # the game (SVG hand, painting, stickers, sounds)
+├── index.html        # the page
+├── css/styles.css    # looks and layout
+├── js/game.js        # the game (SVG hand, painting, stickers, sounds)
+├── fonts/
+│   ├── fredoka.woff2 # the rounded title font (self-hosted for offline use)
+│   └── OFL.txt       # its license
 └── README.md
 ```
+
+## Credits
+
+- Everything you see — the hand, the glossy nails, the gems, hearts, stars,
+  flowers, and glitter — is drawn with plain SVG and CSS. No image files, no
+  tracking, no dependencies.
+- Font: **[Fredoka](https://fonts.google.com/specimen/Fredoka)** by Milena
+  Brandão & Hafontia, used under the SIL Open Font License 1.1 (see
+  `fonts/OFL.txt`). It's bundled locally so the game needs no internet.
 
 Made with love for a 5-year-old who just wants to paint nails in peace. 💅
