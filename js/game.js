@@ -378,10 +378,11 @@
     buildNail(t.id, t.cx, t.top + t.w * 0.42, t.w * 0.4, t.w * 0.3, g, "foot");
   }
   function buildFoot(root) {
-    // Foot body (cute, top-down), then toes on top.
-    el("path", { d: "M84 250 C74 202 104 188 170 188 C236 188 264 202 256 252 C262 330 250 452 170 452 C90 452 78 330 84 250 Z", fill: SKIN, class: "skin" }, root);
-    el("ellipse", { cx: 170, cy: 250, rx: 70, ry: 40, fill: "#ffffff", opacity: 0.16, filter: "url(#soft)" }, root);
-    el("ellipse", { cx: 172, cy: 430, rx: 92, ry: 46, fill: "#000000", opacity: 0.06, filter: "url(#soft)" }, root);
+    // Foot body (cute, top-down): widest at the ball, tapering to the heel.
+    // Then toes are drawn on top so their bases blend into the foot.
+    el("path", { d: "M100 226 C96 198 122 190 152 190 C204 190 248 202 250 248 C254 322 232 452 176 454 C140 456 118 450 116 408 C110 348 104 282 100 226 Z", fill: SKIN, class: "skin" }, root);
+    el("ellipse", { cx: 168, cy: 252, rx: 64, ry: 36, fill: "#ffffff", opacity: 0.16, filter: "url(#soft)" }, root);
+    el("ellipse", { cx: 172, cy: 430, rx: 78, ry: 40, fill: "#000000", opacity: 0.06, filter: "url(#soft)" }, root);
     TOES.forEach((t) => buildToe(t, root));
   }
 

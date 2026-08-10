@@ -1,26 +1,39 @@
 # ✨ Nail Salon ✨
 
-A gentle, ad-free nail painting game made for little kids (about 5 years old).
+A gentle, ad-free nail salon game made for little kids (about 5 years old).
 
-- **No ads. No paywalls. No sign-ups. No internet needed.** Just paint and play.
+- **No ads. No paywalls. No sign-ups. No internet needed.** Just play.
 - Runs in any web browser — on a computer, phone, or tablet.
 - Big, friendly buttons and soft pastel colors designed for small hands.
 
-![A hand with painted and decorated nails](README-preview.png)
+![A hand being decorated in the salon](README-preview.png)
+
+## What you can do
+
+- 💅 **A little salon scene** — the hand (or foot!) rests on a cushion with
+  polish bottles and a tiny nail lamp, just like a real nail salon.
+- 🎨 **Paint** — pick a cute polish bottle (solid colors *and* sparkly
+  gradient polishes) and tap a nail.
+- 💠 **Nail shapes** — choose oval, round, almond, square, or coffin.
+- ✨ **Themed sticker packs** — **Cute** (hearts, stars, flowers, bows,
+  rainbows, glitter), **Sea** (shells, starfish, fish, pearls),
+  **Party** (balloons, cake, gifts, crowns), and **Gems** (a diamond and
+  shiny colored rhinestones).
+- 🦶 **Hands *and* toes** — tap the top-left button to switch between doing a
+  manicure and a pedicure. Each keeps its own design.
+- ✋ **Skin tones** — pick a hand that looks like theirs.
+- 🧽 **Wipe** one nail clean, or 🧼 **start over**.
+- 📸 **Save a picture** of the design to keep.
+
+Every tap gives a little sparkle, a springy pop, and a soft chime. 🎵
 
 ## How to play
 
 1. Open `index.html` in a web browser.
-2. Tap a **color** at the bottom, then tap a **nail** to paint it.
-3. Tap a **sticker** (✨ glitter, 💎 gem, ❤️ heart, ⭐ star, 🌸 flower), then tap a
-   nail to decorate it. The 🧽 sponge cleans one nail.
-4. Use the top buttons any time:
-   - ✋ change the hand's skin color
-   - 🔊 turn the happy sounds on or off
-   - 📸 save a picture of the design
-   - 🧼 start over with fresh nails
-
-Every tap gives a little sparkle, a springy pop, and a soft chime. 🎵
+2. Use the **tabs** at the bottom — Colors, Stickers, Shapes, Skin, Wipe.
+3. Pick something, then **tap a nail** to use it.
+4. Use the top buttons any time: ✋/🦶 hand or foot, 🔊 sound, 📸 save,
+   🧼 start over.
 
 ## Run it
 
@@ -45,9 +58,9 @@ downloads, no ads.
 
 ## Why a web page instead of an app?
 
-It's the simplest thing that works everywhere, needs no installation or app-store
-account, and can never sneak in ads or purchases. The whole game is three small
-files with no dependencies and no tracking.
+It's the simplest thing that works everywhere, needs no installation or
+app-store account, and can never sneak in ads or purchases. The whole game is a
+few small files with no dependencies and no tracking.
 
 ## Project layout
 
@@ -55,7 +68,7 @@ files with no dependencies and no tracking.
 nail-salon/
 ├── index.html        # the page
 ├── css/styles.css    # looks and layout
-├── js/game.js        # the game (SVG hand, painting, stickers, sounds)
+├── js/game.js        # the game (scene, hand/foot, shapes, stickers, sounds)
 ├── fonts/
 │   ├── fredoka.woff2 # the rounded title font (self-hosted for offline use)
 │   └── OFL.txt       # its license
@@ -64,11 +77,11 @@ nail-salon/
 
 ## Credits
 
-- Everything you see — the hand, the glossy nails, the gems, hearts, stars,
-  flowers, and glitter — is drawn with plain SVG and CSS. No image files, no
-  tracking, no dependencies.
+- Everything you see — the hand, foot, glossy nails, gems, stickers, bottles,
+  and lamp — is drawn with plain SVG and CSS. No image files, no tracking, no
+  dependencies.
 - Font: **[Fredoka](https://fonts.google.com/specimen/Fredoka)** by Milena
   Brandão & Hafontia, used under the SIL Open Font License 1.1 (see
-  `fonts/OFL.txt`). It's bundled locally so the game needs no internet.
+  `fonts/OFL.txt`). Bundled locally so the game needs no internet.
 
 Made with love for a 5-year-old who just wants to paint nails in peace. 💅
