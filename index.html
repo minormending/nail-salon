@@ -2,10 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffd9ec" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>✨ Nail Salon ✨</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💅</text></svg>" />
+  <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <h1>✨ Nail Salon ✨</h1>
-  <p>Coming soon…</p>
+  <div id="app">
+    <header id="topbar">
+      <h1 class="title">✨ Nail Salon ✨</h1>
+      <div class="topbar-buttons">
+        <button id="sound-btn" class="icon-btn" type="button" aria-label="Turn sound on or off" title="Sound">🔊</button>
+        <button id="save-btn" class="icon-btn" type="button" aria-label="Save a picture" title="Save a picture">📸</button>
+        <button id="reset-btn" class="icon-btn" type="button" aria-label="Start over" title="Start over">🧼</button>
+      </div>
+    </header>
+
+    <main id="stage">
+      <!-- The hand is drawn here by js/game.js -->
+      <div id="hand-wrap"></div>
+      <!-- Sparkle animations pop up here -->
+      <div id="sparkle-layer" aria-hidden="true"></div>
+    </main>
+
+    <footer id="tray">
+      <!-- Sticker / effect tools -->
+      <div id="tools" class="tool-row" role="toolbar" aria-label="Stickers"></div>
+      <!-- Colors -->
+      <div id="palette" class="color-row" role="toolbar" aria-label="Colors"></div>
+    </footer>
+  </div>
+
+  <script src="js/game.js" defer></script>
 </body>
 </html>

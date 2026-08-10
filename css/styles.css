@@ -1,0 +1,245 @@
+/* ===========================================================
+   ✨ Nail Salon ✨  —  styles
+   Soft, pastel, and made for small hands.
+   =========================================================== */
+
+:root {
+  --sky-1: #ffe3f3;
+  --sky-2: #e7e0ff;
+  --sky-3: #dff3ff;
+  --ink: #6b4a63;
+  --card: rgba(255, 255, 255, 0.72);
+  --card-solid: #ffffff;
+  --shadow: 0 8px 20px rgba(150, 90, 130, 0.18);
+  --shadow-soft: 0 4px 10px rgba(150, 90, 130, 0.14);
+  --ring: #ff7ab8;
+  --tap: min(15vw, 74px); /* base touch-target size */
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "Baloo 2", "Chalkboard SE", "Comic Sans MS", "Arial Rounded MT Bold", "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  background: linear-gradient(160deg, var(--sky-1) 0%, var(--sky-2) 55%, var(--sky-3) 100%);
+  background-attachment: fixed;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+/* ----- App shell: header / stage / tray ------------------- */
+#app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
+  gap: 8px;
+}
+
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(22px, 6vw, 40px);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #d54f97;
+  text-shadow: 0 2px 0 #fff, 0 3px 6px rgba(213, 79, 151, 0.25);
+}
+
+.topbar-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
+  line-height: 1;
+  border: none;
+  border-radius: 18px;
+  background: var(--card-solid);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.icon-btn:active {
+  transform: scale(0.9);
+}
+
+/* ----- Stage: where the hand lives ------------------------ */
+#stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#hand-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#hand-wrap svg {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  filter: drop-shadow(0 12px 18px rgba(150, 90, 130, 0.22));
+}
+
+#sparkle-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* ----- Tray: tools + colors ------------------------------- */
+#tray {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool-row,
+.color-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding: 10px;
+  background: var(--card);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tool-row::-webkit-scrollbar,
+.color-row::-webkit-scrollbar { display: none; }
+
+.tool-row { justify-content: center; }
+
+/* Sticker / effect buttons */
+.tool {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  font-size: 28px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  border: 3px solid transparent;
+  border-radius: 18px;
+  background: var(--card-solid);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: transform 0.08s ease, border-color 0.12s ease;
+}
+.tool:active { transform: scale(0.9); }
+.tool.selected {
+  border-color: var(--ring);
+  transform: translateY(-2px);
+}
+
+/* Color swatches */
+.swatch {
+  flex: 0 0 auto;
+  width: var(--tap);
+  height: var(--tap);
+  border: 4px solid #fff;
+  border-radius: 50%;
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.08s ease;
+}
+.swatch:active { transform: scale(0.88); }
+.swatch.selected {
+  outline: 4px solid var(--ring);
+  outline-offset: 2px;
+  transform: translateY(-4px) scale(1.05);
+}
+
+/* A little check on the picked color/tool */
+.selected::after {
+  content: "";
+}
+
+/* ----- Sparkle particles ---------------------------------- */
+.spark {
+  position: absolute;
+  font-size: 22px;
+  will-change: transform, opacity;
+  animation: spark-pop 700ms ease-out forwards;
+}
+@keyframes spark-pop {
+  0%   { transform: translate(-50%, -50%) scale(0.2) rotate(0deg); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1.2) rotate(var(--rot)); opacity: 0; }
+}
+
+/* A gentle wiggle when a nail is painted */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-2.5deg); }
+  75% { transform: rotate(2.5deg); }
+}
+.wiggle { animation: wiggle 320ms ease-in-out; }
+
+/* Toast for the save feature */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%) translateY(20px);
+  background: #fff;
+  color: var(--ink);
+  padding: 12px 20px;
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  font-size: 18px;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 50;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Landscape / wide screens: keep the hand roomy */
+@media (min-aspect-ratio: 1/1) {
+  .title { font-size: clamp(20px, 3.4vw, 40px); }
+  .swatch { --tap: min(9vh, 72px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spark, .wiggle { animation: none; }
+}
