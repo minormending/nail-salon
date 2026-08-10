@@ -1,19 +1,33 @@
 /* ===========================================================
    ✨ Nail Salon ✨  —  styles
-   Soft, pastel, and made for small hands.
+   Soft, pastel, sparkly, and made for small hands.
    =========================================================== */
 
+/* Self-hosted so the game works with no internet at all.
+   Fredoka by Milena Brandão & Hafontia — SIL Open Font License 1.1 */
+@font-face {
+  font-family: "Fredoka";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../fonts/fredoka.woff2") format("woff2");
+}
+
 :root {
-  --sky-1: #ffe3f3;
-  --sky-2: #e7e0ff;
-  --sky-3: #dff3ff;
-  --ink: #6b4a63;
-  --card: rgba(255, 255, 255, 0.72);
+  --bg-1: #ffe1f1;
+  --bg-2: #efe4ff;
+  --bg-3: #ddf1ff;
+  --ink: #7a4f6d;
+  --title: #ec5aa6;
+  --ring: #ff5ea8;
+
+  --glass: rgba(255, 255, 255, 0.52);
+  --glass-border: rgba(255, 255, 255, 0.75);
   --card-solid: #ffffff;
-  --shadow: 0 8px 20px rgba(150, 90, 130, 0.18);
-  --shadow-soft: 0 4px 10px rgba(150, 90, 130, 0.14);
-  --ring: #ff7ab8;
-  --tap: clamp(42px, 12.5vw, 64px); /* base touch-target size for swatches */
+
+  --shadow: 0 10px 26px rgba(150, 90, 130, 0.20);
+  --shadow-soft: 0 5px 14px rgba(150, 90, 130, 0.16);
+  --tap: clamp(42px, 12.5vw, 64px); /* swatch touch-target size */
 }
 
 * {
@@ -27,9 +41,13 @@ html, body {
 }
 
 body {
-  font-family: "Baloo 2", "Chalkboard SE", "Comic Sans MS", "Arial Rounded MT Bold", "Segoe UI", system-ui, sans-serif;
+  font-family: "Fredoka", "Baloo 2", "Comic Sans MS", "Arial Rounded MT Bold", system-ui, sans-serif;
+  font-weight: 500;
   color: var(--ink);
-  background: linear-gradient(160deg, var(--sky-1) 0%, var(--sky-2) 55%, var(--sky-3) 100%);
+  background:
+    radial-gradient(125% 85% at 50% -15%, rgba(255, 255, 255, 0.6), transparent 55%),
+    radial-gradient(90% 70% at 50% 45%, rgba(255, 236, 248, 0.55), transparent 72%),
+    linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 55%, var(--bg-3) 100%);
   background-attachment: fixed;
   overflow: hidden;
   user-select: none;
@@ -37,8 +55,39 @@ body {
   touch-action: manipulation;
 }
 
+/* ----- Dreamy floating background -------------------------- */
+#backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(7px);
+  opacity: 0.55;
+  animation: drift var(--dur, 14s) ease-in-out infinite alternate;
+}
+.twinkle {
+  position: absolute;
+  opacity: 0.8;
+  animation: twinkle var(--dur, 4s) ease-in-out infinite;
+}
+@keyframes drift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(var(--dx, 16px), var(--dy, -22px)) scale(1.12); }
+}
+@keyframes twinkle {
+  0%, 100% { transform: scale(0.7) rotate(0deg); opacity: 0.25; }
+  50%      { transform: scale(1.1) rotate(20deg); opacity: 0.9; }
+}
+
 /* ----- App shell: header / stage / tray ------------------- */
 #app {
+  position: relative;
+  z-index: 1;
   height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -56,12 +105,12 @@ body {
 
 .title {
   margin: 0;
-  font-size: clamp(17px, 5vw, 40px);
+  font-size: clamp(19px, 5.4vw, 42px);
   line-height: 1.05;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: #d54f97;
-  text-shadow: 0 2px 0 #fff, 0 3px 6px rgba(213, 79, 151, 0.25);
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--title);
+  text-shadow: 0 2px 0 #fff, 0 4px 10px rgba(236, 90, 166, 0.30);
 }
 
 .topbar-buttons {
@@ -75,16 +124,14 @@ body {
   height: clamp(42px, 11.5vw, 50px);
   font-size: 22px;
   line-height: 1;
-  border: none;
+  border: 1.5px solid var(--glass-border);
   border-radius: 16px;
-  background: var(--card-solid);
-  box-shadow: var(--shadow-soft);
+  background: linear-gradient(180deg, #ffffff, #fff0f8);
+  box-shadow: var(--shadow-soft), inset 0 1px 0 #fff;
   cursor: pointer;
-  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  transition: transform 0.08s ease, box-shadow 0.12s ease;
 }
-.icon-btn:active {
-  transform: scale(0.9);
-}
+.icon-btn:active { transform: scale(0.9); }
 
 /* ----- Stage: where the hand lives ------------------------ */
 #stage {
@@ -95,8 +142,19 @@ body {
   align-items: center;
   justify-content: center;
 }
+/* a soft glow behind the hand */
+#stage::before {
+  content: "";
+  position: absolute;
+  width: min(88%, 520px);
+  height: min(70%, 620px);
+  background: radial-gradient(50% 50% at 50% 45%, rgba(255, 255, 255, 0.75), rgba(255, 240, 250, 0.25) 55%, transparent 72%);
+  filter: blur(4px);
+  pointer-events: none;
+}
 
 #hand-wrap {
+  position: relative;
   width: 100%;
   height: 100%;
   display: flex;
@@ -109,7 +167,13 @@ body {
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  filter: drop-shadow(0 12px 18px rgba(150, 90, 130, 0.22));
+  filter: drop-shadow(0 16px 22px rgba(150, 90, 130, 0.25));
+  transform-origin: center;
+  animation: floaty 6.5s ease-in-out infinite;
+}
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  50%      { transform: translateY(-10px) rotate(0.6deg); }
 }
 
 #sparkle-layer {
@@ -117,6 +181,7 @@ body {
   inset: 0;
   pointer-events: none;
   overflow: hidden;
+  z-index: 2;
 }
 
 /* ----- Tray: tools + colors ------------------------------- */
@@ -134,9 +199,12 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 10px;
-  background: var(--card);
-  border-radius: 24px;
-  box-shadow: var(--shadow);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 26px;
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 /* Sticker / effect buttons */
@@ -144,21 +212,21 @@ body {
   flex: 0 0 auto;
   width: clamp(46px, 12vw, 58px);
   height: clamp(46px, 12vw, 58px);
-  font-size: 28px;
-  line-height: 1;
   display: grid;
   place-items: center;
   border: 3px solid transparent;
   border-radius: 18px;
-  background: var(--card-solid);
-  box-shadow: var(--shadow-soft);
+  background: linear-gradient(180deg, #ffffff, #fff2f9);
+  box-shadow: var(--shadow-soft), inset 0 1px 0 #fff;
   cursor: pointer;
-  transition: transform 0.08s ease, border-color 0.12s ease;
+  transition: transform 0.09s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
+.tool svg { width: 66%; height: 66%; display: block; }
 .tool:active { transform: scale(0.9); }
 .tool.selected {
   border-color: var(--ring);
-  transform: translateY(-2px);
+  transform: translateY(-3px) scale(1.04);
+  box-shadow: 0 8px 16px rgba(255, 94, 168, 0.32);
 }
 
 /* Color swatches */
@@ -168,36 +236,51 @@ body {
   height: var(--tap);
   border: 4px solid #fff;
   border-radius: 50%;
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-soft), inset 0 -4px 8px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   position: relative;
-  transition: transform 0.08s ease;
+  overflow: hidden;
+  transition: transform 0.09s ease;
+}
+/* glossy sheen on each swatch */
+.swatch::before {
+  content: "";
+  position: absolute;
+  top: 12%;
+  left: 16%;
+  width: 42%;
+  height: 32%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  filter: blur(1.5px);
+  pointer-events: none;
 }
 .swatch:active { transform: scale(0.88); }
 .swatch.selected {
   outline: 4px solid var(--ring);
   outline-offset: 2px;
-  transform: translateY(-4px) scale(1.05);
+  transform: translateY(-4px) scale(1.08);
+  animation: pickbounce 0.32s ease;
 }
-
-/* A little check on the picked color/tool */
-.selected::after {
-  content: "";
+@keyframes pickbounce {
+  0% { transform: translateY(0) scale(1); }
+  55% { transform: translateY(-8px) scale(1.14); }
+  100% { transform: translateY(-4px) scale(1.08); }
 }
 
 /* ----- Sparkle particles ---------------------------------- */
 .spark {
   position: absolute;
-  font-size: 22px;
+  font-size: 24px;
   transform: translate(-50%, -50%);
   will-change: transform, opacity;
-  animation: spark-pop 700ms ease-out forwards;
+  animation: spark-pop 720ms ease-out forwards;
 }
 @keyframes spark-pop {
   0%   { transform: translate(-50%, -50%) scale(0.2) rotate(0deg); opacity: 1; }
   70%  { opacity: 1; }
   100% {
-    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.15) rotate(var(--rot));
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.2) rotate(var(--rot));
     opacity: 0;
   }
 }
@@ -214,6 +297,17 @@ body {
 }
 .pop { animation: pop 260ms ease-out; }
 
+/* Stickers spring in when stamped */
+.sticker-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: stampin 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes stampin {
+  0% { opacity: 0; scale: 0.3; }
+  100% { opacity: 1; scale: 1; }
+}
+
 /* Toast for the save feature */
 #toast {
   position: fixed;
@@ -226,7 +320,7 @@ body {
   border-radius: 20px;
   box-shadow: var(--shadow);
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
@@ -239,10 +333,13 @@ body {
 
 /* Landscape / wide screens: keep the hand roomy */
 @media (min-aspect-ratio: 1/1) {
-  .title { font-size: clamp(20px, 3.4vw, 40px); }
+  .title { font-size: clamp(20px, 3.4vw, 42px); }
   .swatch { --tap: min(9vh, 72px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spark, .pop { animation: none; }
+  .spark, .pop, .sticker-pop, .blob, .twinkle,
+  #hand-wrap svg, .swatch.selected {
+    animation: none !important;
+  }
 }
