@@ -41,8 +41,17 @@
 
   /* ---- Hand geometry ------------------------------------- */
   // Fingertips point up; the palm enters from the bottom of the frame.
-  const SKIN = "#f6c9a8";
-  const SKIN_SHADE = "#e9b291";
+  // A few skin tones so every child can pick a hand that looks like theirs.
+  const SKIN_TONES = [
+    { skin: "#ffe0bd", shade: "#f0c9a0" },
+    { skin: "#f6c9a8", shade: "#e9b291" },
+    { skin: "#d29e78", shade: "#bd845c" },
+    { skin: "#a2703f", shade: "#87592e" },
+    { skin: "#6f4a2f", shade: "#573823" },
+  ];
+  let skinIndex = 1;
+  let SKIN = SKIN_TONES[skinIndex].skin;
+  let SKIN_SHADE = SKIN_TONES[skinIndex].shade;
 
   // Four fingers (thumb handled separately). Bottoms tuck under the palm.
   const FINGERS = [
@@ -94,13 +103,14 @@
     // Finger capsule (this is also the tap target).
     el("rect", {
       x: f.cx - f.w / 2, y: f.top, width: f.w, height: f.bottom - f.top,
-      rx: f.w / 2, fill: SKIN,
+      rx: f.w / 2, fill: SKIN, class: "skin",
     }, g);
 
     // A soft shaded edge for a little depth.
     el("rect", {
       x: f.cx - f.w / 2, y: f.top, width: f.w, height: f.bottom - f.top,
       rx: f.w / 2, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5,
+      class: "skin-edge",
     }, g);
 
     buildNail(f.id, f.cx, f.top + 22, f.w * 0.34, 24, g);
@@ -136,7 +146,7 @@
 
   // The palm: a big rounded shape that runs off the bottom of the frame.
   function buildPalm() {
-    el("rect", { x: 86, y: 208, width: 182, height: 220, rx: 60, fill: SKIN }, svg);
+    el("rect", { x: 86, y: 208, width: 182, height: 220, rx: 60, fill: SKIN, class: "skin" }, svg);
   }
 
   // The thumb: a capsule angled out to the lower left, drawn on top of
@@ -145,9 +155,9 @@
     const g = el("g", { class: "finger", "data-nail": "thumb", style: "cursor:pointer",
       transform: "rotate(-38 96 300)" }, svg);
 
-    el("rect", { x: 96 - 22, y: 214, width: 44, height: 130, rx: 22, fill: SKIN }, g);
+    el("rect", { x: 96 - 22, y: 214, width: 44, height: 130, rx: 22, fill: SKIN, class: "skin" }, g);
     el("rect", { x: 96 - 22, y: 214, width: 44, height: 130, rx: 22,
-      fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5 }, g);
+      fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, g);
 
     buildNail("thumb", 96, 236, 16, 22, g);
   }
@@ -387,4 +397,79 @@
       note(880, 0, 0.12, "sine");
     }
   });
+
+  /* ---- A friendly little message ------------------------- */
+  const toast = document.getElementById("toast");
+  let toastTimer = 0;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 1900);
+  }
+
+  /* ---- Skin tone (so the hand can look like theirs) ------- */
+  const skinBtn = document.getElementById("skin-btn");
+  function applySkin() {
+    const tone = SKIN_TONES[skinIndex];
+    SKIN = tone.skin;
+    SKIN_SHADE = tone.shade;
+    svg.querySelectorAll(".skin").forEach((e) => e.setAttribute("fill", SKIN));
+    svg.querySelectorAll(".skin-edge").forEach((e) => e.setAttribute("stroke", SKIN_SHADE));
+  }
+  skinBtn.addEventListener("click", () => {
+    skinIndex = (skinIndex + 1) % SKIN_TONES.length;
+    applySkin();
+    if (soundOn) {
+      ensureAudio();
+      note(520, 0, 0.09, "sine", 0.1);
+    }
+  });
+
+  /* ---- Save a picture of the nails ----------------------- */
+  const saveBtn = document.getElementById("save-btn");
+  function savePicture() {
+    const box = svg.viewBox.baseVal;
+    const scale = 3;
+    const W = box.width * scale;
+    const H = box.height * scale;
+
+    const clone = svg.cloneNode(true);
+    clone.setAttribute("width", box.width);
+    clone.setAttribute("height", box.height);
+    const xml = new XMLSerializer().serializeToString(clone);
+    const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      grad.addColorStop(0, "#ffe3f3");
+      grad.addColorStop(0.55, "#e7e0ff");
+      grad.addColorStop(1, "#dff3ff");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(img, 0, 0, W, H);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          showToast("Hmm, couldn't save 😅");
+          return;
+        }
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "my-nails.png";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        showToast("Saved your picture! 📸");
+      }, "image/png");
+    };
+    img.onerror = () => showToast("Hmm, couldn't save 😅");
+    img.src = url;
+  }
+  saveBtn.addEventListener("click", savePicture);
 })();

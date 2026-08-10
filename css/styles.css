@@ -56,7 +56,8 @@ body {
 
 .title {
   margin: 0;
-  font-size: clamp(22px, 6vw, 40px);
+  font-size: clamp(17px, 5vw, 40px);
+  line-height: 1.05;
   font-weight: 800;
   letter-spacing: 0.5px;
   color: #d54f97;
@@ -65,16 +66,17 @@ body {
 
 .topbar-buttons {
   display: flex;
-  gap: 8px;
+  gap: 7px;
+  flex: 0 0 auto;
 }
 
 .icon-btn {
-  width: 48px;
-  height: 48px;
-  font-size: 24px;
+  width: clamp(42px, 11.5vw, 50px);
+  height: clamp(42px, 11.5vw, 50px);
+  font-size: 22px;
   line-height: 1;
   border: none;
-  border-radius: 18px;
+  border-radius: 16px;
   background: var(--card-solid);
   box-shadow: var(--shadow-soft);
   cursor: pointer;

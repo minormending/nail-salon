@@ -15,6 +15,7 @@
     <header id="topbar">
       <h1 class="title">✨ Nail Salon ✨</h1>
       <div class="topbar-buttons">
+        <button id="skin-btn" class="icon-btn" type="button" aria-label="Change skin color" title="Skin color">✋</button>
         <button id="sound-btn" class="icon-btn" type="button" aria-label="Turn sound on or off" title="Sound">🔊</button>
         <button id="save-btn" class="icon-btn" type="button" aria-label="Save a picture" title="Save a picture">📸</button>
         <button id="reset-btn" class="icon-btn" type="button" aria-label="Start over" title="Start over">🧼</button>
@@ -35,6 +36,8 @@
       <div id="palette" class="color-row" role="toolbar" aria-label="Colors"></div>
     </footer>
   </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
 
   <script src="js/game.js" defer></script>
 </body>
