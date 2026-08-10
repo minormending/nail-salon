@@ -187,22 +187,30 @@ body {
 .spark {
   position: absolute;
   font-size: 22px;
+  transform: translate(-50%, -50%);
   will-change: transform, opacity;
   animation: spark-pop 700ms ease-out forwards;
 }
 @keyframes spark-pop {
   0%   { transform: translate(-50%, -50%) scale(0.2) rotate(0deg); opacity: 1; }
   70%  { opacity: 1; }
-  100% { transform: translate(var(--dx), var(--dy)) scale(1.2) rotate(var(--rot)); opacity: 0; }
+  100% {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.15) rotate(var(--rot));
+    opacity: 0;
+  }
 }
 
-/* A gentle wiggle when a nail is painted */
-@keyframes wiggle {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-2.5deg); }
-  75% { transform: rotate(2.5deg); }
+/* A happy little pop when a nail is painted or decorated */
+.nail-group {
+  transform-box: fill-box;
+  transform-origin: center;
 }
-.wiggle { animation: wiggle 320ms ease-in-out; }
+@keyframes pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+.pop { animation: pop 260ms ease-out; }
 
 /* Toast for the save feature */
 #toast {
@@ -234,5 +242,5 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spark, .wiggle { animation: none; }
+  .spark, .pop { animation: none; }
 }

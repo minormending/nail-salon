@@ -215,12 +215,96 @@
     renderNail(id);
   }
 
-  // Tapping anywhere on a finger decorates its nail.
+  /* ---- Happy little sounds (made on the fly, no files) ---- */
+  let audioCtx = null;
+  let soundOn = true;
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  }
+
+  // Play a single soft note.
+  function note(freq, start, dur, type = "sine", peak = 0.16) {
+    if (!audioCtx) return;
+    const t0 = audioCtx.currentTime + start;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.03);
+  }
+
+  function playSound(kind) {
+    if (!soundOn) return;
+    ensureAudio();
+    if (kind === "erase") {
+      note(320, 0, 0.16, "sine", 0.12);
+    } else if (kind === "glitter") {
+      note(784, 0, 0.12, "triangle");
+      note(988, 0.06, 0.12, "triangle");
+      note(1319, 0.12, 0.14, "triangle");
+    } else if (kind === "paint") {
+      note(523, 0, 0.14, "triangle");
+      note(784, 0.02, 0.14, "sine", 0.10);
+    } else {
+      // a sweet two-note twinkle for stickers/gems
+      note(880, 0, 0.10, "sine");
+      note(1319, 0.07, 0.13, "sine");
+    }
+  }
+
+  /* ---- Sparkle burst + a little pop ---------------------- */
+  const sparkleLayer = document.getElementById("sparkle-layer");
+  const SPARK_GLYPHS = ["✨", "⭐", "💖", "🌟", "💫"];
+
+  function spawnSparkles(clientX, clientY) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const rect = sparkleLayer.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    for (let i = 0; i < 7; i++) {
+      const s = document.createElement("span");
+      s.className = "spark";
+      s.textContent = SPARK_GLYPHS[(Math.random() * SPARK_GLYPHS.length) | 0];
+      s.style.left = x + "px";
+      s.style.top = y + "px";
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 26 + Math.random() * 46;
+      s.style.setProperty("--dx", (Math.cos(angle) * dist).toFixed(1) + "px");
+      s.style.setProperty("--dy", (Math.sin(angle) * dist - 18).toFixed(1) + "px");
+      s.style.setProperty("--rot", (Math.random() * 220 - 110).toFixed(0) + "deg");
+      s.addEventListener("animationend", () => s.remove());
+      sparkleLayer.appendChild(s);
+    }
+  }
+
+  function popNail(id) {
+    const g = svg.querySelector(`.nail-group[data-nail-group="${id}"]`);
+    if (!g) return;
+    g.classList.remove("pop");
+    void g.getBoundingClientRect(); // restart the animation
+    g.classList.add("pop");
+  }
+
+  // Tapping anywhere on a finger decorates its nail — with a happy little
+  // sparkle, pop, and sound.
   svg.querySelectorAll(".finger").forEach((finger) => {
     const id = finger.getAttribute("data-nail");
     finger.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       applyToNail(id);
+      popNail(id);
+      spawnSparkles(e.clientX, e.clientY);
+      playSound(mode);
     });
   });
 
@@ -283,6 +367,24 @@
       state[id] = freshNail();
       renderNail(id);
     });
+    if (soundOn) {
+      ensureAudio();
+      note(659, 0, 0.12, "sine");
+      note(494, 0.08, 0.12, "sine");
+      note(392, 0.16, 0.16, "sine");
+    }
   }
   resetBtn.addEventListener("click", startOver);
+
+  /* ---- Sound on/off -------------------------------------- */
+  const soundBtn = document.getElementById("sound-btn");
+  soundBtn.addEventListener("click", () => {
+    soundOn = !soundOn;
+    soundBtn.textContent = soundOn ? "🔊" : "🔇";
+    soundBtn.setAttribute("aria-label", soundOn ? "Sound is on" : "Sound is off");
+    if (soundOn) {
+      ensureAudio();
+      note(880, 0, 0.12, "sine");
+    }
+  });
 })();
