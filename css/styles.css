@@ -304,6 +304,13 @@ body {
   border-radius: 16px;
   transform: translateY(-3px);
   box-shadow: 0 8px 14px rgba(255, 94, 168, 0.3);
+  animation: bottleWobble 0.42s ease;
+}
+@keyframes bottleWobble {
+  0%   { transform: translateY(-3px) rotate(0deg); }
+  30%  { transform: translateY(-7px) rotate(-7deg); }
+  60%  { transform: translateY(-4px) rotate(5deg); }
+  100% { transform: translateY(-3px) rotate(0deg); }
 }
 
 /* Sticker buttons + pack sub-tabs */
@@ -421,6 +428,23 @@ body {
   100% { opacity: 1; scale: 1; }
 }
 
+/* The polish brush / sponge should never eat taps meant for the nail. */
+.fx-tool { pointer-events: none; }
+
+/* The nail lamp breathes a gentle glow. */
+.lamp-glow { animation: lampGlow 2.6s ease-in-out infinite; }
+@keyframes lampGlow {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+
+/* Glitter keeps twinkling. */
+.glint { animation: glint 1.7s ease-in-out infinite; }
+@keyframes glint {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
 /* Toast for the save feature */
 #toast {
   position: fixed;
@@ -469,7 +493,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spark, .pop, .sticker-pop, .blob, .twinkle, .surface {
+  .spark, .pop, .sticker-pop, .blob, .twinkle, .surface,
+  .lamp-glow, .glint, .opt.bottle.sel {
     animation: none !important;
   }
 }

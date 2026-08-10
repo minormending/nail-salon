@@ -317,8 +317,8 @@
     el("ellipse", { cx, cy: baseY + 2, rx: 30, ry: 4, fill: "#00000012" }, g);
     el("rect", { x: cx - 26, y: baseY - 12, width: 52, height: 14, rx: 6, fill: "#ffd0e6", stroke: "#fff", "stroke-width": 1.5 }, g);
     el("path", { d: `M${cx - 25} ${baseY - 10} Q${cx - 27} ${baseY - 46} ${cx} ${baseY - 46} Q${cx + 27} ${baseY - 46} ${cx + 25} ${baseY - 10} Z`, fill: "#ffffff", stroke: "#ececf4", "stroke-width": 1.5 }, g);
-    el("ellipse", { cx, cy: baseY - 26, rx: 17, ry: 9, fill: "#e9d5ff", opacity: 0.85 }, g);
-    [-9, 0, 9].forEach((dx) => el("circle", { cx: cx + dx, cy: baseY - 26, r: 1.5, fill: "#b98cff" }, g));
+    el("ellipse", { cx, cy: baseY - 26, rx: 17, ry: 9, fill: "#e9d5ff", opacity: 0.85, class: "lamp-glow" }, g);
+    [-9, 0, 9].forEach((dx) => el("circle", { cx: cx + dx, cy: baseY - 26, r: 1.5, fill: "#b98cff", class: "lamp-glow" }, g));
   }
   function buildScene(g) {
     // A soft cushion the hand rests on, with polish bottles and a UV lamp.
@@ -405,7 +405,7 @@
       const a = rand() * Math.PI * 2, r = Math.sqrt(rand());
       el("circle", { cx: m.cx + Math.cos(a) * r * m.rx, cy: m.cy + Math.sin(a) * r * m.ry, r: 0.8 + rand() * 1.6, fill: i % 2 ? "#ffffff" : "#ffe9a8", opacity: 0.9 }, deco);
     }
-    const sg = el("g", {}, deco);
+    const sg = el("g", { class: "glint" }, deco);
     for (let i = 0; i < 3; i++) {
       const a = rand() * Math.PI * 2, r = Math.sqrt(rand());
       sparkle(sg, m.cx + Math.cos(a) * r * m.rx * 0.8, m.cy + Math.sin(a) * r * m.ry * 0.8, 0.16 + rand() * 0.14, i ? "#ffffff" : "#ffdd57");
@@ -425,12 +425,89 @@
     if (state[id].glitter) addGlitter(deco, nailMeta[id]);
     if (state[id].sticker) addSticker(deco, nailMeta[id], state[id].sticker);
   }
+  const prefersReduce = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // A little nail-polish brush that swoops in to paint. The tip sits at the
+  // group's origin (0,0) so it can be positioned right on the nail.
+  function makeBrush(color) {
+    const g = el("g", { class: "fx-tool" });
+    const s = el("g", { transform: "scale(1.15)" }, g);
+    el("rect", { x: -3.5, y: -42, width: 7, height: 30, rx: 3.5, fill: "#6b4a63" }, s);
+    el("rect", { x: -1.3, y: -40, width: 2, height: 25, rx: 1, fill: "#ffffff", opacity: 0.28 }, s);
+    el("rect", { x: -4, y: -14.5, width: 8, height: 5.5, rx: 1.2, fill: "#cfc7d6" }, s);
+    el("path", { d: "M-4.2,-10.5 Q0,-13.5 4.2,-10.5 L1.7,-1 Q0,1.8 -1.7,-1 Z", fill: color, stroke: "#0000001a", "stroke-width": 0.4 }, s);
+    el("path", { d: "M-1.4,-9 L-0.5,-2.5", stroke: "#ffffff", "stroke-width": 0.9, opacity: 0.45, "stroke-linecap": "round" }, s);
+    return g;
+  }
+  // A little sponge that wipes a nail clean.
+  function makeSponge() {
+    const g = el("g", { class: "fx-tool" });
+    el("rect", { x: -11, y: -8, width: 22, height: 14, rx: 4, fill: "#fff0f5", stroke: "#f4c6d8", "stroke-width": 1 }, g);
+    el("rect", { x: -11, y: -8, width: 22, height: 6, rx: 4, fill: "#ff9ec4" }, g);
+    el("circle", { cx: -4, cy: 0, r: 1.3, fill: "#ffffff", opacity: 0.8 }, g);
+    el("circle", { cx: 3.5, cy: 2, r: 1, fill: "#ffffff", opacity: 0.7 }, g);
+    return g;
+  }
+  const nailParent = (id) => (fillEl(id).closest(".nailhit") || svg);
+
+  // Paint a nail: the colour sweeps down its shape while a brush strokes over it.
+  function animatePaint(id, color) {
+    state[id].color = color;
+    const fill = fillEl(id);
+    if (prefersReduce()) { fill.setAttribute("fill", color); return; }
+    const m = nailMeta[id];
+
+    const overlay = el("rect", {
+      x: m.cx - m.rx - 2, y: m.cy - m.ry - 2, width: (m.rx + 2) * 2, height: (m.ry + 2) * 2,
+      fill: color, "clip-path": `url(#clip-${id})`,
+    });
+    overlay.style.transformBox = "fill-box";
+    overlay.style.transformOrigin = "top";
+    fill.after(overlay); // above base fill, below gloss + stickers
+    overlay.animate([{ transform: "scaleY(0)" }, { transform: "scaleY(1)" }],
+      { duration: 300, delay: 70, easing: "ease-out", fill: "forwards" });
+    // Commit the colour and clean up on a timer (robust across browsers).
+    setTimeout(() => { fill.setAttribute("fill", color); overlay.remove(); }, 380);
+
+    const brush = makeBrush(color);
+    nailParent(id).appendChild(brush);
+    const cx = m.cx, top = m.cy - m.ry, bot = m.cy + m.ry;
+    brush.animate([
+      { offset: 0,    transform: `translate(${cx}px,${top - 10}px) rotate(-30deg)`,   opacity: 0 },
+      { offset: 0.18, transform: `translate(${cx}px,${top + 3}px) rotate(-14deg)`,    opacity: 1 },
+      { offset: 0.55, transform: `translate(${cx}px,${bot - 4}px) rotate(-8deg)`,     opacity: 1 },
+      { offset: 0.82, transform: `translate(${cx + 10}px,${top - 6}px) rotate(-30deg)`, opacity: 0.85 },
+      { offset: 1,    transform: `translate(${cx + 16}px,${top - 18}px) rotate(-36deg)`, opacity: 0 },
+    ], { duration: 500, easing: "ease-in-out", fill: "forwards" });
+    setTimeout(() => brush.remove(), 520);
+  }
+
+  // Erase a nail: a sponge swipes back and forth as the colour disappears.
+  function animateErase(id) {
+    state[id] = freshNail();
+    renderNail(id);
+    if (prefersReduce()) return;
+    const m = nailMeta[id];
+    const sponge = makeSponge();
+    nailParent(id).appendChild(sponge);
+    const cx = m.cx, cy = m.cy, r = m.rx + 5;
+    sponge.animate([
+      { offset: 0,   transform: `translate(${cx - r}px,${cy}px) rotate(-6deg)`, opacity: 0 },
+      { offset: 0.2, transform: `translate(${cx - r}px,${cy}px) rotate(-6deg)`, opacity: 1 },
+      { offset: 0.5, transform: `translate(${cx + r}px,${cy}px) rotate(6deg)`,  opacity: 1 },
+      { offset: 0.8, transform: `translate(${cx - r * 0.6}px,${cy}px) rotate(-4deg)`, opacity: 1 },
+      { offset: 1,   transform: `translate(${cx}px,${cy}px) rotate(0deg)`, opacity: 0 },
+    ], { duration: 440, easing: "ease-in-out", fill: "forwards" });
+    setTimeout(() => sponge.remove(), 460);
+  }
+
   function applyToNail(id) {
-    if (mode === "paint") state[id].color = currentColor;
-    else if (mode === "erase") state[id] = freshNail();
-    else if (mode === "glitter") state[id].glitter = true;
+    if (mode === "paint") { animatePaint(id, currentColor); return; }
+    if (mode === "erase") { animateErase(id); return; }
+    if (mode === "glitter") state[id].glitter = true;
     else state[id].sticker = mode;
     renderNail(id);
+    popNail(id);
   }
 
   // Attach tap handlers to every finger and toe.
@@ -439,7 +516,6 @@
     hit.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       applyToNail(id);
-      popNail(id);
       spawnSparkles(e.clientX, e.clientY);
       playSound(mode);
     });
