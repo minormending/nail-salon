@@ -1,0 +1,9 @@
+# Internal static file server. Runs inside the container on :80; the shared
+# gateway Caddy terminates TLS and strips the /nail-salon/ prefix before
+# proxying here, so this only ever sees plain "/"-rooted paths.
+:80 {
+	encode zstd gzip
+	root * /srv
+	try_files {path} /index.html
+	file_server
+}
