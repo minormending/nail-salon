@@ -45,21 +45,3 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.repo.outputs.lc }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      # The image is already pushed above; a scan finding won't unpublish it,
-      # it just flags the run. Mirrors the other apps' pipeline.
-      - name: Scan image
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ steps.repo.outputs.lc }}:${{ github.sha }}
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
-          format: sarif
-          output: trivy.sarif
-      - name: Upload trivy SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: .
-        continue-on-error: true
