@@ -710,6 +710,8 @@
   function zoomIn(id) {
     zoomNail = id;
     app.classList.add("focus-mode"); // pause the float + dim the scene so the nail holds still
+    const hitG = svg.querySelector(`.nailhit[data-nail="${id}"]`);
+    if (hitG) hitG.classList.add("nail-focused"); // hide the neighbouring fingers/toes
     if (mode === "paint") animatePaint(id, currentColor);        // whole-nail tools act at once
     else if (mode === "glitter") { state[id].glitter = true; renderNail(id); popNail(id); }
     animateViewBox(targetVBForNail(id));
@@ -719,7 +721,12 @@
     if (!zoomNail) return;
     zoomNail = null;
     animateViewBox(fullVB);
-    setTimeout(() => { if (!zoomNail) app.classList.remove("focus-mode"); }, 340);
+    // Keep the focused finger visible through the zoom-out, then restore all.
+    setTimeout(() => {
+      if (zoomNail) return;
+      app.classList.remove("focus-mode");
+      svg.querySelectorAll(".nail-focused").forEach((n) => n.classList.remove("nail-focused"));
+    }, 340);
   }
 
   // One capture-phase handler routes taps through the zoom flow. Henna and
