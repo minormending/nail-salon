@@ -152,32 +152,82 @@
   }
 
   // An ornate concentric mandala centred at (cx,cy) with outer radius R.
-  function buildMandala(parent, cx, cy, R, look, opts = {}) {
-    const o = look.mandala, s = R / 46, sw = Math.max(0.7, R * 0.02);
+  // Shared henna line group (dashed + faint when it's a stencil guide).
+  function hennaGroup(parent, sw, ghost) {
     const g = el("g", { fill: "none", stroke: HENNA, "stroke-width": sw.toFixed(2), "stroke-linejoin": "round", "stroke-linecap": "round" }, parent);
-    if (opts.ghost) { g.setAttribute("opacity", "0.4"); g.setAttribute("stroke-dasharray", `${(sw * 1.5).toFixed(1)} ${(sw * 1.7).toFixed(1)}`); }
+    if (ghost) { g.setAttribute("opacity", "0.4"); g.setAttribute("stroke-dasharray", `${(sw * 1.5).toFixed(1)} ${(sw * 1.7).toFixed(1)}`); }
+    return g;
+  }
+  const hennaTail = (g, cx, cy, s, sw) => {
+    const ty = cy + 46 * s;
+    el("path", { d: `M${cx.toFixed(1)},${ty.toFixed(1)} q${(-5 * s).toFixed(1)},${(10 * s).toFixed(1)} 0,${(20 * s).toFixed(1)} q${(5 * s).toFixed(1)},${(-10 * s).toFixed(1)} 0,${(-20 * s).toFixed(1)} Z`, "stroke-width": sw.toFixed(2) }, g);
+    el("circle", { cx, cy: cy + 70 * s, r: (sw * 1.3).toFixed(2), fill: HENNA, stroke: "none" }, g);
+    el("circle", { cx, cy: cy + 76 * s, r: (sw * 0.9).toFixed(2), fill: HENNA, stroke: "none" }, g);
+  };
+
+  function buildMandala(parent, cx, cy, R, look, opts = {}) {
+    if (look.id === "star") return buildMandalaStar(parent, cx, cy, R, look, opts);
+    if (look.id === "dotty") return buildMandalaDots(parent, cx, cy, R, look, opts);
+    return buildMandalaBloom(parent, cx, cy, R, look, opts);
+  }
+
+  // BLOOM — a soft floral lotus: layered rounded petals, flowery centre.
+  function buildMandalaBloom(parent, cx, cy, R, look, opts) {
+    const s = R / 46, sw = Math.max(0.7, R * 0.02), g = hennaGroup(parent, sw, opts.ghost);
     const dot = (x, y, r) => el("circle", { cx: x.toFixed(1), cy: y.toFixed(1), r: Math.max(0.4, r).toFixed(2), fill: HENNA, stroke: "none" }, g);
     const ring = (rad, swm) => el("circle", { cx, cy, r: (rad * s).toFixed(1), "stroke-width": (sw * swm).toFixed(2) }, g);
-    const petal = (ang, ri, ro, w, swm) => el("path", { d: petalPath(cx, cy, ang, ri * s, ro * s, w * s), "stroke-width": (sw * swm).toFixed(2) }, g);
+    const leaf = (ang, rmid, pw, pl, swm) => {
+      const x = cx + Math.cos(ang * Math.PI / 180) * rmid * s, y = cy + Math.sin(ang * Math.PI / 180) * rmid * s;
+      el("ellipse", { cx: x.toFixed(1), cy: y.toFixed(1), rx: (pw * s).toFixed(1), ry: (pl * s).toFixed(1), transform: `rotate(${(ang + 90).toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})`, "stroke-width": (sw * swm).toFixed(2) }, g);
+    };
+    for (let i = 0; i < 8; i++) leaf(i * 45, 37, 6.5, 11, 1);          // outer lotus
+    for (let i = 0; i < 8; i++) leaf(i * 45 + 22.5, 33, 4.5, 8.5, 0.8); // nested layer
+    ring(25, 0.7);
+    for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8; dot(cx + Math.cos(a) * 25 * s, cy + Math.sin(a) * 25 * s, sw * 0.7); }
+    for (let i = 0; i < 8; i++) leaf(i * 45, 15, 4, 7, 0.9);           // inner petals
+    ring(8, 0.6);
+    for (let i = 0; i < 6; i++) leaf(i * 60, 4.6, 2.2, 3.4, 0.7);      // centre flower
+    dot(cx, cy, sw * 1.7);
+    if (look.mandala.tail && !opts.noTail) hennaTail(g, cx, cy, s, sw);
+    return g;
+  }
+
+  // STAR — a bold geometric burst: sharp rays, nested star, straight rings.
+  function buildMandalaStar(parent, cx, cy, R, look, opts) {
+    const s = R / 46, sw = Math.max(0.7, R * 0.02), g = hennaGroup(parent, sw, opts.ghost);
+    const dot = (x, y, r) => el("circle", { cx: x.toFixed(1), cy: y.toFixed(1), r: Math.max(0.4, r).toFixed(2), fill: HENNA, stroke: "none" }, g);
+    const ring = (rad, swm) => el("circle", { cx, cy, r: (rad * s).toFixed(1), "stroke-width": (sw * swm).toFixed(2) }, g);
+    const tri = (ang, ri, ro, hw, swm) => {
+      const a = ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), px = -dy, py = dx;
+      const tx = cx + dx * ro * s, ty = cy + dy * ro * s;
+      const b1x = cx + dx * ri * s + px * hw * s, b1y = cy + dy * ri * s + py * hw * s;
+      const b2x = cx + dx * ri * s - px * hw * s, b2y = cy + dy * ri * s - py * hw * s;
+      el("path", { d: `M${b1x.toFixed(1)},${b1y.toFixed(1)} L${tx.toFixed(1)},${ty.toFixed(1)} L${b2x.toFixed(1)},${b2y.toFixed(1)}`, "stroke-width": (sw * swm).toFixed(2) }, g);
+    };
+    for (let i = 0; i < 12; i++) { tri(i * 30, 30, 47, 3.4, 1); dot(cx + Math.cos(i * 30 * Math.PI / 180) * 47 * s, cy + Math.sin(i * 30 * Math.PI / 180) * 47 * s, sw * 0.7); }
+    ring(30, 0.8);
+    for (let i = 0; i < 12; i++) tri(i * 30 + 15, 20, 29, 2.2, 0.7);  // inward points
+    ring(20, 0.7);
+    el("path", { d: starPoints(cx, cy, 19 * s, 8.5 * s, 8), "stroke-width": (sw * 0.9).toFixed(2) }, g); // nested star
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; el("line", { x1: (cx + Math.cos(a) * 2.4 * s).toFixed(1), y1: (cy + Math.sin(a) * 2.4 * s).toFixed(1), x2: (cx + Math.cos(a) * 8 * s).toFixed(1), y2: (cy + Math.sin(a) * 8 * s).toFixed(1), "stroke-width": (sw * 0.7).toFixed(2) }, g); }
+    dot(cx, cy, sw * 1.6);
+    if (look.mandala.tail && !opts.noTail) hennaTail(g, cx, cy, s, sw);
+    return g;
+  }
+
+  // DOTTY — pure dot-work: concentric bead rings + radiating dotted petals.
+  function buildMandalaDots(parent, cx, cy, R, look, opts) {
+    const s = R / 46, sw = Math.max(0.7, R * 0.02), g = hennaGroup(parent, sw, opts.ghost);
+    const dot = (x, y, r) => el("circle", { cx: x.toFixed(1), cy: y.toFixed(1), r: Math.max(0.5, r).toFixed(2), fill: HENNA, stroke: "none" }, g);
     const dotRing = (rad, n, r) => { for (let i = 0; i < n; i++) { const a = i * 2 * Math.PI / n; dot(cx + Math.cos(a) * rad * s, cy + Math.sin(a) * rad * s, r); } };
-    // outer ring of pointed petals + a fine echo inside each
-    for (let i = 0; i < o.outerN; i++) { const a = i * 360 / o.outerN; petal(a, 30, 46, o.outerW, 1); petal(a, 33, 42, o.outerW * 0.45, 0.6); }
-    dotRing(48, o.outerN * 2, sw * 0.7);   // picot dots around the very edge
-    ring(28, 0.7);
-    dotRing(26, o.dotN, sw * 0.8);          // beaded ring
-    ring(22.5, 0.6);
-    // middle ring of petals, offset so they nest between the outer ones
-    for (let i = 0; i < o.midN; i++) { const a = i * 360 / o.midN + 180 / o.midN; petal(a, 10, 22, o.midW, 0.85); }
-    ring(9, 0.6);
-    // centre flower
-    for (let i = 0; i < 8; i++) petal(i * 45, 2.5, 8, 1.7, 0.7);
+    dotRing(45, 30, sw * 0.7);
+    dotRing(38, 26, sw * 0.9);
+    dotRing(30, 20, sw * 1.05);
+    // radiating dotted petals (4 beads each), graduated
+    for (let i = 0; i < 8; i++) { const a = i * 2 * Math.PI / 8; for (let k = 0; k < 4; k++) { const rr = (16 + k * 6) * s; dot(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, sw * (1.1 - k * 0.15)); } }
+    dotRing(11, 8, sw * 0.9);
+    for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; dot(cx + Math.cos(a) * 5.5 * s, cy + Math.sin(a) * 5.5 * s, sw * 1.0); }
     dot(cx, cy, sw * 1.8);
-    // a little hanging pendant toward the wrist
-    if (o.tail && !opts.noTail) {
-      const ty = cy + 46 * s;
-      el("path", { d: `M${cx.toFixed(1)},${ty.toFixed(1)} q${(-5 * s).toFixed(1)},${(10 * s).toFixed(1)} 0,${(20 * s).toFixed(1)} q${(5 * s).toFixed(1)},${(-10 * s).toFixed(1)} 0,${(-20 * s).toFixed(1)} Z`, "stroke-width": sw.toFixed(2) }, g);
-      dot(cx, cy + 70 * s, sw * 1.3); dot(cx, cy + 76 * s, sw * 0.9);
-    }
     return g;
   }
 
@@ -797,19 +847,62 @@
       const inner = zone.rotDeg !== undefined ? el("g", { transform: `rotate(${zone.rotDeg} ${zone.rotCx} ${zone.rotCy})` }, zg) : zg;
       buildSprig(inner, zone.x, zone.ytop, zone.ybot, look, { ghost });
     }
-    if (!ghost && !prefersReduce()) {
-      zg.style.transformBox = "fill-box";
-      zg.style.transformOrigin = "center";
-      zg.animate([{ opacity: 0, transform: "scale(0.55)" }, { opacity: 1, transform: "scale(1)" }],
-        { duration: 340, easing: "cubic-bezier(0.34,1.56,0.64,1)" });
-    }
+    if (!ghost && !prefersReduce()) animateDrawOn(zg);
     return zg;
   }
+  // The design "draws itself on": strokes reveal along their length, filled
+  // dots fade in a beat later — like henna flowing from the cone.
+  function animateDrawOn(node) {
+    node.querySelectorAll("path, line, circle, ellipse, polygon, polyline").forEach((elm) => {
+      const f = elm.getAttribute("fill");
+      if (f && f !== "none") { // a filled dot — fade in after the lines
+        elm.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, delay: 200 + rand() * 200, easing: "ease-out" });
+        return;
+      }
+      if (typeof elm.getTotalLength !== "function") return;
+      let len = 0; try { len = elm.getTotalLength(); } catch (_) { /* ignore */ }
+      if (len <= 0) return;
+      elm.style.strokeDasharray = len.toFixed(1);
+      elm.style.strokeDashoffset = len.toFixed(1);
+      const anim = elm.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }],
+        { duration: 480, delay: rand() * 160, easing: "ease-out", fill: "forwards" });
+      // Restore a plain solid stroke once drawn (robust even if animation is paused).
+      setTimeout(() => { try { anim.cancel(); } catch (_) {} elm.style.strokeDasharray = ""; elm.style.strokeDashoffset = ""; }, 720);
+    });
+  }
+  // A little henna cone/applicator that dabs the design on, like the polish brush.
+  function makeHennaCone() {
+    const g = el("g", { class: "fx-tool" });
+    const s = el("g", { transform: "rotate(20)" }, g); // held at an angle; tip stays at (0,0)
+    el("path", { d: "M0,0 L-5,-30 Q0,-36 5,-30 Z", fill: "#d79a68", stroke: "#a5673c", "stroke-width": 1 }, s);
+    el("path", { d: "M0,0 L-2,-11 Q0,-13 2,-11 Z", fill: "#4e2810" }, s);
+    el("path", { d: "M-3,-27 L-1.5,-14", stroke: "#ffffff", "stroke-width": 0.8, opacity: 0.4, "stroke-linecap": "round" }, s);
+    el("circle", { cx: 0, cy: 0, r: 1.3, fill: HENNA }, g); // a drop of henna at the very tip
+    return g;
+  }
+  function zoneCenter(zone) {
+    if (zone.kind === "mandala") return { x: zone.cx, y: zone.cy };
+    const s = zone._seg || zone.seg;
+    return { x: (s[0] + s[2]) / 2, y: (s[1] + s[3]) / 2 };
+  }
+  function animateHennaCone(surface, cx, cy) {
+    const cone = makeHennaCone();
+    hennaLayer[surface].appendChild(cone);
+    cone.animate([
+      { offset: 0, transform: `translate(${cx}px,${cy - 46}px) rotate(-16deg)`, opacity: 0 },
+      { offset: 0.18, transform: `translate(${cx}px,${cy - 2}px) rotate(-6deg)`, opacity: 1 },
+      { offset: 0.55, transform: `translate(${cx - 4}px,${cy + 2}px) rotate(6deg)`, opacity: 1 },
+      { offset: 0.82, transform: `translate(${cx + 5}px,${cy - 8}px) rotate(-8deg)`, opacity: 0.9 },
+      { offset: 1, transform: `translate(${cx + 12}px,${cy - 28}px) rotate(-18deg)`, opacity: 0 },
+    ], { duration: 640, easing: "ease-in-out", fill: "forwards" });
+    setTimeout(() => cone.remove(), 660);
+  }
   // Ink a zone in (guide -> real henna), remembering which look it used.
-  function fillZone(surface, zone, look) {
+  function fillZone(surface, zone, look, withCone) {
     const cur = hennaZones[surface][zone.id];
     if (cur) cur.node.remove();
     hennaZones[surface][zone.id] = { node: drawZone(surface, zone, look, false), filled: true, lookId: look.id };
+    if (withCone && !prefersReduce()) { const c = zoneCenter(zone); animateHennaCone(surface, c.x, c.y); }
   }
   // Show faint stencils for every not-yet-inked zone, in the given look.
   function showGuides(surface, look) {
@@ -848,8 +941,8 @@
     zonesFor(surface).forEach((z) => {
       const cur = hennaZones[surface][z.id];
       if (cur && cur.filled) return;
-      setTimeout(() => fillZone(surface, z, currentLook), delay);
-      delay += 90; // stagger so it "draws on" piece by piece
+      setTimeout(() => fillZone(surface, z, currentLook, true), delay);
+      delay += 140; // stagger so each part draws on in turn, with its own cone
     });
     playSound("henna");
   }
@@ -874,7 +967,7 @@
     if (isHenna(mode)) {
       const z = nearestZone(surface, p.x, p.y, false);
       if (!z) return;
-      fillZone(surface, z, currentLook);
+      fillZone(surface, z, currentLook, true); // draw it on with the henna cone
       spawnSparkles(e.clientX, e.clientY);
       playSound("henna");
     } else {
