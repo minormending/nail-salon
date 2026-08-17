@@ -1,0 +1,47 @@
+# Deploy the static site to GitHub Pages.
+#
+# Nail Salon is a plain static site (no build step) — this workflow just
+# uploads the files as-is and publishes them to GitHub Pages on every push
+# to main. No secrets needed beyond the built-in GITHUB_TOKEN.
+#
+# One-time setup: in the repo's Settings → Pages, set "Source" to
+# "GitHub Actions".
+name: deploy pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Allow this workflow to publish to Pages using the built-in token.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a newer push cancel an in-flight deploy, but never interrupt a run
+# that is partway through going live.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # The whole repo is the site; serving the README/font license
+          # alongside it is harmless.
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,8 +1,0 @@
-.git
-.github
-deploy
-node_modules
-README.md
-README-preview.png
-.DS_Store
-*.log

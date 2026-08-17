@@ -45,6 +45,22 @@ python3 -m http.server 8000
 
 Then open http://localhost:8000 in your browser.
 
+## Play it online (GitHub Pages)
+
+This repo publishes itself to **GitHub Pages** — every push to `main` puts the
+latest version online automatically, no build step and no server to run.
+
+One-time setup on GitHub:
+
+1. Go to the repo's **Settings → Pages**.
+2. Under **Build and deployment → Source**, choose **GitHub Actions**.
+
+That's it. The `deploy pages` workflow (in `.github/workflows/pages.yml`)
+uploads the site and publishes it. After it runs, the live link appears at the
+top of the workflow run and under **Settings → Pages** — usually
+`https://<your-username>.github.io/nail-salon/`. Share that link and anyone can
+play.
+
 ## Put it on a phone or tablet (including Android)
 
 Because it's a normal, self-contained web page, you can:
