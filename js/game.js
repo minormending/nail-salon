@@ -340,9 +340,9 @@
   // Foot: an instep mandala, a row of little drops hanging below the toes
   // (started clear of each toenail), and a vine trailing toward the heel.
   const FOOT_ZONES = [
-    { id: "f-toes", kind: "toeband", toes: [[118, 193], [164, 179], [194, 186], [220, 197], [244, 210]], seg: [118, 197, 244, 214] },
-    { id: "f-top", kind: "mandala", cx: 174, cy: 300, R: 48, noTail: true },
-    { id: "f-heel", kind: "sprig", x: 174, ytop: 352, ybot: 444 },
+    { id: "f-toes", kind: "toeband", toes: [[118, 199], [164, 187], [194, 194], [220, 205], [244, 218]], seg: [118, 202, 244, 220] },
+    { id: "f-top", kind: "mandala", cx: 174, cy: 318, R: 48, noTail: true },
+    { id: "f-heel", kind: "sprig", x: 174, ytop: 370, ybot: 448 },
   ];
   const rotPt = (x, y, cx, cy, deg) => { const a = deg * Math.PI / 180, s = Math.sin(a), c = Math.cos(a), dx = x - cx, dy = y - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; };
   [...HAND_ZONES, ...FOOT_ZONES].forEach((z) => {
@@ -682,7 +682,7 @@
   function drawZone(surface, zone, look, ghost) {
     const zg = el("g", { class: ghost ? "henna-zone henna-guide" : "henna-zone", "data-zone": zone.id }, hennaLayer[surface]);
     if (zone.kind === "mandala") buildMandala(zg, zone.cx, zone.cy, zone.R, look, { ghost, noTail: zone.noTail });
-    else if (zone.kind === "toeband") zone.toes.forEach(([cx, y]) => buildSprig(zg, cx, y, y + 30, look, { ghost }));
+    else if (zone.kind === "toeband") zone.toes.forEach(([cx, y]) => buildSprig(zg, cx, y, y + 34, look, { ghost }));
     else {
       const inner = zone.rotDeg !== undefined ? el("g", { transform: `rotate(${zone.rotDeg} ${zone.rotCx} ${zone.rotCy})` }, zg) : zg;
       buildSprig(inner, zone.x, zone.ytop, zone.ybot, look, { ghost });
