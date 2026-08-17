@@ -202,6 +202,12 @@ body {
 #app.focus-mode .scene { opacity: 0; transition: opacity 0.3s ease; }
 .nailhit { transition: opacity 0.25s ease; }
 #app.focus-mode .nailhit:not(.nail-focused) { opacity: 0.5; }
+/* Soften the left/right edges so the side nails fade out instead of being
+   hard-clipped by the viewport. */
+#app.focus-mode #hand-wrap svg {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 13%, #000 87%, transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 13%, #000 87%, transparent 100%);
+}
 
 /* ----- Tray: category tabs + options panel ---------------- */
 #tray {

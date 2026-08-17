@@ -706,7 +706,7 @@
     const m = nailMeta[id], c = nailRootCenter(id);
     // width chosen so the neighbouring nails show on the left/right as whole
     // nails (not clipped slivers); height follows the SVG's aspect ratio.
-    const vw = Math.min(150, Math.max(100, m.rx * 6.8)), vh = vw * 470 / 320;
+    const vw = Math.min(152, Math.max(112, m.rx * 7.8)), vh = vw * 470 / 320;
     return [c.x - vw / 2, c.y - vh / 2, vw, vh];
   }
   // Slide over to an adjacent nail without zooming out.
