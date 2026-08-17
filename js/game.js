@@ -173,7 +173,7 @@
     for (let i = 0; i < 8; i++) petal(i * 45, 2.5, 8, 1.7, 0.7);
     dot(cx, cy, sw * 1.8);
     // a little hanging pendant toward the wrist
-    if (o.tail) {
+    if (o.tail && !opts.noTail) {
       const ty = cy + 46 * s;
       el("path", { d: `M${cx.toFixed(1)},${ty.toFixed(1)} q${(-5 * s).toFixed(1)},${(10 * s).toFixed(1)} 0,${(20 * s).toFixed(1)} q${(5 * s).toFixed(1)},${(-10 * s).toFixed(1)} 0,${(-20 * s).toFixed(1)} Z`, "stroke-width": sw.toFixed(2) }, g);
       dot(cx, cy + 70 * s, sw * 1.3); dot(cx, cy + 76 * s, sw * 0.9);
@@ -337,13 +337,16 @@
     { id: "h-pinky", kind: "sprig", x: 250, ytop: 208, ybot: 250 },
     { id: "h-thumb", kind: "sprig", x: 96, ytop: 268, ybot: 332, rotDeg: -38, rotCx: 96, rotCy: 300 },
   ];
-  // The foot gets just the mandala — the toenails are too close together to
-  // fit a sprig without overlapping them.
+  // Foot: an instep mandala, a row of little drops hanging below the toes
+  // (started clear of each toenail), and a vine trailing toward the heel.
   const FOOT_ZONES = [
-    { id: "f-top", kind: "mandala", cx: 172, cy: 326, R: 46 },
+    { id: "f-toes", kind: "toeband", toes: [[118, 193], [164, 179], [194, 186], [220, 197], [244, 210]], seg: [118, 197, 244, 214] },
+    { id: "f-top", kind: "mandala", cx: 174, cy: 300, R: 48, noTail: true },
+    { id: "f-heel", kind: "sprig", x: 174, ytop: 352, ybot: 444 },
   ];
   const rotPt = (x, y, cx, cy, deg) => { const a = deg * Math.PI / 180, s = Math.sin(a), c = Math.cos(a), dx = x - cx, dy = y - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; };
   [...HAND_ZONES, ...FOOT_ZONES].forEach((z) => {
+    if (z.kind === "toeband") { z._seg = z.seg; return; }
     if (z.kind !== "sprig") return;
     if (z.rotDeg !== undefined) z._seg = [...rotPt(z.x, z.ytop, z.rotCx, z.rotCy, z.rotDeg), ...rotPt(z.x, z.ybot, z.rotCx, z.rotCy, z.rotDeg)];
     else z._seg = [z.x, z.ytop, z.x, z.ybot];
@@ -355,7 +358,7 @@
     return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
   }
   const zoneDist = (z, x, y) => z.kind === "mandala" ? Math.hypot(x - z.cx, y - z.cy) : distToSeg(x, y, z._seg[0], z._seg[1], z._seg[2], z._seg[3]);
-  const zoneThreshold = (z) => z.kind === "mandala" ? z.R : 30;
+  const zoneThreshold = (z) => z.kind === "mandala" ? z.R : (z.kind === "toeband" ? 42 : 30);
 
   /* =========================================================
      STATE
@@ -678,7 +681,8 @@
   // fully-inked henna. Returns the group node.
   function drawZone(surface, zone, look, ghost) {
     const zg = el("g", { class: ghost ? "henna-zone henna-guide" : "henna-zone", "data-zone": zone.id }, hennaLayer[surface]);
-    if (zone.kind === "mandala") buildMandala(zg, zone.cx, zone.cy, zone.R, look, { ghost });
+    if (zone.kind === "mandala") buildMandala(zg, zone.cx, zone.cy, zone.R, look, { ghost, noTail: zone.noTail });
+    else if (zone.kind === "toeband") zone.toes.forEach(([cx, y]) => buildSprig(zg, cx, y, y + 30, look, { ghost }));
     else {
       const inner = zone.rotDeg !== undefined ? el("g", { transform: `rotate(${zone.rotDeg} ${zone.rotCx} ${zone.rotCy})` }, zg) : zg;
       buildSprig(inner, zone.x, zone.ytop, zone.ybot, look, { ghost });
