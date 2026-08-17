@@ -440,14 +440,22 @@ body {
 /* The polish brush / sponge should never eat taps meant for the nail. */
 .fx-tool { pointer-events: none; }
 
-/* Henna: stamped onto the skin. Marks never intercept taps — placing and
-   wiping is handled on the surface itself — and each one springs in. */
-.henna-layer, .henna-mark { pointer-events: none; }
-.henna-pop {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: stampin 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+/* Henna: painted onto the skin in guided zones. Designs never intercept
+   taps — placing and wiping is handled on the surface itself. */
+.henna-layer, .henna-zone { pointer-events: none; }
+.henna-all {
+  border: none;
+  border-radius: 16px;
+  padding: 9px 22px;
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #a4542a, #8a3a17);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
 }
+.henna-all:active { transform: scale(0.95); }
 
 /* The nail lamp breathes a gentle glow. */
 .lamp-glow { animation: lampGlow 2.6s ease-in-out infinite; }
@@ -511,7 +519,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spark, .pop, .sticker-pop, .henna-pop, .blob, .twinkle, .surface,
+  .spark, .pop, .sticker-pop, .blob, .twinkle, .surface,
   .lamp-glow, .glint, .opt.bottle.sel {
     animation: none !important;
   }

@@ -19,9 +19,12 @@ A gentle, ad-free nail salon game made for little kids (about 5 years old).
   rainbows, glitter), **Sea** (shells, starfish, fish, pearls),
   **Party** (balloons, cake, gifts, crowns), and **Gems** (a diamond and
   shiny colored rhinestones).
-- 🪷 **Henna (mehndi)** — pick a design (flower, sun, lotus, paisley, vine,
-  or dots) and tap anywhere on the hand or foot to decorate the skin with
-  pretty reddish-brown patterns. Each hand and foot keeps its own design.
+- 🪷 **Henna (mehndi)** — a guided, salon-style design: pick a *look*
+  (**Bloom**, **Star**, or **Dotty**) and tap the back of the hand to place an
+  ornate mandala, or a finger/toe to add a matching vine sprig — each lands in
+  the right spot, sized and angled for you. Tap **✨ Fill it all** to do the
+  whole design at once. Reddish-brown like a real stain; each hand and foot
+  keeps its own design.
 - 🦶 **Hands *and* toes** — tap the top-left button to switch between doing a
   manicure and a pedicure. Each keeps its own design.
 - ✋ **Skin tones** — pick a hand that looks like theirs.
@@ -34,7 +37,8 @@ Every tap gives a little sparkle, a springy pop, and a soft chime. 🎵
 
 1. Open `index.html` in a web browser.
 2. Use the **tabs** at the bottom — Colors, Stickers, Henna, Shapes, Skin, Wipe.
-3. Pick something, then **tap a nail** to use it (or, for henna, tap the skin).
+3. Pick something, then **tap a nail** to use it (or, for henna, tap the back
+   of the hand or a finger).
 4. Use the top buttons any time: ✋/🦶 hand or foot, 🔊 sound, 📸 save,
    🧼 start over.
 
