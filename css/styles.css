@@ -195,6 +195,11 @@ body {
   z-index: 2;
 }
 
+/* Zoomed in on one nail: hold the hand still and dim the salon scene so the
+   focused nail stands out. */
+#app.focus-mode .surface { animation: none; }
+#app.focus-mode .scene { opacity: 0; transition: opacity 0.3s ease; }
+
 /* ----- Tray: category tabs + options panel ---------------- */
 #tray {
   grid-area: tray;

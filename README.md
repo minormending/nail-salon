@@ -14,6 +14,10 @@ A gentle, ad-free nail salon game made for little kids (about 5 years old).
   polish bottles and a tiny nail lamp, just like a real nail salon.
 - 🎨 **Paint** — pick a cute polish bottle (solid colors *and* sparkly
   gradient polishes) and tap a nail.
+- 🔍 **Zoom in on a nail** — tap a nail to zoom right in on it, then place
+  stickers wherever you like — several on one nail, in any spot. Tap outside
+  the nail to zoom back out. (Wipe a single sticker by tapping it with the
+  🧽 Wipe tool while zoomed in.)
 - 💠 **Nail shapes** — choose oval, round, almond, square, or coffin.
 - ✨ **Themed sticker packs** — **Cute** (hearts, stars, flowers, bows,
   rainbows, glitter), **Sea** (shells, starfish, fish, pearls),

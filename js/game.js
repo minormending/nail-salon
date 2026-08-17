@@ -363,7 +363,7 @@
   /* =========================================================
      STATE
      ========================================================= */
-  const freshNail = () => ({ color: NATURAL, sticker: null, glitter: false });
+  const freshNail = () => ({ color: NATURAL, stickers: [], glitter: false });
   const state = {};
   [...HAND_NAILS, ...FOOT_NAILS].forEach((id) => (state[id] = freshNail()));
   const nailMeta = {}; // id -> {cx,cy,rx,ry,surface}
@@ -381,6 +381,7 @@
   let currentCategory = "colors";
   let currentPack = "cute";
   let currentLook = HENNA_LOOKS[0];
+  let zoomNail = null; // the nail currently zoomed in for close-up decorating
   let skinIndex = 1;
   let SKIN = SKIN_TONES[skinIndex].skin;
   let SKIN_SHADE = SKIN_TONES[skinIndex].shade;
@@ -543,19 +544,22 @@
       sparkle(sg, m.cx + Math.cos(a) * r * m.rx * 0.8, m.cy + Math.sin(a) * r * m.ry * 0.8, 0.16 + rand() * 0.14, i ? "#ffffff" : "#ffdd57");
     }
   }
-  function addSticker(deco, m, id) {
+  // Draw a sticker at a normalised offset (nx,ny) from the nail centre, where
+  // ±1 is the nail's edge. Smaller than before so several fit on one nail.
+  function addSticker(deco, m, id, nx = 0, ny = 0) {
     const draw = STICKER_DRAW[id];
     if (!draw) return;
-    const s = (m.rx * 1.9) / 24;
-    const box = el("g", { transform: `translate(${m.cx},${m.cy}) scale(${s.toFixed(3)}) translate(-12,-12)` }, deco);
-    draw(el("g", { class: "sticker-pop" }, box));
+    const s = (m.rx * 1.15) / 24;
+    const cx = m.cx + nx * m.rx, cy = m.cy + ny * m.ry;
+    const box = el("g", { transform: `translate(${cx.toFixed(1)},${cy.toFixed(1)}) scale(${s.toFixed(3)}) translate(-12,-12)` }, deco);
+    draw(el("g", { class: prefersReduce() ? "" : "sticker-pop" }, box));
   }
   function renderNail(id) {
     fillEl(id).setAttribute("fill", state[id].color);
     const deco = decoEl(id);
     while (deco.firstChild) deco.removeChild(deco.firstChild);
     if (state[id].glitter) addGlitter(deco, nailMeta[id]);
-    if (state[id].sticker) addSticker(deco, nailMeta[id], state[id].sticker);
+    state[id].stickers.forEach((st) => addSticker(deco, nailMeta[id], st.id, st.nx, st.ny));
   }
   const prefersReduce = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -633,34 +637,119 @@
     setTimeout(() => sponge.remove(), 460);
   }
 
-  function applyToNail(id) {
-    if (mode === "paint") { animatePaint(id, currentColor); return; }
-    if (mode === "erase") { animateErase(id); return; }
-    if (mode === "glitter") state[id].glitter = true;
-    else state[id].sticker = mode;
-    renderNail(id);
-    popNail(id);
+  const app = document.getElementById("app");
+  const clampN = (v) => Math.max(-0.72, Math.min(0.72, v));
+
+  // Map a screen tap to a normalised (nx,ny) offset from the nail's centre.
+  function nailLocalPoint(id, clientX, clientY) {
+    const fill = fillEl(id), m = nailMeta[id];
+    const pt = svg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
+    const p = pt.matrixTransform(fill.getScreenCTM().inverse());
+    return { nx: (p.x - m.cx) / m.rx, ny: (p.y - m.cy) / m.ry };
+  }
+  function removeStickerNear(id, nx, ny) {
+    const arr = state[id].stickers;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (Math.hypot(arr[i].nx - nx, arr[i].ny - ny) < 0.45) { arr.splice(i, 1); return true; }
+    }
+    return false;
+  }
+  function pointInFocusedNail(clientX, clientY) {
+    if (!zoomNail) return false;
+    const fill = fillEl(zoomNail);
+    const pt = svg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
+    const p = pt.matrixTransform(fill.getScreenCTM().inverse());
+    if (fill.isPointInFill) { try { return fill.isPointInFill(p); } catch (_) { /* fall through */ } }
+    const m = nailMeta[zoomNail];
+    return ((p.x - m.cx) / m.rx) ** 2 + ((p.y - m.cy) / m.ry) ** 2 <= 1.1;
   }
 
-  // Attach tap handlers to every finger and toe.
+  // Apply the current tool to a nail at a tapped point (while zoomed in).
+  function applyToolAt(id, clientX, clientY) {
+    if (mode === "paint") animatePaint(id, currentColor);
+    else if (mode === "glitter") { state[id].glitter = true; renderNail(id); popNail(id); }
+    else if (mode === "erase") {
+      const p = nailLocalPoint(id, clientX, clientY);
+      if (removeStickerNear(id, p.nx, p.ny)) renderNail(id); // lift one sticker...
+      else animateErase(id);                                  // ...or wipe the whole nail
+    } else {
+      const p = nailLocalPoint(id, clientX, clientY);
+      state[id].stickers.push({ id: mode, nx: clampN(p.nx), ny: clampN(p.ny) });
+      renderNail(id); popNail(id);
+    }
+    spawnSparkles(clientX, clientY);
+    playSound(mode === "glitter" ? "glitter" : mode === "paint" ? "paint" : mode === "erase" ? "erase" : mode);
+  }
+
+  /* ---- Zoom into a nail to decorate it up close ----------- */
+  let vbAnim = 0;
+  const fullVB = [0, 0, 320, 470];
+  const currentVB = () => { const v = svg.viewBox.baseVal; return [v.x, v.y, v.width, v.height]; };
+  function animateViewBox(target, dur = 340) {
+    if (vbAnim) cancelAnimationFrame(vbAnim);
+    if (prefersReduce()) { svg.setAttribute("viewBox", target.join(" ")); return; }
+    const start = currentVB(), t0 = performance.now(), ease = (t) => 1 - Math.pow(1 - t, 3);
+    (function step(now) {
+      const t = Math.min(1, (now - t0) / dur), k = ease(t);
+      svg.setAttribute("viewBox", start.map((s, i) => (s + (target[i] - s) * k).toFixed(2)).join(" "));
+      if (t < 1) vbAnim = requestAnimationFrame(step); else vbAnim = 0;
+    })(performance.now());
+  }
+  // Nail centre in viewBox coords (the thumb is drawn in a rotated group).
+  function nailRootCenter(id) {
+    const m = nailMeta[id];
+    if (id === "thumb") { const [x, y] = rotPt(m.cx, m.cy, 96, 300, -38); return { x, y }; }
+    return { x: m.cx, y: m.cy };
+  }
+  function targetVBForNail(id) {
+    const m = nailMeta[id], c = nailRootCenter(id);
+    const vh = Math.min(160, Math.max(96, m.ry * 5)), vw = vh * 320 / 470;
+    return [c.x - vw / 2, c.y - vh / 2, vw, vh];
+  }
+  let zoomHintShown = false;
+  function zoomIn(id) {
+    zoomNail = id;
+    app.classList.add("focus-mode"); // pause the float + dim the scene so the nail holds still
+    if (mode === "paint") animatePaint(id, currentColor);        // whole-nail tools act at once
+    else if (mode === "glitter") { state[id].glitter = true; renderNail(id); popNail(id); }
+    animateViewBox(targetVBForNail(id));
+    if (!zoomHintShown) { showToast("Tap the nail to decorate • tap outside when done ✨"); zoomHintShown = true; }
+  }
+  function zoomOut() {
+    if (!zoomNail) return;
+    zoomNail = null;
+    animateViewBox(fullVB);
+    setTimeout(() => { if (!zoomNail) app.classList.remove("focus-mode"); }, 340);
+  }
+
+  // One capture-phase handler routes taps through the zoom flow. Henna and
+  // un-zoomed wipe keep their own skin/nail handlers below.
+  handWrap.addEventListener("pointerdown", (e) => {
+    if (zoomNail) {
+      if (isHenna(mode)) { zoomOut(); return; }
+      e.preventDefault(); e.stopPropagation();
+      if (pointInFocusedNail(e.clientX, e.clientY)) applyToolAt(zoomNail, e.clientX, e.clientY);
+      else zoomOut();
+      return;
+    }
+    if (isHenna(mode) || mode === "erase") return; // handled by the bubble handlers
+    const hit = e.target.closest && e.target.closest(".nailhit");
+    if (hit) { e.preventDefault(); e.stopPropagation(); zoomIn(hit.getAttribute("data-nail")); }
+  }, true);
+
+  // Un-zoomed wipe: tap a finger's henna to lift it, else wipe the nail.
   svg.querySelectorAll(".nailhit").forEach((hit) => {
     const id = hit.getAttribute("data-nail");
     hit.addEventListener("pointerdown", (e) => {
+      if (mode !== "erase") return; // paint/sticker/glitter zoom in; henna bubbles to the skin
       e.preventDefault();
-      // In henna mode a finger tap should fill its sprig on the skin, so let
-      // it bubble up to the surface handler below.
-      if (isHenna(mode)) return;
-      // In wipe mode, if the tap is on this finger's henna, remove the henna
-      // first; only wipe the nail when there's no henna under the finger.
-      if (mode === "erase") {
-        const p = svgPoint(e.clientX, e.clientY, hennaLayer[currentSurface]);
-        const z = p && nearestZone(currentSurface, p.x, p.y, true, 22);
-        if (z) { clearZoneNode(currentSurface, z); spawnSparkles(e.clientX, e.clientY); playSound("erase"); e.stopPropagation(); return; }
-      }
-      applyToNail(id);
+      const p = svgPoint(e.clientX, e.clientY, hennaLayer[currentSurface]);
+      const z = p && nearestZone(currentSurface, p.x, p.y, true, 22);
+      if (z) { clearZoneNode(currentSurface, z); spawnSparkles(e.clientX, e.clientY); playSound("erase"); e.stopPropagation(); return; }
+      animateErase(id);
       spawnSparkles(e.clientX, e.clientY);
-      playSound(mode);
-      e.stopPropagation(); // a nail tap shouldn't also reach the surface handler
+      playSound("erase");
+      e.stopPropagation();
     });
   });
 
@@ -868,6 +957,7 @@
   });
 
   function selectCategory(id) {
+    if (id === "henna" && zoomNail) zoomOut(); // henna decorates the skin, not a single nail
     if (currentCategory === "henna" && id !== "henna") hideGuides(); // leaving henna
     currentCategory = id;
     tabsEl.querySelectorAll(".tab").forEach((t) => t.classList.toggle("sel", t.dataset.cat === id));
@@ -999,6 +1089,7 @@
 
   const surfaceBtn = document.getElementById("surface-btn");
   surfaceBtn.addEventListener("click", () => {
+    zoomOut();
     currentSurface = currentSurface === "hand" ? "foot" : "hand";
     handG.style.display = currentSurface === "hand" ? "" : "none";
     footG.style.display = currentSurface === "foot" ? "" : "none";
@@ -1011,6 +1102,7 @@
 
   const resetBtn = document.getElementById("reset-btn");
   resetBtn.addEventListener("click", () => {
+    zoomOut();
     const ids = currentSurface === "hand" ? HAND_NAILS : FOOT_NAILS;
     ids.forEach((id) => { state[id] = freshNail(); renderNail(id); });
     clearHenna(currentSurface);
@@ -1036,11 +1128,12 @@
 
   const saveBtn = document.getElementById("save-btn");
   saveBtn.addEventListener("click", () => {
-    const box = svg.viewBox.baseVal, scale = 2.4, W = box.width * scale, H = box.height * scale;
+    const scale = 2.4, W = fullVB[2] * scale, H = fullVB[3] * scale;
     const clone = svg.cloneNode(true);
     clone.querySelectorAll(".henna-guide").forEach((n) => n.remove()); // don't save the faint stencil
-    clone.setAttribute("width", box.width);
-    clone.setAttribute("height", box.height);
+    clone.setAttribute("viewBox", fullVB.join(" ")); // always save the whole hand, even if zoomed
+    clone.setAttribute("width", fullVB[2]);
+    clone.setAttribute("height", fullVB[3]);
     const xml = new XMLSerializer().serializeToString(clone);
     const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
     const img = new Image();
