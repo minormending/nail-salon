@@ -133,6 +133,68 @@
     el("line", { x1: 9, y1: 8, x2: 9, y2: 16, stroke: "#e58ba9", "stroke-width": 0.5, opacity: 0.6 }, e);
   };
 
+  /* ---- Henna (mehndi) motifs — fine reddish-brown line art ----
+     Drawn in the same 24x24 box so the very same motif works in a
+     picker button and stamped onto the skin. Kept monochrome for an
+     authentic stained-henna look. */
+  const HENNA = "#8a3a17";
+  const hennaFlower = (g) => {
+    const c = el("g", { fill: HENNA, stroke: HENNA }, g);
+    el("circle", { cx: 12, cy: 12, r: 1.8, "stroke-width": 0 }, c);
+    for (let i = 0; i < 8; i++)
+      el("ellipse", { cx: 12, cy: 6.3, rx: 1.5, ry: 3.1, fill: "none", "stroke-width": 0.9, transform: `rotate(${i * 45} 12 12)` }, c);
+    for (let i = 0; i < 12; i++) {
+      const a = i * Math.PI / 6;
+      el("circle", { cx: (12 + Math.cos(a) * 9.3).toFixed(2), cy: (12 + Math.sin(a) * 9.3).toFixed(2), r: 0.7, "stroke-width": 0 }, c);
+    }
+  };
+  const hennaSun = (g) => {
+    const c = el("g", { fill: HENNA, stroke: HENNA }, g);
+    el("circle", { cx: 12, cy: 12, r: 9, fill: "none", "stroke-width": 0.8 }, c);
+    el("circle", { cx: 12, cy: 12, r: 5.4, fill: "none", "stroke-width": 0.8 }, c);
+    el("circle", { cx: 12, cy: 12, r: 2, "stroke-width": 0 }, c);
+    for (let i = 0; i < 16; i++) {
+      const a = i * Math.PI / 8;
+      el("circle", { cx: (12 + Math.cos(a) * 9).toFixed(2), cy: (12 + Math.sin(a) * 9).toFixed(2), r: 0.65, "stroke-width": 0 }, c);
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      el("line", { x1: (12 + Math.cos(a) * 2.4).toFixed(2), y1: (12 + Math.sin(a) * 2.4).toFixed(2), x2: (12 + Math.cos(a) * 5).toFixed(2), y2: (12 + Math.sin(a) * 5).toFixed(2), "stroke-width": 0.9 }, c);
+    }
+  };
+  const hennaLotus = (g) => {
+    const c = el("g", { fill: "none", stroke: HENNA, "stroke-width": 1, "stroke-linejoin": "round", "stroke-linecap": "round" }, g);
+    el("path", { d: "M12 20 C6.5 16.5 4 13 3.7 9.4 C7 10.5 10 15 12 20 Z" }, c);
+    el("path", { d: "M12 20 C17.5 16.5 20 13 20.3 9.4 C17 10.5 14 15 12 20 Z" }, c);
+    el("path", { d: "M12 20 C8.2 15 6.8 10 7.3 6.2 C10.2 8 11.6 13 12 20 Z" }, c);
+    el("path", { d: "M12 20 C15.8 15 17.2 10 16.7 6.2 C13.8 8 12.4 13 12 20 Z" }, c);
+    el("path", { d: "M12 20 C10.4 14 10.7 8 12 4 C13.3 8 13.6 14 12 20 Z" }, c);
+    el("circle", { cx: 12, cy: 20, r: 1, fill: HENNA, stroke: "none" }, c);
+  };
+  const hennaVine = (g) => {
+    const c = el("g", { fill: HENNA, stroke: HENNA, "stroke-linecap": "round" }, g);
+    el("path", { d: "M6 21 C10 17.5 8 12.5 12 9.5 C16 6.5 14 3.5 18 3", fill: "none", "stroke-width": 1 }, c);
+    const leaf = (x, y, rot) => el("ellipse", { cx: x, cy: y, rx: 1.3, ry: 2.5, fill: "none", "stroke-width": 0.8, transform: `rotate(${rot} ${x} ${y})` }, c);
+    leaf(7.6, 17.4, 55); leaf(9.6, 14, -8); leaf(11.4, 10.6, 48); leaf(14, 7.6, -14); leaf(16.2, 5, 40);
+    el("circle", { cx: 18, cy: 3, r: 1.1, "stroke-width": 0 }, c);
+    el("circle", { cx: 6, cy: 21, r: 1.1, "stroke-width": 0 }, c);
+  };
+  const hennaPaisley = (g) => {
+    const c = el("g", { fill: HENNA, stroke: HENNA }, g);
+    el("path", { d: "M12 21 C6.4 19.4 4.4 12.8 7 7.9 C8.8 4.6 12.1 3.2 14.8 4.7 C17.7 6.3 18 10.2 15.5 12.3 C14 13.6 11.8 13 11.4 11.1", fill: "none", "stroke-width": 1.2, "stroke-linejoin": "round", "stroke-linecap": "round" }, c);
+    el("path", { d: "M12.2 18.4 C8.9 16.9 7.7 12.7 9.3 9.2 C10.3 7 12.3 6 13.9 6.7", fill: "none", "stroke-width": 0.75, opacity: 0.9 }, c);
+    [[9.4, 15.3], [8.9, 12.8], [9.5, 10.4], [10.8, 8.5]].forEach((p) => el("circle", { cx: p[0], cy: p[1], r: 0.7, "stroke-width": 0 }, c));
+    el("circle", { cx: 13.7, cy: 9, r: 1, "stroke-width": 0 }, c);
+  };
+  const hennaDots = (g) => {
+    const c = el("g", { fill: HENNA, stroke: "none" }, g);
+    el("circle", { cx: 12, cy: 12, r: 1.7 }, c);
+    for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; el("circle", { cx: (12 + Math.cos(a) * 3.5).toFixed(2), cy: (12 + Math.sin(a) * 3.5).toFixed(2), r: 1 }, c); }
+    [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([dx, dy]) => {
+      [6.2, 8.5, 10.6].forEach((d, i) => el("circle", { cx: (12 + dx * d).toFixed(2), cy: (12 + dy * d).toFixed(2), r: (1 - i * 0.22).toFixed(2) }, c));
+    });
+  };
+
   // Build a small standalone SVG of an icon for a button.
   function iconSVG(drawFn, size = 34) {
     const s = el("svg", { viewBox: "0 0 24 24", width: size, height: size });
@@ -211,9 +273,24 @@
   const STICKER_DRAW = {};
   PACKS.forEach((p) => p.items.forEach((it) => { if (it.id !== "glitter") STICKER_DRAW[it.id] = it.draw; }));
 
+  // Henna designs stamped onto the skin (not the nails). Ids are "h-*" so
+  // they're easy to tell apart from sticker ids everywhere.
+  const HENNA_MOTIFS = [
+    { id: "h-flower", label: "Flower", draw: hennaFlower },
+    { id: "h-sun", label: "Sun", draw: hennaSun },
+    { id: "h-lotus", label: "Lotus", draw: hennaLotus },
+    { id: "h-paisley", label: "Paisley", draw: hennaPaisley },
+    { id: "h-vine", label: "Vine", draw: hennaVine },
+    { id: "h-dots", label: "Dots", draw: hennaDots },
+  ];
+  const HENNA_DRAW = {};
+  HENNA_MOTIFS.forEach((m) => (HENNA_DRAW[m.id] = m.draw));
+  const isHenna = (m) => typeof m === "string" && m.slice(0, 2) === "h-";
+
   const CATEGORIES = [
     { id: "colors", ico: "💅", label: "Colors" },
     { id: "stickers", ico: "✨", label: "Stickers" },
+    { id: "henna", ico: "🪷", label: "Henna" },
     { id: "shapes", ico: "💠", label: "Shapes" },
     { id: "skin", ico: "✋", label: "Skin" },
     { id: "erase", ico: "🧽", label: "Wipe" },
@@ -247,11 +324,19 @@
   const nailMeta = {}; // id -> {cx,cy,rx,ry,surface}
   const surfaceShape = { hand: "oval", foot: "oval" };
 
+  // Henna lives in its own layer per surface (kept separate from the nails so
+  // each hand/foot remembers its own design). Marks track their centre so the
+  // wipe tool can find the one nearest a tap.
+  const hennaLayer = { hand: null, foot: null };
+  const hennaMarks = { hand: [], foot: [] };
+  const HENNA_SIZE = 56;
+
   let currentSurface = "hand";
   let currentColor = POLISHES[0].value;
   let mode = "paint"; // "paint" | "erase" | "glitter" | <stickerId>
   let currentCategory = "colors";
   let currentPack = "cute";
+  let currentHenna = HENNA_MOTIFS[0].id;
   let skinIndex = 1;
   let SKIN = SKIN_TONES[skinIndex].skin;
   let SKIN_SHADE = SKIN_TONES[skinIndex].shade;
@@ -392,6 +477,9 @@
   buildHand(handG);
   const footG = el("g", { class: "surface", "data-surface": "foot", style: "display:none" }, svg);
   buildFoot(footG);
+  // Henna layer sits on top of each surface's skin; marks never eat taps.
+  hennaLayer.hand = el("g", { class: "henna-layer" }, handG);
+  hennaLayer.foot = el("g", { class: "henna-layer" }, footG);
   handWrap.appendChild(svg);
 
   /* =========================================================
@@ -515,11 +603,75 @@
     const id = hit.getAttribute("data-nail");
     hit.addEventListener("pointerdown", (e) => {
       e.preventDefault();
+      // In henna mode a nail tap should stamp henna on the skin instead, so
+      // let it bubble up to the surface handler below.
+      if (isHenna(mode)) return;
       applyToNail(id);
       spawnSparkles(e.clientX, e.clientY);
       playSound(mode);
+      e.stopPropagation(); // a nail tap shouldn't also wipe nearby henna
     });
   });
+
+  /* ---- Henna: stamp motifs anywhere on the skin ----------- */
+  // Map a screen point into the surface layer's own coordinates so a stamped
+  // motif lands exactly under the finger, even while the hand gently floats.
+  function svgPoint(clientX, clientY, elem) {
+    const ctm = elem.getScreenCTM();
+    if (!ctm) return null;
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    const p = pt.matrixTransform(ctm.inverse());
+    return { x: p.x, y: p.y };
+  }
+  function placeHenna(surface, x, y, id) {
+    const draw = HENNA_DRAW[id];
+    if (!draw) return;
+    const scale = HENNA_SIZE / 24;
+    const rot = (rand() * 30 - 15).toFixed(1); // a little organic tilt each time
+    const mark = el("g", { class: "henna-mark" }, hennaLayer[surface]);
+    const box = el("g", {
+      transform: `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${rot}) scale(${scale.toFixed(3)}) translate(-12,-12)`,
+    }, mark);
+    draw(el("g", { class: prefersReduce() ? "" : "henna-pop" }, box));
+    hennaMarks[surface].push({ node: mark, x, y });
+  }
+  function removeNearestHenna(surface, x, y) {
+    const arr = hennaMarks[surface];
+    let best = -1, bestD = 40 * 40; // only wipe a mark the tap is actually near
+    for (let i = 0; i < arr.length; i++) {
+      const dx = arr[i].x - x, dy = arr[i].y - y, d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    if (best < 0) return false;
+    const node = arr[best].node;
+    arr.splice(best, 1);
+    if (prefersReduce()) { node.remove(); return true; }
+    node.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: "ease-out", fill: "forwards" });
+    // Remove on a timer (robust even if the animation is throttled/paused).
+    setTimeout(() => node.remove(), 230);
+    return true;
+  }
+  function clearHenna(surface) {
+    const layer = hennaLayer[surface];
+    while (layer.firstChild) layer.removeChild(layer.firstChild);
+    hennaMarks[surface] = [];
+  }
+  function onSurfaceTap(e, surface) {
+    if (!isHenna(mode) && mode !== "erase") return;
+    const p = svgPoint(e.clientX, e.clientY, hennaLayer[surface]);
+    if (!p) return;
+    if (isHenna(mode)) {
+      placeHenna(surface, p.x, p.y, mode);
+      spawnSparkles(e.clientX, e.clientY);
+      playSound("henna");
+    } else if (removeNearestHenna(surface, p.x, p.y)) {
+      spawnSparkles(e.clientX, e.clientY);
+      playSound("erase");
+    }
+  }
+  handG.addEventListener("pointerdown", (e) => { e.preventDefault(); onSurfaceTap(e, "hand"); });
+  footG.addEventListener("pointerdown", (e) => { e.preventDefault(); onSurfaceTap(e, "foot"); });
 
   /* ---- Nail shapes: reshape all nails on a surface -------- */
   function setShape(shape) {
@@ -588,6 +740,7 @@
     if (kind === "erase") note(320, 0, 0.16, "sine", 0.12);
     else if (kind === "glitter") { note(784, 0, 0.12, "triangle"); note(988, 0.06, 0.12, "triangle"); note(1319, 0.12, 0.14, "triangle"); }
     else if (kind === "paint") { note(523, 0, 0.14, "triangle"); note(784, 0.02, 0.14, "sine", 0.1); }
+    else if (kind === "henna") { note(587, 0, 0.13, "sine", 0.13); note(392, 0.05, 0.17, "sine", 0.11); }
     else { note(880, 0, 0.1, "sine"); note(1319, 0.07, 0.13, "sine"); }
   }
   function chime() { if (!soundOn) return; ensureAudio(); note(659, 0, 0.12, "sine"); note(494, 0.08, 0.12, "sine"); note(392, 0.16, 0.16, "sine"); }
@@ -613,6 +766,7 @@
     currentCategory = id;
     tabsEl.querySelectorAll(".tab").forEach((t) => t.classList.toggle("sel", t.dataset.cat === id));
     if (id === "erase") mode = "erase";
+    else if (id === "henna") mode = currentHenna;
     renderPanel();
   }
 
@@ -669,6 +823,23 @@
       });
       panelEl.appendChild(grid);
 
+    } else if (currentCategory === "henna") {
+      const grid = document.createElement("div");
+      grid.className = "sticker-grid";
+      HENNA_MOTIFS.forEach((it) => {
+        const b = optButton("tool henna-tool", iconSVG(it.draw), (btn) => {
+          currentHenna = it.id; mode = it.id; markSel(btn); playSound("henna");
+        });
+        b.setAttribute("aria-label", it.label);
+        if (mode === it.id) b.classList.add("sel");
+        grid.appendChild(b);
+      });
+      panelEl.appendChild(grid);
+      const hint = document.createElement("div");
+      hint.className = "henna-hint";
+      hint.textContent = "Pick a design, then tap the hand or foot 🖐️";
+      panelEl.appendChild(hint);
+
     } else if (currentCategory === "shapes") {
       SHAPES.forEach((sh) => {
         const s = el("svg", { viewBox: "0 0 40 48", width: 34, height: 40 });
@@ -691,7 +862,7 @@
       hint.className = "erase-hint";
       hint.appendChild(iconSVG(drawEraser, 44));
       const txt = document.createElement("span");
-      txt.textContent = "Tap a nail to wipe it clean";
+      txt.textContent = "Tap a nail — or some henna — to wipe it away";
       hint.appendChild(txt);
       panelEl.appendChild(hint);
     }
@@ -726,6 +897,7 @@
   resetBtn.addEventListener("click", () => {
     const ids = currentSurface === "hand" ? HAND_NAILS : FOOT_NAILS;
     ids.forEach((id) => { state[id] = freshNail(); renderNail(id); });
+    clearHenna(currentSurface);
     chime();
   });
 
