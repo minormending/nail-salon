@@ -152,9 +152,10 @@
   }
 
   // An ornate concentric mandala centred at (cx,cy) with outer radius R.
-  function buildMandala(parent, cx, cy, R, look) {
+  function buildMandala(parent, cx, cy, R, look, opts = {}) {
     const o = look.mandala, s = R / 46, sw = Math.max(0.7, R * 0.02);
     const g = el("g", { fill: "none", stroke: HENNA, "stroke-width": sw.toFixed(2), "stroke-linejoin": "round", "stroke-linecap": "round" }, parent);
+    if (opts.ghost) { g.setAttribute("opacity", "0.4"); g.setAttribute("stroke-dasharray", `${(sw * 1.5).toFixed(1)} ${(sw * 1.7).toFixed(1)}`); }
     const dot = (x, y, r) => el("circle", { cx: x.toFixed(1), cy: y.toFixed(1), r: Math.max(0.4, r).toFixed(2), fill: HENNA, stroke: "none" }, g);
     const ring = (rad, swm) => el("circle", { cx, cy, r: (rad * s).toFixed(1), "stroke-width": (sw * swm).toFixed(2) }, g);
     const petal = (ang, ri, ro, w, swm) => el("path", { d: petalPath(cx, cy, ang, ri * s, ro * s, w * s), "stroke-width": (sw * swm).toFixed(2) }, g);
@@ -181,9 +182,10 @@
   }
 
   // A vine sprig running down a finger/toe from (x,ytop) to (x,ybot).
-  function buildSprig(parent, x, ytop, ybot, look) {
+  function buildSprig(parent, x, ytop, ybot, look, opts = {}) {
     const kind = look.sprig, len = ybot - ytop, sw = 1.7;
     const g = el("g", { fill: "none", stroke: HENNA, "stroke-width": sw, "stroke-linecap": "round", "stroke-linejoin": "round" }, parent);
+    if (opts.ghost) { g.setAttribute("opacity", "0.4"); g.setAttribute("stroke-dasharray", `${(sw * 1.5).toFixed(1)} ${(sw * 1.7).toFixed(1)}`); }
     const bud = len > 34;
     el("path", { d: `M${x},${(ytop + (bud ? 8 : 2)).toFixed(1)} L${x},${(ybot - 5).toFixed(1)}` }, g); // stem
     if (bud) el("path", { d: `M${x},${(ytop + 8).toFixed(1)} C${x - 6},${ytop} ${x - 6},${ytop - 8} ${x},${(ytop - 12).toFixed(1)} C${x + 6},${ytop} ${x + 6},${ytop} ${x},${(ytop + 8).toFixed(1)} Z`, "stroke-width": sw * 0.9 }, g);
@@ -672,14 +674,17 @@
     return { x: p.x, y: p.y };
   }
   const zonesFor = (surface) => (surface === "hand" ? HAND_ZONES : FOOT_ZONES);
-  function renderZone(surface, zone, look) {
-    const zg = el("g", { class: "henna-zone", "data-zone": zone.id }, hennaLayer[surface]);
-    if (zone.kind === "mandala") buildMandala(zg, zone.cx, zone.cy, zone.R, look);
+
+  // Draw one zone, either as a faint dashed stencil (`ghost`) or the real,
+  // fully-inked henna. Returns the group node.
+  function drawZone(surface, zone, look, ghost) {
+    const zg = el("g", { class: ghost ? "henna-zone henna-guide" : "henna-zone", "data-zone": zone.id }, hennaLayer[surface]);
+    if (zone.kind === "mandala") buildMandala(zg, zone.cx, zone.cy, zone.R, look, { ghost });
     else {
       const inner = zone.rotDeg !== undefined ? el("g", { transform: `rotate(${zone.rotDeg} ${zone.rotCx} ${zone.rotCy})` }, zg) : zg;
-      buildSprig(inner, zone.x, zone.ytop, zone.ybot, look);
+      buildSprig(inner, zone.x, zone.ytop, zone.ybot, look, { ghost });
     }
-    if (!prefersReduce()) {
+    if (!ghost && !prefersReduce()) {
       zg.style.transformBox = "fill-box";
       zg.style.transformOrigin = "center";
       zg.animate([{ opacity: 0, transform: "scale(0.55)" }, { opacity: 1, transform: "scale(1)" }],
@@ -687,40 +692,61 @@
     }
     return zg;
   }
+  // Ink a zone in (guide -> real henna), remembering which look it used.
   function fillZone(surface, zone, look) {
-    const map = hennaZones[surface];
-    if (map[zone.id]) map[zone.id].remove(); // replace any existing design
-    map[zone.id] = renderZone(surface, zone, look);
+    const cur = hennaZones[surface][zone.id];
+    if (cur) cur.node.remove();
+    hennaZones[surface][zone.id] = { node: drawZone(surface, zone, look, false), filled: true, lookId: look.id };
+  }
+  // Show faint stencils for every not-yet-inked zone, in the given look.
+  function showGuides(surface, look) {
+    zonesFor(surface).forEach((z) => {
+      const cur = hennaZones[surface][z.id];
+      if (cur && cur.filled) return;               // keep real henna as-is
+      if (cur && cur.lookId === look.id) return;   // guide already shows this look
+      if (cur) cur.node.remove();                  // refresh guide to the new look
+      hennaZones[surface][z.id] = { node: drawZone(surface, z, look, true), filled: false, lookId: look.id };
+    });
+  }
+  // Remove all stencils (both surfaces); real henna is untouched.
+  function hideGuides() {
+    ["hand", "foot"].forEach((s) => {
+      const map = hennaZones[s];
+      Object.keys(map).forEach((id) => { if (!map[id].filled) { map[id].node.remove(); delete map[id]; } });
+    });
   }
   function clearZoneNode(surface, zone) {
-    const map = hennaZones[surface], node = map[zone.id];
-    if (!node) return false;
+    const map = hennaZones[surface], cur = map[zone.id];
+    if (!cur || !cur.filled) return false;
     delete map[zone.id];
-    if (prefersReduce()) { node.remove(); return true; }
-    node.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: "ease-out", fill: "forwards" });
-    setTimeout(() => node.remove(), 230); // robust even if the animation is paused
+    if (prefersReduce()) { cur.node.remove(); return true; }
+    cur.node.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: "ease-out", fill: "forwards" });
+    setTimeout(() => cur.node.remove(), 230); // robust even if the animation is paused
     return true;
   }
   function clearHenna(surface) {
     const layer = hennaLayer[surface];
     while (layer.firstChild) layer.removeChild(layer.firstChild);
     hennaZones[surface] = {};
+    if (currentCategory === "henna") showGuides(surface, currentLook);
   }
   function fillAllZones(surface) {
     let delay = 0;
     zonesFor(surface).forEach((z) => {
-      if (hennaZones[surface][z.id]) return;
+      const cur = hennaZones[surface][z.id];
+      if (cur && cur.filled) return;
       setTimeout(() => fillZone(surface, z, currentLook), delay);
       delay += 90; // stagger so it "draws on" piece by piece
     });
     playSound("henna");
   }
-  // Find the zone nearest a tap (optionally only filled ones) within reach.
-  // `maxDist` overrides the zone's own threshold when given.
+  // Nearest zone to a tap. `filledOnly` limits to inked zones; `maxDist`
+  // overrides the zone's own reach.
   function nearestZone(surface, x, y, filledOnly, maxDist) {
     let best = null, bestD = Infinity;
     zonesFor(surface).forEach((z) => {
-      if (filledOnly && !hennaZones[surface][z.id]) return;
+      const cur = hennaZones[surface][z.id];
+      if (filledOnly && !(cur && cur.filled)) return;
       const d = zoneDist(z, x, y);
       if (d < bestD) { bestD = d; best = z; }
     });
@@ -839,11 +865,13 @@
   });
 
   function selectCategory(id) {
+    if (currentCategory === "henna" && id !== "henna") hideGuides(); // leaving henna
     currentCategory = id;
     tabsEl.querySelectorAll(".tab").forEach((t) => t.classList.toggle("sel", t.dataset.cat === id));
     if (id === "erase") mode = "erase";
     else if (id === "henna") mode = "henna";
     renderPanel();
+    if (id === "henna") showGuides(currentSurface, currentLook); // stencil the design
   }
 
   function optButton(extraClass, child, onPick) {
@@ -906,6 +934,7 @@
       HENNA_LOOKS.forEach((lk) => {
         const b = optButton("tool henna-look", mandalaIcon(lk), (btn) => {
           currentLook = lk; markSel(btn); playSound("henna");
+          showGuides(currentSurface, currentLook); // preview the new look on empty parts
         });
         b.setAttribute("aria-label", lk.label);
         if (currentLook.id === lk.id) b.classList.add("sel");
@@ -920,7 +949,7 @@
       panelEl.appendChild(allBtn);
       const hint = document.createElement("div");
       hint.className = "henna-hint";
-      hint.textContent = "Tap the back of the hand or a finger to add henna";
+      hint.textContent = "Tap the faded parts to fill them in ✍️";
       panelEl.appendChild(hint);
 
     } else if (currentCategory === "shapes") {
@@ -973,6 +1002,7 @@
     surfaceBtn.textContent = currentSurface === "hand" ? "✋" : "🦶";
     svg.setAttribute("aria-label", currentSurface === "hand" ? "A hand to paint nails on" : "A foot to paint toenails on");
     if (currentCategory === "shapes") renderPanel(); // reflect this surface's shape
+    if (currentCategory === "henna") showGuides(currentSurface, currentLook); // stencil this surface
     blip();
   });
 
@@ -1005,6 +1035,7 @@
   saveBtn.addEventListener("click", () => {
     const box = svg.viewBox.baseVal, scale = 2.4, W = box.width * scale, H = box.height * scale;
     const clone = svg.cloneNode(true);
+    clone.querySelectorAll(".henna-guide").forEach((n) => n.remove()); // don't save the faint stencil
     clone.setAttribute("width", box.width);
     clone.setAttribute("height", box.height);
     const xml = new XMLSerializer().serializeToString(clone);

@@ -19,12 +19,13 @@ A gentle, ad-free nail salon game made for little kids (about 5 years old).
   rainbows, glitter), **Sea** (shells, starfish, fish, pearls),
   **Party** (balloons, cake, gifts, crowns), and **Gems** (a diamond and
   shiny colored rhinestones).
-- 🪷 **Henna (mehndi)** — a guided, salon-style design: pick a *look*
-  (**Bloom**, **Star**, or **Dotty**) and tap the back of the hand to place an
-  ornate mandala, or a finger/toe to add a matching vine sprig — each lands in
-  the right spot, sized and angled for you. Tap **✨ Fill it all** to do the
-  whole design at once. Reddish-brown like a real stain; each hand and foot
-  keeps its own design.
+- 🪷 **Henna (mehndi)** — a guided, colour-in design. Pick a *look*
+  (**Bloom**, **Star**, or **Dotty**) and a faint dashed **stencil** of the
+  whole design appears — an ornate mandala on the back of the hand and a
+  matching sprig down each finger/toe. Tap any faded part to **ink it in** in
+  reddish-brown, one piece at a time. Mix looks between taps to **combine
+  designs** (e.g. a Bloom mandala with Star fingers), or tap **✨ Fill it all**
+  to complete it at once. Each hand and foot keeps its own design.
 - 🦶 **Hands *and* toes** — tap the top-left button to switch between doing a
   manicure and a pedicure. Each keeps its own design.
 - ✋ **Skin tones** — pick a hand that looks like theirs.
