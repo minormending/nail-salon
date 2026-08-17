@@ -181,21 +181,22 @@
     return g;
   }
 
-  // A vine sprig running down a finger/toe from (x,ytop) to (x,ybot).
+  // A vine sprig running down a finger from (x,ytop) to (x,ybot). Nothing is
+  // ever drawn above `ytop`, so it stays clear of the nail.
   function buildSprig(parent, x, ytop, ybot, look, opts = {}) {
     const kind = look.sprig, len = ybot - ytop, sw = 1.7;
     const g = el("g", { fill: "none", stroke: HENNA, "stroke-width": sw, "stroke-linecap": "round", "stroke-linejoin": "round" }, parent);
     if (opts.ghost) { g.setAttribute("opacity", "0.4"); g.setAttribute("stroke-dasharray", `${(sw * 1.5).toFixed(1)} ${(sw * 1.7).toFixed(1)}`); }
-    const bud = len > 34;
-    el("path", { d: `M${x},${(ytop + (bud ? 8 : 2)).toFixed(1)} L${x},${(ybot - 5).toFixed(1)}` }, g); // stem
-    if (bud) el("path", { d: `M${x},${(ytop + 8).toFixed(1)} C${x - 6},${ytop} ${x - 6},${ytop - 8} ${x},${(ytop - 12).toFixed(1)} C${x + 6},${ytop} ${x + 6},${ytop} ${x},${(ytop + 8).toFixed(1)} Z`, "stroke-width": sw * 0.9 }, g);
-    const n = Math.max(1, Math.min(6, Math.round(len / 26)));
-    const step = (len - (bud ? 20 : 10)) / n;
+    // A small top bud whose tip sits exactly at ytop and whose body hangs below.
+    el("path", { d: `M${x},${ytop} C${x - 4.5},${(ytop + 5).toFixed(1)} ${x - 4.5},${(ytop + 11).toFixed(1)} ${x},${(ytop + 13).toFixed(1)} C${x + 4.5},${(ytop + 11).toFixed(1)} ${x + 4.5},${(ytop + 5).toFixed(1)} ${x},${ytop} Z`, "stroke-width": sw * 0.9 }, g);
+    el("path", { d: `M${x},${(ytop + 12).toFixed(1)} L${x},${(ybot - 5).toFixed(1)}` }, g); // stem
+    const y0 = ytop + 20, y1 = ybot - 8;
+    const n = y1 > y0 ? Math.max(1, Math.min(6, Math.round((y1 - y0) / 20) + 1)) : 0;
     for (let i = 0; i < n; i++) {
-      const y = ytop + (bud ? 16 : 6) + i * step;
-      if (kind === "fern") { el("path", { d: `M${x},${y.toFixed(1)} L${x - 10},${(y + 9).toFixed(1)}` }, g); el("path", { d: `M${x},${y.toFixed(1)} L${x + 10},${(y + 9).toFixed(1)}` }, g); }
-      else if (kind === "leaf") { el("ellipse", { cx: x - 8, cy: y + 4, rx: 3, ry: 6, transform: `rotate(-35 ${x - 8} ${(y + 4).toFixed(1)})`, "stroke-width": sw * 0.85 }, g); el("ellipse", { cx: x + 8, cy: y + 4, rx: 3, ry: 6, transform: `rotate(35 ${x + 8} ${(y + 4).toFixed(1)})`, "stroke-width": sw * 0.85 }, g); }
-      else { el("circle", { cx: x - 8, cy: (y + 3).toFixed(1), r: 2.1, fill: HENNA, stroke: "none" }, g); el("circle", { cx: x + 8, cy: (y + 3).toFixed(1), r: 2.1, fill: HENNA, stroke: "none" }, g); }
+      const y = n > 1 ? y0 + (y1 - y0) * i / (n - 1) : (y0 + y1) / 2;
+      if (kind === "fern") { el("path", { d: `M${x},${y.toFixed(1)} L${x - 10},${(y + 8).toFixed(1)}` }, g); el("path", { d: `M${x},${y.toFixed(1)} L${x + 10},${(y + 8).toFixed(1)}` }, g); }
+      else if (kind === "leaf") { el("ellipse", { cx: x - 8, cy: y, rx: 3, ry: 6, transform: `rotate(-35 ${x - 8} ${y.toFixed(1)})`, "stroke-width": sw * 0.85 }, g); el("ellipse", { cx: x + 8, cy: y, rx: 3, ry: 6, transform: `rotate(35 ${x + 8} ${y.toFixed(1)})`, "stroke-width": sw * 0.85 }, g); }
+      else { el("circle", { cx: x - 8, cy: y.toFixed(1), r: 2.1, fill: HENNA, stroke: "none" }, g); el("circle", { cx: x + 8, cy: y.toFixed(1), r: 2.1, fill: HENNA, stroke: "none" }, g); }
     }
     el("circle", { cx: x, cy: (ybot - 2).toFixed(1), r: 2.4, fill: HENNA, stroke: "none" }, g);
     return g;
@@ -327,21 +328,19 @@
      A big mandala on the back, and a sprig down each finger/toe.
      Sprigs store a hit-test segment (`_seg`) in surface coordinates;
      the thumb's is rotated to follow the thumb. */
+  // Sprig `ytop` sits clear below each nail (nail bottom ≈ finger top + 48).
   const HAND_ZONES = [
     { id: "h-back", kind: "mandala", cx: 176, cy: 332, R: 66 },
-    { id: "h-index", kind: "sprig", x: 112, ytop: 154, ybot: 248 },
-    { id: "h-middle", kind: "sprig", x: 160, ytop: 122, ybot: 248 },
-    { id: "h-ring", kind: "sprig", x: 208, ytop: 154, ybot: 248 },
-    { id: "h-pinky", kind: "sprig", x: 250, ytop: 200, ybot: 250 },
-    { id: "h-thumb", kind: "sprig", x: 96, ytop: 262, ybot: 330, rotDeg: -38, rotCx: 96, rotCy: 300 },
+    { id: "h-index", kind: "sprig", x: 112, ytop: 162, ybot: 250 },
+    { id: "h-middle", kind: "sprig", x: 160, ytop: 130, ybot: 252 },
+    { id: "h-ring", kind: "sprig", x: 208, ytop: 162, ybot: 250 },
+    { id: "h-pinky", kind: "sprig", x: 250, ytop: 208, ybot: 250 },
+    { id: "h-thumb", kind: "sprig", x: 96, ytop: 268, ybot: 332, rotDeg: -38, rotCx: 96, rotCy: 300 },
   ];
+  // The foot gets just the mandala — the toenails are too close together to
+  // fit a sprig without overlapping them.
   const FOOT_ZONES = [
-    { id: "f-top", kind: "mandala", cx: 172, cy: 330, R: 48 },
-    { id: "f-toe1", kind: "sprig", x: 118, ytop: 178, ybot: 212 },
-    { id: "f-toe2", kind: "sprig", x: 164, ytop: 168, ybot: 208 },
-    { id: "f-toe3", kind: "sprig", x: 194, ytop: 176, ybot: 208 },
-    { id: "f-toe4", kind: "sprig", x: 220, ytop: 188, ybot: 208 },
-    { id: "f-toe5", kind: "sprig", x: 244, ytop: 200, ybot: 210 },
+    { id: "f-top", kind: "mandala", cx: 172, cy: 326, R: 46 },
   ];
   const rotPt = (x, y, cx, cy, deg) => { const a = deg * Math.PI / 180, s = Math.sin(a), c = Math.cos(a), dx = x - cx, dy = y - cy; return [cx + dx * c - dy * s, cy + dx * s + dy * c]; };
   [...HAND_ZONES, ...FOOT_ZONES].forEach((z) => {
