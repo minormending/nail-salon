@@ -654,15 +654,16 @@
     }
     return false;
   }
-  function pointInFocusedNail(clientX, clientY) {
-    if (!zoomNail) return false;
-    const fill = fillEl(zoomNail);
+  function pointInNail(id, clientX, clientY) {
+    const fill = fillEl(id);
+    if (!fill) return false;
     const pt = svg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
     const p = pt.matrixTransform(fill.getScreenCTM().inverse());
     if (fill.isPointInFill) { try { return fill.isPointInFill(p); } catch (_) { /* fall through */ } }
-    const m = nailMeta[zoomNail];
+    const m = nailMeta[id];
     return ((p.x - m.cx) / m.rx) ** 2 + ((p.y - m.cy) / m.ry) ** 2 <= 1.1;
   }
+  const pointInFocusedNail = (x, y) => !!zoomNail && pointInNail(zoomNail, x, y);
 
   // Apply the current tool to a nail at a tapped point (while zoomed in).
   function applyToolAt(id, clientX, clientY) {
@@ -703,19 +704,28 @@
   }
   function targetVBForNail(id) {
     const m = nailMeta[id], c = nailRootCenter(id);
-    const vh = Math.min(160, Math.max(96, m.ry * 5)), vw = vh * 320 / 470;
+    // width chosen so the neighbouring nails show on the left/right as whole
+    // nails (not clipped slivers); height follows the SVG's aspect ratio.
+    const vw = Math.min(150, Math.max(100, m.rx * 6.8)), vh = vw * 470 / 320;
     return [c.x - vw / 2, c.y - vh / 2, vw, vh];
+  }
+  // Slide over to an adjacent nail without zooming out.
+  function switchZoom(id) {
+    svg.querySelectorAll(".nail-focused").forEach((n) => n.classList.remove("nail-focused"));
+    zoomNail = id;
+    const hitG = svg.querySelector(`.nailhit[data-nail="${id}"]`);
+    if (hitG) hitG.classList.add("nail-focused");
+    animateViewBox(targetVBForNail(id));
+    blip();
   }
   let zoomHintShown = false;
   function zoomIn(id) {
     zoomNail = id;
     app.classList.add("focus-mode"); // pause the float + dim the scene so the nail holds still
     const hitG = svg.querySelector(`.nailhit[data-nail="${id}"]`);
-    if (hitG) hitG.classList.add("nail-focused"); // hide the neighbouring fingers/toes
-    if (mode === "paint") animatePaint(id, currentColor);        // whole-nail tools act at once
-    else if (mode === "glitter") { state[id].glitter = true; renderNail(id); popNail(id); }
+    if (hitG) hitG.classList.add("nail-focused"); // highlight it; neighbours dim on the sides
     animateViewBox(targetVBForNail(id));
-    if (!zoomHintShown) { showToast("Tap the nail to decorate • tap outside when done ✨"); zoomHintShown = true; }
+    if (!zoomHintShown) { showToast("Decorate the big nail • tap a side nail to switch • tap outside when done"); zoomHintShown = true; }
   }
   function zoomOut() {
     if (!zoomNail) return;
@@ -735,7 +745,11 @@
     if (zoomNail) {
       if (isHenna(mode)) { zoomOut(); return; }
       e.preventDefault(); e.stopPropagation();
-      if (pointInFocusedNail(e.clientX, e.clientY)) applyToolAt(zoomNail, e.clientX, e.clientY);
+      if (pointInFocusedNail(e.clientX, e.clientY)) { applyToolAt(zoomNail, e.clientX, e.clientY); return; }
+      // Tapping a side nail slides over to it; tapping empty skin/space exits.
+      const hit = e.target.closest && e.target.closest(".nailhit");
+      const oid = hit && hit.getAttribute("data-nail");
+      if (oid && oid !== zoomNail && pointInNail(oid, e.clientX, e.clientY)) switchZoom(oid);
       else zoomOut();
       return;
     }
