@@ -2,6 +2,8 @@
 
 A gentle, ad-free nail salon game made for little kids (about 5 years old).
 
+### ▶️ [Play it now](https://minormending.github.io/nail-salon/)
+
 - **No ads. No paywalls. No sign-ups. No internet needed.** Just play.
 - Runs in any web browser — on a computer, phone, or tablet.
 - Big, friendly buttons and soft pastel colors designed for small hands.
@@ -63,6 +65,8 @@ python3 -m http.server 8000
 Then open http://localhost:8000 in your browser.
 
 ## Play it online (GitHub Pages)
+
+**▶️ Live demo: https://minormending.github.io/nail-salon/**
 
 This repo publishes itself to **GitHub Pages** — every push to `main` puts the
 latest version online automatically, no build step and no server to run.
