@@ -24,20 +24,24 @@ A gentle, ad-free nail salon game made for little kids (about 5 years old).
   rainbows, glitter), **Sea** (shells, starfish, fish, pearls),
   **Party** (balloons, cake, gifts, crowns), and **Gems** (a diamond and
   shiny colored rhinestones).
-- 🪷 **Henna (mehndi)** — a guided, colour-in design. Pick a *look*
-  (**Bloom**, **Star**, or **Dotty**) and a faint dashed **stencil** of the
-  whole design appears — an ornate mandala on the back of the hand and a
-  matching sprig down each finger/toe. Tap any faded part to **ink it in** in
-  reddish-brown, one piece at a time. Mix looks between taps to **combine
-  designs** (e.g. a Bloom mandala with Star fingers), or tap **✨ Fill it all**
-  to complete it at once. Each hand and foot keeps its own design.
+- 🪷 **Henna (mehndi)** — a guided, colour-in design. Pick a *look* — floral
+  **Bloom**, geometric **Star**, or dot-work **Dotty** (each one looks quite
+  different) — and a faint dashed **stencil** of the whole design appears. On
+  the hand that's an ornate mandala on the back plus a matching vine down each
+  finger; on the foot, an instep mandala with little drops under the toes and a
+  vine trailing to the heel. Tap any faded part and it **draws itself on** in
+  reddish-brown — a henna cone dabs it while the lines ink in. Mix looks
+  between taps to **combine designs** (e.g. a Bloom mandala with Star fingers),
+  or tap **✨ Fill it all** to complete it at once. Each hand and foot keeps its
+  own design.
 - 🦶 **Hands *and* toes** — tap the top-left button to switch between doing a
   manicure and a pedicure. Each keeps its own design.
 - ✋ **Skin tones** — pick a hand that looks like theirs.
 - 🧽 **Wipe** one nail clean, or 🧼 **start over**.
 - 📸 **Save a picture** of the design to keep.
 
-Every tap gives a little sparkle, a springy pop, and a soft chime. 🎵
+Every tap gives a little sparkle, a springy pop, and a soft chime — polish
+sweeps on with a brush, and henna draws itself on with a cone. 🎵
 
 ## How to play
 
