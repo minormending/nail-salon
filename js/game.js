@@ -1319,4 +1319,18 @@
 
   /* ---- Go! ----------------------------------------------- */
   selectCategory("colors");
+
+  /* ---- The front door ------------------------------------ */
+  // The same one the other games in the suite open on; the markup and the fade
+  // are suite/landing.js. It earns its place here twice over: it is where the
+  // salon says its own name, and the tap on it is what lets WebAudio start, so
+  // the first sparkle is not silent on a freshly opened tab.
+  Landing.open({
+    host: "#door",
+    name: "Nail Salon",
+    lede: "Paint, sparkle, and start again as many times as you like.",
+    onStart: ensureAudio,
+    onGoing: () => document.body.classList.remove("is-landing"),
+    onLeave: () => { document.getElementById("door").hidden = true; },
+  });
 })();

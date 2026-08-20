@@ -9,9 +9,17 @@
   <title>✨ Nail Salon ✨</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💅</text></svg>" />
   <link rel="stylesheet" href="css/styles.css" />
+  <!-- Vendored from minormending/kidsuite; see suite/. Loaded after this game's
+       own stylesheet so the shared rules settle any tie with it. -->
+  <link rel="stylesheet" href="suite/landing.css" />
 </head>
-<body>
+<body class="is-landing">
   <div id="backdrop" aria-hidden="true"></div>
+
+  <!-- The front door, the same one the other games open on. It renders in
+       here; markup and fade come from suite/landing.js. The tap is also what
+       lets WebAudio run, so the first chime is not silent on iOS. -->
+  <div id="door" class="landing-screen"></div>
   <div id="app">
     <header id="topbar">
       <h1 class="title">✨ Nail Salon ✨</h1>
@@ -40,6 +48,7 @@
 
   <div id="toast" role="status" aria-live="polite"></div>
 
+  <script src="suite/landing.js"></script>
   <script src="js/game.js" defer></script>
 </body>
 </html>

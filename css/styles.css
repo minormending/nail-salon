@@ -28,7 +28,32 @@
   --shadow: 0 10px 26px rgba(150, 90, 130, 0.20);
   --shadow-soft: 0 5px 14px rgba(150, 90, 130, 0.16);
   --tap: clamp(42px, 12.5vw, 64px); /* swatch touch-target size */
+
+  /* The front door's skeleton is in suite/landing.css; the paint is ours.
+     It sits on the same dreamy gradient the game does, so the words fade and
+     the salon is already there behind them. */
+  --ld-ink:     var(--title);
+  --ld-lede:    var(--ink);
+  --ld-cap:     var(--ink);
+  --ld-go-bg:   var(--ring);
+  --ld-go-deep: #d4478c;
 }
+
+/* The door covers the salon but not the drifting background, so opening it
+   walks the child into a room that was already there. */
+.landing-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+
+.landing-screen[hidden] { display: none; }
+
+/* The salon itself waits behind the door and fades up as the words go. */
+#app { transition: opacity 0.4s ease; }
+body.is-landing #app { opacity: 0; pointer-events: none; }
 
 * {
   box-sizing: border-box;
