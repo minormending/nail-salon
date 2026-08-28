@@ -378,7 +378,7 @@
      A big mandala on the back, and a sprig down each finger/toe.
      Sprigs store a hit-test segment (`_seg`) in surface coordinates;
      the thumb's is rotated to follow the thumb. */
-  // Sprig `ytop` sits clear below each nail (nail bottom ≈ finger top + 51).
+  // Sprig `ytop` sits clear below each nail (its cuticle end = finger top + 46).
   const HAND_ZONES = [
     { id: "h-back", kind: "mandala", cx: 176, cy: 332, R: 66 },
     { id: "h-index", kind: "sprig", x: 112, ytop: 162, ybot: 250 },
@@ -447,64 +447,64 @@
       `C${cx - rx * k},${cy + ry} ${cx - rx},${cy + ry * k} ${cx - rx},${cy}` +
       `C${cx - rx},${cy - ry * k} ${cx - rx * k},${cy - ry} ${cx},${cy - ry}Z`;
   }
-  // How wide a flat free edge gets (as a fraction of the nail's half-width) and
-  // the radius its corners ride on. Sitting the corners on a shallow arc lets a
-  // squared-off nail follow the curve of the fingertip instead of hanging off
-  // the sides of it; `nailCy` seats the plate to match.
-  const TIP_HALF = 0.72, TIP_ARC = 1.25;
-  const tipSag = (rx, half) => {
-    const r = TIP_ARC * rx;
-    return r - Math.sqrt(Math.max(r * r - half * half, 0));
-  };
+  // A nail grows out of the cuticle, so that is the end that is pinned: the
+  // plate's `cy + ry`. How far the other end reaches is the shape's own
+  // business, as a multiple of the plate's half-length. The long shapes come
+  // out past 1 and hang off the end of the finger, the way long nails do —
+  // shortening them to fit inside the fingertip instead just strands the nail
+  // partway down the finger.
+  const SHAPE_LEN = { oval: 1, round: 1, almond: 1.18, square: 1.2, coffin: 1.32 };
+  function nailSpan(shape, cy, ry) {
+    const b = cy + ry, half = ry * (SHAPE_LEN[shape] || 1);
+    return { my: b - half, mh: half, t: b - half * 2, b };
+  }
 
-  // A shape is drawn onto a nail plate that runs from `cy - ry` (the free edge,
-  // up at the fingertip) to `cy + ry` (the cuticle). Every shape has to reach
-  // both ends: one that stops short of the free edge leaves the nail stranded
-  // partway down the finger with bare skin above it.
   function shapePath(shape, cx, cy, rx, ry) {
+    const { my, mh, t, b } = nailSpan(shape, cy, ry);
     if (shape === "round") {
-      // Was a centred 82%-height ellipse, which started well below the free
-      // edge. Same length as the others now; wider and blunter than the oval.
-      const t = cy - ry, b = cy + ry, rw = rx * 1.06;
+      // A short nail: it ends at the fingertip rather than past it, and reads
+      // round by being wider and blunter than the oval.
+      const rw = rx * 1.06;
       return `M${cx},${t}` +
-        `C${cx + rw * 0.88},${t} ${cx + rw},${cy - ry * 0.5} ${cx + rw},${cy - ry * 0.02}` +
-        `C${cx + rw},${cy + ry * 0.56} ${cx + rw * 0.6},${b} ${cx},${b}` +
-        `C${cx - rw * 0.6},${b} ${cx - rw},${cy + ry * 0.56} ${cx - rw},${cy - ry * 0.02}` +
-        `C${cx - rw},${cy - ry * 0.5} ${cx - rw * 0.88},${t} ${cx},${t}Z`;
+        `C${cx + rw * 0.88},${t} ${cx + rw},${my - mh * 0.5} ${cx + rw},${my - mh * 0.02}` +
+        `C${cx + rw},${my + mh * 0.56} ${cx + rw * 0.6},${b} ${cx},${b}` +
+        `C${cx - rw * 0.6},${b} ${cx - rw},${my + mh * 0.56} ${cx - rw},${my - mh * 0.02}` +
+        `C${cx - rw},${my - mh * 0.5} ${cx - rw * 0.88},${t} ${cx},${t}Z`;
     }
     if (shape === "almond") {
-      return `M${cx},${cy - ry}` +
-        `C${cx + rx * 0.85},${cy - ry * 0.6} ${cx + rx},${cy - ry * 0.1} ${cx + rx},${cy + ry * 0.15}` +
-        `C${cx + rx},${cy + ry * 0.7} ${cx + rx * 0.55},${cy + ry} ${cx},${cy + ry}` +
-        `C${cx - rx * 0.55},${cy + ry} ${cx - rx},${cy + ry * 0.7} ${cx - rx},${cy + ry * 0.15}` +
-        `C${cx - rx},${cy - ry * 0.1} ${cx - rx * 0.85},${cy - ry * 0.6} ${cx},${cy - ry}Z`;
+      // Long, tapering to a soft point out beyond the fingertip.
+      return `M${cx},${t}` +
+        `C${cx + rx * 0.85},${my - mh * 0.6} ${cx + rx},${my - mh * 0.1} ${cx + rx},${my + mh * 0.15}` +
+        `C${cx + rx},${my + mh * 0.7} ${cx + rx * 0.55},${b} ${cx},${b}` +
+        `C${cx - rx * 0.55},${b} ${cx - rx},${my + mh * 0.7} ${cx - rx},${my + mh * 0.15}` +
+        `C${cx - rx},${my - mh * 0.1} ${cx - rx * 0.85},${my - mh * 0.6} ${cx},${t}Z`;
     }
     if (shape === "square") {
-      // Straight sides and a squared-off tip, but the tip is narrower than the
-      // body and very slightly domed so its corners tuck under the fingertip.
-      const t = cy - ry, b = cy + ry, q = rx * TIP_HALF, s = tipSag(rx, q);
-      return `M${cx - q},${t + s}` +
-        `Q${cx},${t - s * 0.12} ${cx + q},${t + s}` +
-        `C${cx + rx * 0.95},${t + s + ry * 0.1} ${cx + rx},${t + ry * 0.34} ${cx + rx},${t + ry * 0.5}` +
-        `L${cx + rx},${b - ry * 0.42}` +
+      // Long, straight-sided, with a flat free edge overhanging the fingertip.
+      // The edge carries the faintest curve so it does not read as cut off.
+      const q = rx * 0.88, sag = q * 0.14;
+      return `M${cx - q},${t + sag}` +
+        `Q${cx},${t} ${cx + q},${t + sag}` +
+        `C${cx + rx * 0.98},${t + mh * 0.08} ${cx + rx},${t + mh * 0.16} ${cx + rx},${t + mh * 0.26}` +
+        `L${cx + rx},${b - mh * 0.4}` +
         `Q${cx + rx},${b} ${cx + rx * 0.62},${b}` +
         `L${cx - rx * 0.62},${b}` +
-        `Q${cx - rx},${b} ${cx - rx},${b - ry * 0.42}` +
-        `L${cx - rx},${t + ry * 0.5}` +
-        `C${cx - rx},${t + ry * 0.34} ${cx - rx * 0.95},${t + s + ry * 0.1} ${cx - q},${t + s}Z`;
+        `Q${cx - rx},${b} ${cx - rx},${b - mh * 0.4}` +
+        `L${cx - rx},${t + mh * 0.26}` +
+        `C${cx - rx},${t + mh * 0.16} ${cx - rx * 0.98},${t + mh * 0.08} ${cx - q},${t + sag}Z`;
     }
     if (shape === "coffin") {
-      // Widest at the cuticle, tapering to a narrow squared tip that rides the
-      // same arc as the square's, so it too stays inside the fingertip.
-      const t = cy - ry, b = cy + ry, q = rx * 0.56, s = tipSag(rx, q);
-      return `M${cx - q},${t + s}` +
-        `Q${cx},${t - s * 0.25} ${cx + q},${t + s}` +
-        `L${cx + rx * 0.99},${cy + ry * 0.52}` +
-        `Q${cx + rx},${b - ry * 0.1} ${cx + rx * 0.74},${b}` +
-        `L${cx - rx * 0.74},${b}` +
-        `Q${cx - rx},${b - ry * 0.1} ${cx - rx * 0.99},${cy + ry * 0.52}Z`;
+      // The longest of the five: widest at the cuticle, tapering out past the
+      // fingertip to a narrow squared-off tip.
+      const q = rx * 0.44, sag = q * 0.18;
+      return `M${cx - q},${t + sag}` +
+        `Q${cx},${t} ${cx + q},${t + sag}` +
+        `L${cx + rx * 0.99},${b - mh * 0.48}` +
+        `Q${cx + rx},${b - mh * 0.1} ${cx + rx * 0.72},${b}` +
+        `L${cx - rx * 0.72},${b}` +
+        `Q${cx - rx},${b - mh * 0.1} ${cx - rx * 0.99},${b - mh * 0.48}Z`;
     }
-    return ellipsePath(cx, cy, rx, ry); // oval
+    return ellipsePath(cx, my, rx, mh); // oval
   }
 
   /* =========================================================
@@ -551,16 +551,11 @@
   }
 
   /* ---- Nails --------------------------------------------- */
-  // Seat a nail plate against the rounded tip of a finger or toe. A digit is a
-  // stadium, so its tip is a cap of radius w/2 centred at `top + w/2`; drop the
-  // free edge just far enough down that cap for there to be skin under the
-  // widest corners any shape draws, and no further. Toenails used to be seated
-  // by eye and sat a long way back from the tip.
-  function nailCy(top, w, rx, ry) {
-    const R = w / 2, half = Math.min(TIP_HALF * rx + 1.2, R);
-    return top + R - Math.sqrt(R * R - half * half) + ry;
-  }
-  function buildNail(id, cx, cy, rx, ry, parent, surface) {
+  // `base` is the cuticle line — where the nail meets the skin fold. It is the
+  // fixed end; `ry` is the half-length of a plain nail growing up from it, and
+  // each shape reaches its own distance past that (see SHAPE_LEN).
+  function buildNail(id, cx, base, rx, ry, parent, surface) {
+    const cy = base - ry;
     nailMeta[id] = { cx, cy, rx, ry, surface };
     const d = shapePath(surfaceShape[surface], cx, cy, rx, ry);
 
@@ -585,8 +580,7 @@
     el("rect", { x: f.cx - f.w / 2, y: f.top, width: f.w, height: f.bottom - f.top, rx: f.w / 2, fill: SKIN, class: "skin" }, g);
     el("rect", { x: f.cx - f.w / 2, y: f.top, width: f.w, height: f.bottom - f.top, rx: f.w / 2, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, g);
     el("rect", { x: f.cx - f.w * 0.15, y: f.top + 8, width: f.w * 0.3, height: f.bottom - f.top - 14, rx: f.w * 0.15, fill: "#ffffff", opacity: 0.12 }, g);
-    const rx = f.w * 0.34, ry = 24;
-    buildNail(f.id, f.cx, nailCy(f.top, f.w, rx, ry), rx, ry, g, "hand");
+    buildNail(f.id, f.cx, f.top + 46, f.w * 0.34, 24, g, "hand");
   }
   function buildHand(root) {
     FINGERS.forEach((f) => buildFinger(f, root));
@@ -597,7 +591,7 @@
     el("rect", { x: 74, y: 214, width: 44, height: 130, rx: 22, fill: SKIN, class: "skin" }, t);
     el("rect", { x: 74, y: 214, width: 44, height: 130, rx: 22, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, t);
     el("rect", { x: 89, y: 224, width: 14, height: 108, rx: 7, fill: "#ffffff", opacity: 0.12 }, t);
-    buildNail("thumb", 96, nailCy(214, 44, 16, 22), 16, 22, t, "hand");
+    buildNail("thumb", 96, 214 + 44, 16, 22, t, "hand");
   }
 
   /* ---- Foot ---------------------------------------------- */
@@ -605,8 +599,7 @@
     const g = el("g", { class: "nailhit", "data-nail": t.id, style: "cursor:pointer" }, parent);
     el("rect", { x: t.cx - t.w / 2, y: t.top, width: t.w, height: t.bottom - t.top, rx: t.w / 2, fill: SKIN, class: "skin" }, g);
     el("rect", { x: t.cx - t.w / 2, y: t.top, width: t.w, height: t.bottom - t.top, rx: t.w / 2, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, g);
-    const rx = t.w * 0.4, ry = t.w * 0.3;
-    buildNail(t.id, t.cx, nailCy(t.top, t.w, rx, ry), rx, ry, g, "foot");
+    buildNail(t.id, t.cx, t.top + t.w * 0.6, t.w * 0.4, t.w * 0.3, g, "foot");
   }
   function buildFoot(root) {
     // Foot body (cute, top-down): widest at the ball, tapering to the heel.
@@ -1213,7 +1206,8 @@
     } else if (currentCategory === "shapes") {
       SHAPES.forEach((sh) => {
         const s = el("svg", { viewBox: "0 0 40 48", width: 34, height: 40 });
-        el("path", { d: shapePath(sh, 20, 26, 13, 19), fill: "#ffd0e0", stroke: "#f2a6c0", "stroke-width": 1.5 }, s);
+        // Cuticle low in the box so the long shapes have room to reach up.
+        el("path", { d: shapePath(sh, 20, 29, 12, 15.5), fill: "#ffd0e0", stroke: "#f2a6c0", "stroke-width": 1.5 }, s);
         const b = optButton("shape", s, (btn) => { setShape(sh); markSel(btn); blip(); });
         if (surfaceShape[currentSurface] === sh) b.classList.add("sel");
         panelEl.appendChild(b);
