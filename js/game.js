@@ -447,6 +447,16 @@
       `C${cx - rx * k},${cy + ry} ${cx - rx},${cy + ry * k} ${cx - rx},${cy}` +
       `C${cx - rx},${cy - ry * k} ${cx - rx * k},${cy - ry} ${cx},${cy - ry}Z`;
   }
+  // How wide a flat free edge gets (as a fraction of the nail's half-width) and
+  // the radius its corners ride on. Sitting the corners on a shallow arc lets a
+  // squared-off nail follow the curve of the fingertip instead of hanging off
+  // the sides of it; `nailCy` seats the plate to match.
+  const TIP_HALF = 0.72, TIP_ARC = 1.25;
+  const tipSag = (rx, half) => {
+    const r = TIP_ARC * rx;
+    return r - Math.sqrt(Math.max(r * r - half * half, 0));
+  };
+
   // A shape is drawn onto a nail plate that runs from `cy - ry` (the free edge,
   // up at the fingertip) to `cy + ry` (the cuticle). Every shape has to reach
   // both ends: one that stops short of the free edge leaves the nail stranded
@@ -470,12 +480,29 @@
         `C${cx - rx},${cy - ry * 0.1} ${cx - rx * 0.85},${cy - ry * 0.6} ${cx},${cy - ry}Z`;
     }
     if (shape === "square") {
-      const r = Math.min(rx, ry) * 0.5, l = cx - rx, t = cy - ry, R = cx + rx, B = cy + ry;
-      return `M${l + r},${t} L${R - r},${t} Q${R},${t} ${R},${t + r} L${R},${B - r} Q${R},${B} ${R - r},${B} L${l + r},${B} Q${l},${B} ${l},${B - r} L${l},${t + r} Q${l},${t} ${l + r},${t} Z`;
+      // Straight sides and a squared-off tip, but the tip is narrower than the
+      // body and very slightly domed so its corners tuck under the fingertip.
+      const t = cy - ry, b = cy + ry, q = rx * TIP_HALF, s = tipSag(rx, q);
+      return `M${cx - q},${t + s}` +
+        `Q${cx},${t - s * 0.12} ${cx + q},${t + s}` +
+        `C${cx + rx * 0.95},${t + s + ry * 0.1} ${cx + rx},${t + ry * 0.34} ${cx + rx},${t + ry * 0.5}` +
+        `L${cx + rx},${b - ry * 0.42}` +
+        `Q${cx + rx},${b} ${cx + rx * 0.62},${b}` +
+        `L${cx - rx * 0.62},${b}` +
+        `Q${cx - rx},${b} ${cx - rx},${b - ry * 0.42}` +
+        `L${cx - rx},${t + ry * 0.5}` +
+        `C${cx - rx},${t + ry * 0.34} ${cx - rx * 0.95},${t + s + ry * 0.1} ${cx - q},${t + s}Z`;
     }
     if (shape === "coffin") {
-      const tw = rx * 0.55;
-      return `M${cx - tw},${cy - ry} L${cx + tw},${cy - ry} L${cx + rx},${cy + ry * 0.72} Q${cx + rx},${cy + ry} ${cx + rx * 0.68},${cy + ry} L${cx - rx * 0.68},${cy + ry} Q${cx - rx},${cy + ry} ${cx - rx},${cy + ry * 0.72} Z`;
+      // Widest at the cuticle, tapering to a narrow squared tip that rides the
+      // same arc as the square's, so it too stays inside the fingertip.
+      const t = cy - ry, b = cy + ry, q = rx * 0.56, s = tipSag(rx, q);
+      return `M${cx - q},${t + s}` +
+        `Q${cx},${t - s * 0.25} ${cx + q},${t + s}` +
+        `L${cx + rx * 0.99},${cy + ry * 0.52}` +
+        `Q${cx + rx},${b - ry * 0.1} ${cx + rx * 0.74},${b}` +
+        `L${cx - rx * 0.74},${b}` +
+        `Q${cx - rx},${b - ry * 0.1} ${cx - rx * 0.99},${cy + ry * 0.52}Z`;
     }
     return ellipsePath(cx, cy, rx, ry); // oval
   }
