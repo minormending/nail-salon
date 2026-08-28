@@ -551,6 +551,21 @@
   }
 
   /* ---- Nails --------------------------------------------- */
+  // The span the nail is *currently* drawn over. Anything that measures a nail
+  // — gloss, glitter, stickers, the paint sweep — has to go by this rather than
+  // by the plate, or it stops short of a long shape's overhanging tip.
+  const spanOf = (m) => nailSpan(surfaceShape[m.surface], m.cy, m.ry);
+
+  // Spread the gloss over however much nail the shape actually draws, so a long
+  // one is not left with a flat unlit tip hanging past the finger.
+  function layGloss(shine, m, shape) {
+    const { my, mh } = nailSpan(shape, m.cy, m.ry);
+    const [main, spark, toe] = shine.children;
+    const set = (n, a) => Object.entries(a).forEach(([k, v]) => n.setAttribute(k, v));
+    set(main, { cx: m.cx, cy: my - mh * 0.42, rx: m.rx * 0.85, ry: mh * 0.5 });
+    set(spark, { cx: m.cx - m.rx * 0.32, cy: my - mh * 0.52, rx: m.rx * 0.3, ry: mh * 0.18 });
+    set(toe, { cx: m.cx, cy: my + mh * 0.72, rx: m.rx * 1.25, ry: mh * 0.5 });
+  }
   // `base` is the cuticle line — where the nail meets the skin fold. It is the
   // fixed end; `ry` is the half-length of a plain nail growing up from it, and
   // each shape reaches its own distance past that (see SHAPE_LEN).
@@ -566,10 +581,11 @@
     el("ellipse", { cx, cy: cy + 1.5, rx: rx + 1.5, ry: ry + 1.5, fill: "#00000018" }, ng);
     el("path", { d, class: "nail-fill", "data-fill": id, fill: state[id].color, stroke: "#e7b9c6", "stroke-width": 1.3 }, ng);
 
-    const shine = el("g", { "clip-path": `url(#clip-${id})` }, ng);
-    el("ellipse", { cx, cy: cy - ry * 0.42, rx: rx * 0.85, ry: ry * 0.5, fill: "#ffffff", opacity: 0.5 }, shine);
-    el("ellipse", { cx: cx - rx * 0.32, cy: cy - ry * 0.52, rx: rx * 0.3, ry: ry * 0.18, fill: "#ffffff", opacity: 0.9 }, shine);
-    el("ellipse", { cx, cy: cy + ry * 0.72, rx: rx * 1.25, ry: ry * 0.5, fill: "#00000012" }, shine);
+    const shine = el("g", { class: "gloss", "clip-path": `url(#clip-${id})` }, ng);
+    el("ellipse", { fill: "#ffffff", opacity: 0.5 }, shine);
+    el("ellipse", { fill: "#ffffff", opacity: 0.9 }, shine);
+    el("ellipse", { fill: "#00000012" }, shine);
+    layGloss(shine, nailMeta[id], surfaceShape[surface]);
 
     el("g", { class: "deco", "data-deco": id, "clip-path": `url(#clip-${id})` }, ng);
   }
@@ -628,23 +644,26 @@
   const decoEl = (id) => svg.querySelector(`.deco[data-deco="${id}"]`);
 
   function addGlitter(deco, m) {
+    const { my, mh } = spanOf(m);
     for (let i = 0; i < 15; i++) {
       const a = rand() * Math.PI * 2, r = Math.sqrt(rand());
-      el("circle", { cx: m.cx + Math.cos(a) * r * m.rx, cy: m.cy + Math.sin(a) * r * m.ry, r: 0.8 + rand() * 1.6, fill: i % 2 ? "#ffffff" : "#ffe9a8", opacity: 0.9 }, deco);
+      el("circle", { cx: m.cx + Math.cos(a) * r * m.rx, cy: my + Math.sin(a) * r * mh, r: 0.8 + rand() * 1.6, fill: i % 2 ? "#ffffff" : "#ffe9a8", opacity: 0.9 }, deco);
     }
     const sg = el("g", { class: "glint" }, deco);
     for (let i = 0; i < 3; i++) {
       const a = rand() * Math.PI * 2, r = Math.sqrt(rand());
-      sparkle(sg, m.cx + Math.cos(a) * r * m.rx * 0.8, m.cy + Math.sin(a) * r * m.ry * 0.8, 0.16 + rand() * 0.14, i ? "#ffffff" : "#ffdd57");
+      sparkle(sg, m.cx + Math.cos(a) * r * m.rx * 0.8, my + Math.sin(a) * r * mh * 0.8, 0.16 + rand() * 0.14, i ? "#ffffff" : "#ffdd57");
     }
   }
-  // Draw a sticker at a normalised offset (nx,ny) from the nail centre, where
-  // ±1 is the nail's edge. Smaller than before so several fit on one nail.
+  // Draw a sticker at a normalised offset (nx,ny) from the middle of whatever
+  // the shape draws, where ±1 is its edge — so the tip of a long nail can be
+  // decorated too. Small enough that several fit on one nail.
   function addSticker(deco, m, id, nx = 0, ny = 0) {
     const draw = STICKER_DRAW[id];
     if (!draw) return;
     const s = (m.rx * 1.15) / 24;
-    const cx = m.cx + nx * m.rx, cy = m.cy + ny * m.ry;
+    const { my, mh } = spanOf(m);
+    const cx = m.cx + nx * m.rx, cy = my + ny * mh;
     const box = el("g", { transform: `translate(${cx.toFixed(1)},${cy.toFixed(1)}) scale(${s.toFixed(3)}) translate(-12,-12)` }, deco);
     draw(el("g", { class: prefersReduce() ? "" : "sticker-pop" }, box));
   }
@@ -686,9 +705,10 @@
     const fill = fillEl(id);
     if (prefersReduce()) { fill.setAttribute("fill", color); return; }
     const m = nailMeta[id];
+    const span = spanOf(m);
 
     const overlay = el("rect", {
-      x: m.cx - m.rx - 2, y: m.cy - m.ry - 2, width: (m.rx + 2) * 2, height: (m.ry + 2) * 2,
+      x: m.cx - m.rx - 2, y: span.t - 2, width: (m.rx + 2) * 2, height: (span.mh + 2) * 2,
       fill: color, "clip-path": `url(#clip-${id})`,
     });
     overlay.style.transformBox = "fill-box";
@@ -701,7 +721,7 @@
 
     const brush = makeBrush(color);
     nailParent(id).appendChild(brush);
-    const cx = m.cx, top = m.cy - m.ry, bot = m.cy + m.ry;
+    const cx = m.cx, top = span.t, bot = span.b;
     brush.animate([
       { offset: 0,    transform: `translate(${cx}px,${top - 10}px) rotate(-30deg)`,   opacity: 0 },
       { offset: 0.18, transform: `translate(${cx}px,${top + 3}px) rotate(-14deg)`,    opacity: 1 },
@@ -739,7 +759,8 @@
     const fill = fillEl(id), m = nailMeta[id];
     const pt = svg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
     const p = pt.matrixTransform(fill.getScreenCTM().inverse());
-    return { nx: (p.x - m.cx) / m.rx, ny: (p.y - m.cy) / m.ry };
+    const { my, mh } = spanOf(m);
+    return { nx: (p.x - m.cx) / m.rx, ny: (p.y - my) / mh };
   }
   function removeStickerNear(id, nx, ny) {
     const arr = state[id].stickers;
@@ -754,8 +775,8 @@
     const pt = svg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
     const p = pt.matrixTransform(fill.getScreenCTM().inverse());
     if (fill.isPointInFill) { try { return fill.isPointInFill(p); } catch (_) { /* fall through */ } }
-    const m = nailMeta[id];
-    return ((p.x - m.cx) / m.rx) ** 2 + ((p.y - m.cy) / m.ry) ** 2 <= 1.1;
+    const m = nailMeta[id], { my, mh } = spanOf(m);
+    return ((p.x - m.cx) / m.rx) ** 2 + ((p.y - my) / mh) ** 2 <= 1.1;
   }
   const pointInFocusedNail = (x, y) => !!zoomNail && pointInNail(zoomNail, x, y);
 
@@ -1034,6 +1055,7 @@
       const d = shapePath(shape, m.cx, m.cy, m.rx, m.ry);
       svg.querySelector(`#clip-${id} path`).setAttribute("d", d);
       fillEl(id).setAttribute("d", d);
+      layGloss(svg.querySelector(`.nail-group[data-ng="${id}"] .gloss`), m, shape);
       renderNail(id);
     });
   }
