@@ -378,7 +378,7 @@
      A big mandala on the back, and a sprig down each finger/toe.
      Sprigs store a hit-test segment (`_seg`) in surface coordinates;
      the thumb's is rotated to follow the thumb. */
-  // Sprig `ytop` sits clear below each nail (nail bottom ≈ finger top + 48).
+  // Sprig `ytop` sits clear below each nail (nail bottom ≈ finger top + 51).
   const HAND_ZONES = [
     { id: "h-back", kind: "mandala", cx: 176, cy: 332, R: 66 },
     { id: "h-index", kind: "sprig", x: 112, ytop: 162, ybot: 250 },
@@ -551,6 +551,15 @@
   }
 
   /* ---- Nails --------------------------------------------- */
+  // Seat a nail plate against the rounded tip of a finger or toe. A digit is a
+  // stadium, so its tip is a cap of radius w/2 centred at `top + w/2`; drop the
+  // free edge just far enough down that cap for there to be skin under the
+  // widest corners any shape draws, and no further. Toenails used to be seated
+  // by eye and sat a long way back from the tip.
+  function nailCy(top, w, rx, ry) {
+    const R = w / 2, half = Math.min(TIP_HALF * rx + 1.2, R);
+    return top + R - Math.sqrt(R * R - half * half) + ry;
+  }
   function buildNail(id, cx, cy, rx, ry, parent, surface) {
     nailMeta[id] = { cx, cy, rx, ry, surface };
     const d = shapePath(surfaceShape[surface], cx, cy, rx, ry);
@@ -576,7 +585,8 @@
     el("rect", { x: f.cx - f.w / 2, y: f.top, width: f.w, height: f.bottom - f.top, rx: f.w / 2, fill: SKIN, class: "skin" }, g);
     el("rect", { x: f.cx - f.w / 2, y: f.top, width: f.w, height: f.bottom - f.top, rx: f.w / 2, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, g);
     el("rect", { x: f.cx - f.w * 0.15, y: f.top + 8, width: f.w * 0.3, height: f.bottom - f.top - 14, rx: f.w * 0.15, fill: "#ffffff", opacity: 0.12 }, g);
-    buildNail(f.id, f.cx, f.top + 22, f.w * 0.34, 24, g, "hand");
+    const rx = f.w * 0.34, ry = 24;
+    buildNail(f.id, f.cx, nailCy(f.top, f.w, rx, ry), rx, ry, g, "hand");
   }
   function buildHand(root) {
     FINGERS.forEach((f) => buildFinger(f, root));
@@ -587,7 +597,7 @@
     el("rect", { x: 74, y: 214, width: 44, height: 130, rx: 22, fill: SKIN, class: "skin" }, t);
     el("rect", { x: 74, y: 214, width: 44, height: 130, rx: 22, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, t);
     el("rect", { x: 89, y: 224, width: 14, height: 108, rx: 7, fill: "#ffffff", opacity: 0.12 }, t);
-    buildNail("thumb", 96, 236, 16, 22, t, "hand");
+    buildNail("thumb", 96, nailCy(214, 44, 16, 22), 16, 22, t, "hand");
   }
 
   /* ---- Foot ---------------------------------------------- */
@@ -595,7 +605,8 @@
     const g = el("g", { class: "nailhit", "data-nail": t.id, style: "cursor:pointer" }, parent);
     el("rect", { x: t.cx - t.w / 2, y: t.top, width: t.w, height: t.bottom - t.top, rx: t.w / 2, fill: SKIN, class: "skin" }, g);
     el("rect", { x: t.cx - t.w / 2, y: t.top, width: t.w, height: t.bottom - t.top, rx: t.w / 2, fill: "none", stroke: SKIN_SHADE, "stroke-width": 2, opacity: 0.5, class: "skin-edge" }, g);
-    buildNail(t.id, t.cx, t.top + t.w * 0.42, t.w * 0.4, t.w * 0.3, g, "foot");
+    const rx = t.w * 0.4, ry = t.w * 0.3;
+    buildNail(t.id, t.cx, nailCy(t.top, t.w, rx, ry), rx, ry, g, "foot");
   }
   function buildFoot(root) {
     // Foot body (cute, top-down): widest at the ball, tapering to the heel.
