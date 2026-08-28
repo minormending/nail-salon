@@ -447,8 +447,21 @@
       `C${cx - rx * k},${cy + ry} ${cx - rx},${cy + ry * k} ${cx - rx},${cy}` +
       `C${cx - rx},${cy - ry * k} ${cx - rx * k},${cy - ry} ${cx},${cy - ry}Z`;
   }
+  // A shape is drawn onto a nail plate that runs from `cy - ry` (the free edge,
+  // up at the fingertip) to `cy + ry` (the cuticle). Every shape has to reach
+  // both ends: one that stops short of the free edge leaves the nail stranded
+  // partway down the finger with bare skin above it.
   function shapePath(shape, cx, cy, rx, ry) {
-    if (shape === "round") return ellipsePath(cx, cy, rx * 1.02, ry * 0.82);
+    if (shape === "round") {
+      // Was a centred 82%-height ellipse, which started well below the free
+      // edge. Same length as the others now; wider and blunter than the oval.
+      const t = cy - ry, b = cy + ry, rw = rx * 1.06;
+      return `M${cx},${t}` +
+        `C${cx + rw * 0.88},${t} ${cx + rw},${cy - ry * 0.5} ${cx + rw},${cy - ry * 0.02}` +
+        `C${cx + rw},${cy + ry * 0.56} ${cx + rw * 0.6},${b} ${cx},${b}` +
+        `C${cx - rw * 0.6},${b} ${cx - rw},${cy + ry * 0.56} ${cx - rw},${cy - ry * 0.02}` +
+        `C${cx - rw},${cy - ry * 0.5} ${cx - rw * 0.88},${t} ${cx},${t}Z`;
+    }
     if (shape === "almond") {
       return `M${cx},${cy - ry}` +
         `C${cx + rx * 0.85},${cy - ry * 0.6} ${cx + rx},${cy - ry * 0.1} ${cx + rx},${cy + ry * 0.15}` +
