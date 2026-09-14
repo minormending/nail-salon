@@ -551,8 +551,11 @@
     el("rect", { x: 30, y: 360, width: 260, height: 92, rx: 44, fill: "#e7dcff", stroke: "#d8c9ff", "stroke-width": 2 }, g);
     el("rect", { x: 40, y: 364, width: 240, height: 40, rx: 34, fill: "#f4eeff", opacity: 0.75 }, g);
     buildLamp(g, 44, 452);
-    buildBottle(g, 292, 448, "#ff6b9d");
-    buildBottle(g, 256, 458, "#ffd23f");
+    // Clear of the palm. The hand is drawn after the scene, and its rect runs
+    // to x=268 -- a bottle any further left has its cap sliced off by the
+    // palm and survives as a stray dark wedge.
+    buildBottle(g, 302, 448, "#ff6b9d");
+    buildBottle(g, 276, 458, "#ffd23f");
   }
 
   /* ---- Nails --------------------------------------------- */
@@ -1171,6 +1174,16 @@
     return b;
   }
 
+  // Fade the panel's bottom edge while there is more below it, so a clipped
+  // last row of bottles reads as "keep scrolling" instead of as broken.
+  function markScrollable() {
+    const more = panelEl.scrollHeight - panelEl.clientHeight > 2
+              && panelEl.scrollTop + panelEl.clientHeight < panelEl.scrollHeight - 2;
+    panelEl.classList.toggle("has-more", more);
+  }
+  panelEl.addEventListener("scroll", markScrollable, { passive: true });
+  addEventListener("resize", markScrollable);
+
   function renderPanel() {
     panelEl.innerHTML = "";
     panelEl.className = "panel panel-" + currentCategory;
@@ -1273,6 +1286,7 @@
       hint.appendChild(txt);
       panelEl.appendChild(hint);
     }
+    markScrollable();
   }
   function markSel(btn) {
     [...btn.parentElement.children].forEach((c) => c.classList.remove("sel"));
@@ -1385,12 +1399,19 @@
       bd.appendChild(b);
     }
     const glyphs = ["✨", "⭐", "💖", "🌸", "💫"];
+    // Twinkles are wallpaper, so keep them in the side gutters. Scattered
+    // across the whole screen they land where the content is: behind the hand
+    // (half a star pokes out from between two fingers), behind the frosted
+    // tray (a star reads as printed on the "Colors" label), and on the landing
+    // copy, where the text column is nearly the full width of a phone.
+    const GUTTERS = [[2, 9], [82, 90]]; // left/right bands, in % of the viewport
     for (let i = 0; i < 7; i++) {
       const t = document.createElement("div");
       t.className = "twinkle";
       t.textContent = glyphs[i % glyphs.length];
-      t.style.left = (rand() * 94 + 3).toFixed(1) + "%";
-      t.style.top = (rand() * 90 + 3).toFixed(1) + "%";
+      const [from, to] = GUTTERS[i % GUTTERS.length];
+      t.style.left = (from + rand() * (to - from)).toFixed(1) + "%";
+      t.style.top = (rand() * 44 + 5).toFixed(1) + "%"; // above the tray
       t.style.fontSize = (14 + rand() * 20).toFixed(0) + "px";
       t.style.setProperty("--dur", (3 + rand() * 3).toFixed(1) + "s");
       t.style.animationDelay = (rand() * 3).toFixed(1) + "s";

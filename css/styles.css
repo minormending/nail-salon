@@ -281,16 +281,26 @@ body {
   box-shadow: 0 6px 14px rgba(255, 94, 168, 0.28);
 }
 
-/* The options panel — scrolls inside itself so it never crowds the hand */
+/* The options panel — scrolls inside itself so it never crowds the hand.
+   `safe center` centres the options when they fit and falls back to the top
+   edge when they do not, so a scrolling panel never hides its first row. */
 .panel {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  align-content: flex-start;
+  justify-content: safe center;
+  align-content: safe center;
   gap: 10px;
   padding: 12px 10px;
-  min-height: 92px;
+  /* A floor, so a one-row panel doesn't hand the stage 90px more than a
+     three-row one and resize the hand every time you change tool. */
+  min-height: 150px;
   max-height: 34vh;
+  /* On a wide screen the tray would otherwise be a full-bleed band around a
+     huddle of centred options. Match the tab row above it: 6 tabs at 96px
+     plus five 6px gaps. */
+  max-width: 606px;
+  margin-inline: auto;
+  width: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -301,8 +311,17 @@ body {
   border-radius: 26px;
   box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
-.panel-stickers { flex-direction: column; align-content: center; }
-.panel-henna { flex-direction: column; align-content: center; }
+/* More options below the fold. Without this the last row is sliced through the
+   middle at the panel's edge and reads as broken rather than as "scroll on". */
+.panel.has-more {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+          mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+}
+
+/* `align-items: center` matters: without it the column stretches its children
+   to the full width, which turned "Fill it all" into a 1240px button. */
+.panel-stickers { flex-direction: column; align-content: center; align-items: center; }
+.panel-henna { flex-direction: column; align-content: center; align-items: center; }
 .henna-hint {
   width: 100%;
   text-align: center;
@@ -324,7 +343,10 @@ body {
 .opt:active { transform: scale(0.9); }
 .opt.sel { border-color: var(--ring); }
 
-/* Polish bottle (colour picker) — sized so all colours fit without scrolling */
+/* Polish bottle (colour picker). Sixteen of these take three rows on a phone,
+   which is why the Colors panel is given a little more height than the rest —
+   see the portrait media query. Where they still do not fit (a phone held
+   sideways), `.panel.has-more` fades the bottom edge. */
 .opt.bottle {
   width: clamp(42px, 12vw, 54px);
   display: flex;
@@ -388,11 +410,13 @@ body {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
 }
+/* 12.5vw, not 14vw: at 14vw a six-sticker pack wrapped 5 + 1 on a phone and
+   left an orphan centred on its own row. Still well past the 24px tap floor. */
 .opt.tool {
-  width: clamp(52px, 14vw, 62px);
-  height: clamp(52px, 14vw, 62px);
+  width: clamp(48px, 12.5vw, 62px);
+  height: clamp(48px, 12.5vw, 62px);
   display: grid;
   place-items: center;
   border-radius: 18px;
@@ -536,6 +560,20 @@ body {
 /* Wide screens: keep the title tidy. */
 @media (min-aspect-ratio: 1/1) {
   .title { font-size: clamp(18px, 3.2vw, 42px); }
+}
+
+/* Portrait phones: hold the tray at one height for every tab.
+   Sized by its content it ran 92px (Shapes) to 226px (Colors), which handed
+   the stage 417px on one tab and 284px on another — the hand grew and shrank
+   by half as you switched tools, and a nail you were aiming at moved out from
+   under your finger. One height keeps it still. */
+@media (orientation: portrait) and (max-width: 560px) {
+  .panel { height: 34vh; max-height: 34vh; }
+  /* Sixteen bottles need one row more than any other tab. Four extra vh buys
+     that row, so every colour is reachable without a scroll no five-year-old
+     is going to discover. It costs the stage 27px — the only tab that moves
+     the hand at all, and by a tenth of what the old layout did. */
+  .panel-colors { height: 38vh; max-height: 38vh; }
 }
 
 /* Short landscape (a phone turned sideways): move the tray to the side so the
