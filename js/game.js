@@ -273,23 +273,28 @@
 
   // Polishes: solids + a few gradients. `value` fills the SVG nail,
   // `css` fills the little bottle in the picker.
+  //
+  // **`name` is not decoration.** The bottle is a button whose whole content is
+  // a coloured `<span>`, so without a name a screen reader announces "button"
+  // sixteen times and a child using one cannot tell pink from black. The words
+  // are the ones a child would use, not the hex.
   const POLISHES = [
-    { value: "#ff8fab", css: "#ff8fab" },
-    { value: "#ff4f8b", css: "#ff4f8b" },
-    { value: "#ff5c5c", css: "#ff5c5c" },
-    { value: "#ff9f5c", css: "#ff9f5c" },
-    { value: "#ffd166", css: "#ffd166" },
-    { value: "#8ee06a", css: "#8ee06a" },
-    { value: "#5ad1c5", css: "#5ad1c5" },
-    { value: "#6cc6ff", css: "#6cc6ff" },
-    { value: "#6c8cff", css: "#6c8cff" },
-    { value: "#b28dff", css: "#b28dff" },
-    { value: "#ffffff", css: "#ffffff" },
-    { value: "#3a3a4a", css: "#3a3a4a" },
-    { value: "url(#g-rainbow)", css: "linear-gradient(135deg,#ff6b6b,#ffd166,#8ee06a,#6cc6ff,#b28dff)" },
-    { value: "url(#g-sunset)", css: "linear-gradient(160deg,#ff8fb0,#ffb347)" },
-    { value: "url(#g-ocean)", css: "linear-gradient(160deg,#6cc6ff,#5ad1c5)" },
-    { value: "url(#g-grape)", css: "linear-gradient(160deg,#b28dff,#ff8fd0)" },
+    { name: "Pink",       value: "#ff8fab", css: "#ff8fab" },
+    { name: "Hot pink",   value: "#ff4f8b", css: "#ff4f8b" },
+    { name: "Red",        value: "#ff5c5c", css: "#ff5c5c" },
+    { name: "Orange",     value: "#ff9f5c", css: "#ff9f5c" },
+    { name: "Yellow",     value: "#ffd166", css: "#ffd166" },
+    { name: "Green",      value: "#8ee06a", css: "#8ee06a" },
+    { name: "Mint",       value: "#5ad1c5", css: "#5ad1c5" },
+    { name: "Sky blue",   value: "#6cc6ff", css: "#6cc6ff" },
+    { name: "Blue",       value: "#6c8cff", css: "#6c8cff" },
+    { name: "Purple",     value: "#b28dff", css: "#b28dff" },
+    { name: "White",      value: "#ffffff", css: "#ffffff" },
+    { name: "Black",      value: "#3a3a4a", css: "#3a3a4a" },
+    { name: "Rainbow",    value: "url(#g-rainbow)", css: "linear-gradient(135deg,#ff6b6b,#ffd166,#8ee06a,#6cc6ff,#b28dff)" },
+    { name: "Sunset",     value: "url(#g-sunset)", css: "linear-gradient(160deg,#ff8fb0,#ffb347)" },
+    { name: "Ocean",      value: "url(#g-ocean)", css: "linear-gradient(160deg,#6cc6ff,#5ad1c5)" },
+    { name: "Grape",      value: "url(#g-grape)", css: "linear-gradient(160deg,#b28dff,#ff8fd0)" },
   ];
 
   const SKIN_TONES = [
@@ -1130,6 +1135,11 @@
     const b = document.createElement("button");
     b.type = "button";
     b.className = "tab";
+    // #tabs is a `role="tablist"`, and a tablist's children have to be tabs --
+    // otherwise the role promises a keyboard pattern the markup does not have.
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", "false");
+    b.setAttribute("aria-controls", "panel");
     b.dataset.cat = cat.id;
     b.innerHTML = `<span class="tab-ico">${cat.ico}</span><span class="tab-lbl">${cat.label}</span>`;
     b.addEventListener("click", () => selectCategory(cat.id));
@@ -1140,7 +1150,11 @@
     if (id === "henna" && zoomNail) zoomOut(); // henna decorates the skin, not a single nail
     if (currentCategory === "henna" && id !== "henna") hideGuides(); // leaving henna
     currentCategory = id;
-    tabsEl.querySelectorAll(".tab").forEach((t) => t.classList.toggle("sel", t.dataset.cat === id));
+    tabsEl.querySelectorAll(".tab").forEach((t) => {
+      const on = t.dataset.cat === id;
+      t.classList.toggle("sel", on);
+      t.setAttribute("aria-selected", String(on));
+    });
     if (id === "erase") mode = "erase";
     else if (id === "henna") mode = "henna";
     renderPanel();
@@ -1168,9 +1182,16 @@
         const b = optButton("bottle", null, (btn) => {
           currentColor = p.value; mode = "paint";
           markSel(btn); blip();
+          panelEl.querySelectorAll(".bottle").forEach((o) =>
+            o.setAttribute("aria-pressed", String(o === btn)));
         });
+        b.setAttribute("aria-label", p.name);
         b.appendChild(cap); b.appendChild(body);
-        if (mode === "paint" && p.value === currentColor) b.classList.add("sel");
+        const chosen = mode === "paint" && p.value === currentColor;
+        // Chosen-ness is a ring in the picture; `aria-pressed` is the same fact
+        // for anyone who cannot see the ring.
+        b.setAttribute("aria-pressed", String(chosen));
+        if (chosen) b.classList.add("sel");
         panelEl.appendChild(b);
       });
 

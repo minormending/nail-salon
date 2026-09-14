@@ -42,7 +42,9 @@
       <!-- Category tabs: Colors / Stickers / Shapes / Skin / Eraser -->
       <div id="tabs" class="tab-row" role="tablist" aria-label="Tools"></div>
       <!-- Options for the chosen tab -->
-      <div id="panel" class="panel" aria-label="Options"></div>
+      <!-- role="tabpanel": an aria-label on a plain div names nothing,
+           and this *is* the panel the tabs above switch between. -->
+      <div id="panel" class="panel" role="tabpanel" aria-label="Options"></div>
     </footer>
   </div>
 
