@@ -29,17 +29,22 @@ def _petal(d, cx, cy, ang, length, width, fill):
 
 
 def _vine(d, cx, y0, y1, amp, fill, leaf=11, n=7):
-    """A bel: one serpentine stem with leaves alternating off it."""
-    ys = np.linspace(y0, y1, 160)
-    xs = cx + amp * np.sin((ys - y0) / (y1 - y0) * np.pi * 1.4)
-    d.line(list(zip(xs, ys)), fill=fill, width=int(5 * S), joint="curve")
+    """A bel the way Mela draws it: a straight stem with PAIRED leaves, bud on top.
+
+    An alternating serpentine reads as a fishbone once it is wrapped round a
+    finger. Symmetric pairs survive the curvature.
+    """
+    d.line([(cx, y0), (cx, y1)], fill=fill, width=int(2.3 * S))
     for i in range(n):
-        t = 0.10 + 0.78 * i / max(n - 1, 1)
-        k = int(t * 159)
-        side = -1 if i % 2 else 1
-        _petal(d, xs[k], ys[k], np.pi / 2 * (1 if side > 0 else -1) + 0.5 * side,
-               leaf * 2.0, leaf * 0.72, fill)
-    d.ellipse([xs[-1] - 5 * S, ys[-1] - 5 * S, xs[-1] + 5 * S, ys[-1] + 5 * S], fill=fill)
+        y = y1 + (y0 - y1) * (0.06 + 0.88 * i / max(n - 1, 1))
+        # Steep, and short across. Only ~32% of the strip's width is the face
+        # you actually see -- the rest wraps round the sides -- so a leaf with
+        # much horizontal reach turns into a rung across the whole finger.
+        # Both angles need a NEGATIVE cosine on one side, or the pair points the
+        # same way and the vine collapses into a caterpillar.
+        for ang in (-1.25, -(np.pi - 1.25)):
+            _petal(d, cx, y, ang, leaf * 1.5, leaf * 0.62, fill)
+    d.ellipse([cx - 5.2 * S, y0 - 10.4 * S, cx + 5.2 * S, y0], fill=fill)
 
 
 def henna():
@@ -102,9 +107,9 @@ def henna():
             px = X0 + (0.12 + 0.19 * i) * w
             d.ellipse([px - 3 * S, Y0 + 0.322 * h - 3 * S, px + 3 * S, Y0 + 0.322 * h + 3 * S],
                       fill=0)
-        _vine(d, cx, Y0 + 0.385 * h, Y0 + 0.745 * h, 0.115 * w, ink, leaf=0.075 * w, n=9)
+        _vine(d, cx, Y0 + 0.375 * h, Y0 + 0.690 * h, 0, ink, leaf=0.115 * w, n=6)
         for i in range(4):                       # a jaali chevron below the nail
-            yy = Y0 + (0.690 + 0.018 * i) * h
+            yy = Y0 + (0.655 + 0.017 * i) * h
             d.line([(cx - 0.20 * w, yy), (cx, yy + 0.016 * h), (cx + 0.20 * w, yy)],
                    fill=ink, width=int(2.6 * S))
 
@@ -118,5 +123,5 @@ def nails():
         X0, X1, Y0, Y1 = _rect(name)
         w, h = X1 - X0, Y1 - Y0
         cx = X0 + 0.5 * w
-        d.ellipse([cx - 0.28 * w, Y0 + 0.762 * h, cx + 0.28 * w, Y0 + 0.944 * h], fill=255)
+        d.ellipse([cx - 0.24 * w, Y0 + 0.718 * h, cx + 0.24 * w, Y0 + 0.966 * h], fill=255)
     return np.asarray(im.resize((T, T), Image.LANCZOS), np.float32) / 255.0

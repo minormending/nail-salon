@@ -61,6 +61,30 @@ The shading pass is just an image. Paint over it once, by hand, and the art
 direction survives intact — Toca Boca is Unity and reads hand-drawn. 3D buys the
 *mapping*; the look stays a drawing.
 
+## The art direction is Mela
+
+Decided 2026-11-14, after the first shaded renders came back looking like
+renders. **Mela** is the festival direction: cream ground, deep plum keyline,
+turquoise/marigold/magenta/green, Baloo 2 for type.
+
+Its rules, as `mela.py` implements them:
+
+- **Flat fills. No gradient anywhere.**
+- A heavy plum `#40163C` keyline on *every part* — each finger outlined
+  separately against the palm, which falls out of the part-id boundaries.
+- **Exactly one** flat shadow, `#C4824C` at 55%. Never a ramp.
+- Nails bright and individually coloured from the festival palette.
+
+The shading pass gets posterised to a single step; the outline is derived from
+the mask and the part ids. The geometry, the UV pass and the texture are
+untouched — which is the point. The style is about forty lines and can be
+swapped again.
+
+One trap worth recording: **the flat shadow must not come from the occlusion
+pass.** AO hugs the contour and every crevice, so thresholding it puts the
+shadow exactly where the keyline already is and nothing shows. Use lambert
+only, blurred wide, cut once.
+
 ## What to build it in
 
 Once the hand is five PNGs and a shader, the engine question mostly dissolves.
@@ -91,5 +115,5 @@ photo of your own hand" feature — not for the main canvas.
 ## Prototype
 
 [`tools/hand-bake/`](../tools/hand-bake) implements all of the above in about
-400 lines of Python. The hand it builds is not good enough to ship — the real
+500 lines of Python. The hand it builds is not good enough to ship — the real
 one wants an artist and a real mesh — but the pipeline is the one to use.
