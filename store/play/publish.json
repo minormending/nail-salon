@@ -1,0 +1,9 @@
+{
+  "package": "com.minormending.paisley",
+  "language": "en-US",
+  "listing": "listing.json",
+  "images": {
+    "icon": "out/icon.png",
+    "featureGraphic": "out/feature-graphic.png"
+  }
+}
