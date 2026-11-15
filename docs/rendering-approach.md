@@ -29,20 +29,22 @@ in a diagonal staircase, nails stepping down to the right, thumb up. The charts
 show the hand gripping a towel; ours drops it and lets the wrist run off the
 bottom of the frame, which keeps the screen to the hand alone. Both are fine line on white.
 
-The nail hand is a raster: Codex's clean line-art redraw of the chart's
-"Natural" panel, towel removed. My own vector drawing of the pose
-(`tools/hand-2d/pose2.py`) never got the pinky side of the hand right; the
-redraw does. The nail shapes stay vector and ours: `tools/hand-2d/codexhand.py`
-measures the five nails Codex drew and lays each shape over them, stretched
-along the nail so Natural exactly covers the drawn one. The raster is kept on
-the design canvas and out of this repo until the chart's licence is settled —
-it is a derivative of that chart.
+The nail hand is a raster drawn by Codex. The design canvas used a redraw of
+a nail chart's "Natural" panel; the shipped app uses an original drawing of
+the same pose made from a text-only prompt, with no reference image, so it
+owes nothing to the chart (`art-private/original/nail_hand_v1.png`). My own
+vector drawing of the pose (`tools/hand-2d/pose2.py`) never got the pinky side
+of the hand right. The nail shapes stay vector and ours:
+`tools/hand-2d/measure_nails.py` and `codexhand.py` measure the five nails
+Codex drew and lay each shape over them, stretched along the nail so Natural
+exactly covers the drawn one. `tools/hand-2d/export_app.py` writes the app's
+tinted, transparent hands and the geometry JSON.
 
 ### The henna hand
 
-Henna now sits on a second Codex redraw: the back of an open hand, fingers
-spread, drawn to match the nail hand's line and weight so the two read as one
-artist's work. A mandala on the back of the hand, vines up each finger and the
+Henna sits on a second original text-prompted Codex drawing: the back of an
+open hand, fingers spread, in the nail hand's line and weight so the two read
+as one artist's work (`art-private/original/open_hand_v1.png`). A mandala on the back of the hand, vines up each finger and the
 thumb, a cuff across the wrist (`tools/hand-2d/openhand.py`). The practice-sheet
 hand (`sheet.py`) is superseded.
 
