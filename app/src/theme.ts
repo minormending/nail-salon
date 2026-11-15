@@ -36,7 +36,7 @@ export const border = 2.5;
 
 export const radius = { button: 16, iconButton: 14, card: 22, pill: 999 } as const;
 
-export type ToneId = 't0' | 't1' | 't2' | 't3' | 't4' | 't5' | 't6';
+export type ToneId = 't0' | 't1' | 't2' | 't3' | 't4' | 't5' | 't6' | 't7';
 
 // skin tones: id, name, skin, line (from the canvas)
 export const TONES: { id: ToneId; label: string; skin: string; line: string }[] = [
@@ -47,4 +47,5 @@ export const TONES: { id: ToneId; label: string; skin: string; line: string }[] 
   { id: 't4', label: 'Medium', skin: '#B47A54', line: '#24121C' },
   { id: 't5', label: 'Medium deep', skin: '#83533A', line: '#1A0C12' },
   { id: 't6', label: 'Deepest', skin: '#553324', line: '#120709' },
+  { id: 't7', label: 'Green', skin: '#5AA64B', line: '#2B1A26' },
 ];

@@ -98,7 +98,7 @@ STAGES = {"paste": "#3B3326", "orange": "#D2691E", "red": "#B2441C", "brown": "#
 
 
 def stain(tid, skin, colour, true=False):
-    ink = ST.stain_on(skin, colour)
+    ink = ST.stain_on(skin, colour, tid)
     if true or not ST.needs_edge(tid):
         return 'fill="%s" stroke="none"' % ink
     edge = ST.hexs(ST.rgb(skin) + (255 - ST.rgb(skin)) * 0.30)

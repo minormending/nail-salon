@@ -17,13 +17,13 @@ const GAP = 4;
 const PAD = 5;
 const BTN = 50;
 const BOTTOM = 30;
-const COL_H = 7 * SWATCH + 6 * GAP + 2 * PAD + 2 * border;
+const COL_H = TONES.length * SWATCH + (TONES.length - 1) * GAP + 2 * PAD + 2 * border;
 /** Keeps the column below the chips along the top of the canvas. */
 const TOP_CLEAR = 12;
 
 /**
  * The round hand button at the bottom-left of the painting screens. Tapping opens a
- * column of the 7 skin tones; choosing one sets the global tone and closes it.
+ * column of the 8 skin tones; choosing one sets the global tone and closes it.
  * Positioned absolutely over the canvas area (left 12, bottom 30) unless `style` overrides.
  *
  * It always fits: the swatches (44pt each) stand in a column above the button when the canvas
@@ -40,13 +40,13 @@ export function SkinToneButton({ style }: { style?: StyleProp<ViewStyle> }) {
   const bottom = (StyleSheet.flatten(style) as ViewStyle | undefined)?.bottom;
   const bottomGap = typeof bottom === 'number' ? bottom : BOTTOM;
   const inColumn = !area || bottomGap + BTN + 8 + COL_H + TOP_CLEAR <= area.h;
-  // Beside the button: as many columns as fit, then the fewest rows that hold 7.
+  // Beside the button: as many columns as fit, then the fewest rows that hold them all (4 + 4 for 8).
   const availW = (area?.w ?? 360) - 12 - BTN - 8 - 12;
   const maxCols = Math.max(
     1,
-    Math.min(7, Math.floor((availW - 2 * PAD - 2 * border + GAP) / (SWATCH + GAP))),
+    Math.min(TONES.length, Math.floor((availW - 2 * PAD - 2 * border + GAP) / (SWATCH + GAP))),
   );
-  const cols = Math.ceil(7 / Math.ceil(7 / maxCols));
+  const cols = Math.ceil(TONES.length / Math.ceil(TONES.length / maxCols));
   const gridW = cols * SWATCH + (cols - 1) * GAP + 2 * PAD + 2 * border;
 
   return (

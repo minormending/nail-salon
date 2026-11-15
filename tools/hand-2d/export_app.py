@@ -238,7 +238,7 @@ def export_henna():
         ghost = ("#B5855E" if not ST.needs_edge(tid)
                  else ST.hexs(ST.rgb(skin) + (255 - ST.rgb(skin)) * 0.55))
         tones.append({"id": tid, "label": label, "skin": skin, "line": line, "edge": edge, "ghost": ghost,
-                      "stain": {k: ST.stain_on(skin, c) for k, c in OH.STAGES.items()}})
+                      "stain": {k: ST.stain_on(skin, c, tid) for k, c in OH.STAGES.items()}})
     out = {"viewBox": OH.VIEWBOX, "image": {"width": W, "height": H},
            "defs": defs, "parts": parts, "partBounds": bounds,
            "stages": OH.STAGES, "tones": tones, "handClip": hand_clip()}

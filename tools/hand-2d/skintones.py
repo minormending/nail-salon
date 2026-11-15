@@ -18,6 +18,7 @@ TONES = [  # id, label, skin, line
     ("t4", "Medium", "#B47A54", "#24121C"),
     ("t5", "Medium deep", "#83533A", "#1A0C12"),
     ("t6", "Deepest", "#553324", "#120709"),
+    ("t7", "Green", "#5AA64B", "#2B1A26"),
 ]
 
 
@@ -29,14 +30,21 @@ def hexs(c):
     return "#%02X%02X%02X" % tuple(int(round(v)) for v in c)
 
 
-def stain_on(skin, stain):
-    """A dye on skin: multiply."""
+FANTASY = ("t7",)   # green: not a real skin, so the henna keeps its true colours
+
+
+def stain_on(skin, stain, tid=None):
+    """A dye on skin: multiply -- except on a fantasy tone (green), where multiplying
+    would turn every stain near-black and olive, so the stain stays its true colour."""
+    if tid in FANTASY:
+        return stain.upper()
     return hexs(rgb(skin) * rgb(stain) / 255.0)
 
 
 def needs_edge(tid):
-    """Deeper tones, where a multiplied stain sinks into the skin."""
-    return tid in ("t4", "t5", "t6")
+    """Deeper tones, where a multiplied stain sinks into the skin (and green,
+    where it would turn muddy)."""
+    return tid in ("t4", "t5", "t6", "t7")
 
 
 def stain_attrs(tid, skin, ink):

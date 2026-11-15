@@ -16,6 +16,7 @@ import Svg, {
   G,
   Path,
   Pattern,
+  Polygon,
   Rect,
 } from 'react-native-svg';
 
@@ -810,9 +811,12 @@ function NailsLayer({
 export const HandArt = React.memo(function HandArt({
   which,
   tone,
+  arm = 0,
 }: {
   which: 'nailHand' | 'openHand';
   tone: ToneId;
+  /** Nail hand only: lengthens the forearm by this many art units below the drawing's bottom edge. */
+  arm?: number;
 }) {
   const t = TONES.find((x) => x.id === tone) ?? TONES[0];
   const art = vectors[which];
@@ -820,9 +824,43 @@ export const HandArt = React.memo(function HandArt({
     <>
       <Path d={art.skin} fill={t.skin} />
       <Path d={art.ink} fill={t.line} fillRule="evenodd" />
+      {arm > 0 && which === 'nailHand' ? <ArmExtension skin={t.skin} line={t.line} length={arm} /> : null}
     </>
   );
 });
+
+/*
+ * The nail hand's forearm edges below the knuckles are straight lines (fitted over y 1400-1535 of
+ * the drawing): x = a + b*y for the outer edge of each outline, which is about 9 units thick.
+ */
+const ARM_L = { a: 448.41, b: -0.10874 };
+const ARM_R = { a: 547.24, b: 0.09962 };
+const ARM_LINE = 9;
+const ARM_BOTTOM = 1536;
+/** The extension starts this far above the drawing's bottom edge, overlapping it. */
+const ARM_OVERLAP = 16;
+/** Art units of extra forearm that always run past the canvas (the panel covers the rest). */
+export const CHAIR_ARM = 1500;
+
+/**
+ * Carries both forearm outlines straight down below the drawing: skin first, then the two outline
+ * bands over it, laid over the drawing's last rows so the join does not show.
+ */
+function ArmExtension({ skin, line, length }: { skin: string; line: string; length: number }) {
+  const y0 = ARM_BOTTOM - ARM_OVERLAP;
+  const y1 = ARM_BOTTOM + length;
+  const l = (y: number) => ARM_L.a + ARM_L.b * y - 0.5;
+  const r = (y: number) => ARM_R.a + ARM_R.b * y + 0.5;
+  const quad = (xa: (y: number) => number, xb: (y: number) => number) =>
+    `${xa(y0)},${y0} ${xb(y0)},${y0} ${xb(y1)},${y1} ${xa(y1)},${y1}`;
+  return (
+    <>
+      <Polygon points={quad(l, r)} fill={skin} />
+      <Polygon points={quad(l, (y) => l(y) + ARM_LINE)} fill={line} />
+      <Polygon points={quad((y) => r(y) - ARM_LINE, r)} fill={line} />
+    </>
+  );
+}
 
 /** The hands: a traced vector hand each, with the five painted nails (and their stickers) drawn over it. */
 function HandSvg({
@@ -833,10 +871,13 @@ function HandSvg({
   logicalWidth = width,
   label,
   crop,
+  arm = 0,
 }: {
   design: NailDesign;
   tone: ToneId;
   hands: Hands;
+  /** Art units of extra forearm below the drawing (the Svg then paints past its bottom edge). */
+  arm?: number;
   /** Size to draw at. */
   width: number;
   /** Size the art is shown at (line weight follows this; `width` may be drawn larger and scaled down). */
@@ -852,10 +893,16 @@ function HandSvg({
   const viewBox = crop ? `${crop.x} ${crop.y} ${crop.w} ${crop.h}` : `${span.x0} ${VB[1]} ${span.w} ${VB[3]}`;
 
   return (
-    <Svg width={width} height={height} viewBox={viewBox} accessibilityLabel={label}>
+    <Svg
+      width={width}
+      height={height}
+      viewBox={viewBox}
+      accessibilityLabel={label}
+      style={arm > 0 ? { overflow: 'visible' } : undefined}
+    >
       {handsIn(hands).map((h) => (
         <G key={h} transform={handTransform(h, hands)}>
-          <HandArt which="nailHand" tone={tone} />
+          <HandArt which="nailHand" tone={tone} arm={arm} />
           <NailsLayer design={design} hand={h} uid={`${uid}${h[0]}`} line={line} sw={sw} />
         </G>
       ))}
@@ -1836,6 +1883,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
             width={win.w}
             logicalWidth={width}
             crop={win.crop}
+            arm={CHAIR_ARM}
             label=""
           />
           {/* The halo and effects redrawn at full resolution too, from where they had got to. */}
@@ -1874,6 +1922,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
           hands="both"
           width={width}
           logicalWidth={width}
+          arm={CHAIR_ARM}
           label={zoom ? `Close up of the ${nailSpokenName(zoom).toLowerCase()} nail` : 'Two hands with painted nails. Tap a nail to look closer.'}
         />
       </View>

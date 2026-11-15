@@ -25,8 +25,8 @@ styles faithfully to React Native.
 - **Every button a child can reach shows a picture icon beside its words.**
   Icons are the inline stroke SVGs from the canvas, ported to react-native-svg.
 - The round **hand button** at the bottom-left of the four painting screens
-  (nail chair, one nail, Salon henna, Studio) cycles/opens the 7 tones
-  (`t0` colouring book … `t6` deepest). Tone is global (store).
+  (nail chair, one nail, Salon henna, Studio) cycles/opens the 8 tones
+  (`t0` colouring book … `t6` deepest, then `t7` Green). Tone is global (store).
 - **Henna is only ever paste `#3B3326`, orange `#D2691E`, red `#B2441C`,
   reddish-brown `#9C3418`** — multiplied with the skin. Never black, never any
   other colour, anywhere (PPD safety).
