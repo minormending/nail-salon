@@ -110,6 +110,14 @@ def build(out):
         files["henna-%s.svg" % k] = svg([(ink(c), ALL)], t0)
     for tid, label, skin, line in ST.TONES:
         png = t0 if tid == "t0" else hand_png(skin, line)
+        # the stencil and Studio stages, so the skin can change mid-design
+        ghost = GHOST if not ST.needs_edge(tid) else GHOST.replace(
+            "#B5855E", ST.hexs(ST.rgb(skin) + (255 - ST.rgb(skin)) * 0.55))
+        paste = stain(tid, skin, STAGES["paste"])
+        files["henna-ghost-%s.svg" % tid] = svg([(ghost, ALL)], png)
+        files["henna-step1-%s.svg" % tid] = svg([(ghost, ["vines", "cuff"]), (paste, ["gol"])], png)
+        files["henna-step2-%s.svg" % tid] = svg([(ghost, ["cuff"]), (paste, ["gol", "vines"])], png)
+        files["henna-paste-%s.svg" % tid] = svg([(paste, ALL)], png)
         for k in ("orange", "brown"):
             files["henna-%s-%s.svg" % (k, tid)] = svg([(stain(tid, skin, STAGES[k]), ALL)], png)
             if ST.needs_edge(tid):
