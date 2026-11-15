@@ -4,6 +4,16 @@
   "listing": "listing.json",
   "images": {
     "icon": "out/icon.png",
-    "featureGraphic": "out/feature-graphic.png"
+    "featureGraphic": "out/feature-graphic.png",
+    "phoneScreenshots": [
+      "out/phone/1.png",
+      "out/phone/2.png",
+      "out/phone/3.png",
+      "out/phone/4.png",
+      "out/phone/5.png",
+      "out/phone/6.png",
+      "out/phone/7.png",
+      "out/phone/8.png"
+    ]
   }
 }
