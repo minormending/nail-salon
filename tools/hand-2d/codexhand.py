@@ -1,10 +1,11 @@
-"""Nail placement on Codex's redraw of the chart hand (natural_clean.png, 1024x1536).
+"""Nail placement on the nail-chair hand (nail_hand_v1.png, 1024x1536).
 
-The hand is a raster: Codex's clean line-art redraw of the "Natural" panel of
-the nail-shapes chart, towel removed. It is not in this repo -- it lives on the
-design canvas as img/nail-hand.png -- because it derives from a chart whose
-licence we have not established. nails_measured.json holds the five drawn
-nails (centre, axis, extent, width), measured by flood-filling each one.
+The hand is a raster: an original line drawing made by Codex from a text-only
+prompt (the curled "nail chair" pose: thumb up at top-left, four fingernails
+stepping down to the right, wrist off the bottom). It lives in
+art-private/original/ and is never copied into this repo; set NAIL_HAND_PNG to
+point at another copy. nails_measured.json holds the five drawn nails (centre,
+axis, extent, width), measured by flood-filling each one (measure_nails.py).
 Every shape from nails.py is laid over them, stretched along the nail so
 Natural exactly covers the nail Codex drew.
 """
@@ -13,6 +14,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import nails as NL
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+RASTER = os.environ.get("NAIL_HAND_PNG") or os.path.join(
+    HERE, "..", "..", "art-private", "original", "nail_hand_v1.png")
 M = json.load(open(os.path.join(HERE, "nails_measured.json")))
 DIGITS = ("thumb", "index", "middle", "ring", "pinky")
 LINE, LW = "#2B1A26", 6.0
@@ -54,7 +57,8 @@ def nails(shape, fill="#FFFFFF"):
     return "\n".join(o)
 
 
-def svg(shape, fill="#FFFFFF", href="natural_clean.png"):
+def svg(shape, fill="#FFFFFF", href=None):
+    href = href or os.path.abspath(RASTER)
     return ('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="%s">'
             '<image xlink:href="%s" width="1024" height="1536"/>%s</svg>' % (VIEWBOX, href, nails(shape, fill)))
 

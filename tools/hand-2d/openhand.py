@@ -1,11 +1,14 @@
-"""Henna on the open hand (Codex's redraw of the user's reference): back of
-the hand, fingers spread. Builds every henna image the canvas uses, under the
-same file names, so every henna screen picks the new hand up unchanged.
-open_clean.png is not in this repo: like the nail hand it lives on the design
-canvas until the reference's licence is settled.
+"""Henna on the open hand: an original line drawing made by Codex from a
+text-only prompt (back of a left hand, fingers up and spread, thumb out to the
+right, forearm off the bottom). The raster, open_hand_v1.png (1024x1536), lives
+in art-private/original/ and is never copied into this repo; set OPEN_HAND_PNG
+to point at another copy. Builds every henna image the canvas uses, under the
+same file names, so every henna screen picks the hand up unchanged.
 
-The hand is line art (open_clean.png, 1024x1536), tinted per skin tone under
-its lines (skintones.py) and embedded in each SVG; the henna is vector on top.
+The hand is line art, tinted per skin tone under its lines (skintones.py) and
+embedded in each SVG; the henna is vector on top. The geometry below was
+measured from the drawing: mandala centred on the back of the hand, a cuff
+across the narrow wrist, one vine up the midline of each digit.
 """
 import base64, io, math, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -13,19 +16,21 @@ sys.path.insert(0, HERE)
 import sheetbuild as SB
 import skintones as ST
 
-SRC = os.path.join(HERE, "open_clean.png")
+SRC = os.environ.get("OPEN_HAND_PNG") or os.path.join(
+    HERE, "..", "..", "art-private", "original", "open_hand_v1.png")
 VIEWBOX = "0 0 1024 1504"     # the 320:470 frame every henna screen already sizes for
 
 # --- henna geometry in the image's coordinates; filled in from the drawing ---
-MANDALA = (440.0, 925.0, 185.0)
-CUFF = (1330.0, 1390.0)
-WRIST = {1330.0: (192.0, 552.0), 1390.0: (180.0, 543.0)}   # outline x at each cuff edge
-VINES = {         # name: ((x0, y0) at the knuckle, (x1, y1) below the nail, leaf count)
-    "pinky":  ((190.0, 680.0), (138.0, 500.0), 3),
-    "ring":   ((302.0, 650.0), (288.0, 320.0), 5),
-    "middle": ((437.0, 650.0), (410.0, 232.0), 6),
-    "index":  ((585.0, 660.0), (582.0, 278.0), 5),
-    "thumb":  ((742.0, 832.0), (806.0, 728.0), 2),
+MANDALA = (445.0, 830.0, 185.0)   # >= 50 px inside the outline all round, below the knuckle creases
+CUFF = (1215.0, 1275.0)
+WRIST = {1215.0: (270.0, 586.0), 1275.0: (266.0, 588.0)}   # outline x at each cuff edge
+VINES = {         # name: ((x0, y0) at the knuckle, (x1, y1) 50 px below the nail's bottom, leaf count, leaf scale)
+    # leaf scale is the largest the finger's inner width allows (leaf tips reach 13*scale sideways)
+    "pinky":  ((249.0, 600.0), (220.0, 345.0), 4, 2.3),
+    "ring":   ((365.0, 575.0), (354.5, 207.0), 5, 2.5),
+    "middle": ((480.0, 550.0), (493.5, 132.0), 6, 2.7),
+    "index":  ((600.0, 575.0), (630.0, 223.0), 5, 2.55),
+    "thumb":  ((744.0, 775.0), (805.0, 687.0), 2, 3.0),
 }
 LEAF = 3.0
 
@@ -69,9 +74,11 @@ def parts():
 
 
 def hand_png(skin, line):
-    p = os.path.join(HERE, "_tint.png")
-    ST.tint_nail_hand(SRC, skin, line, p)
-    return base64.b64encode(open(p, "rb").read()).decode()
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:       # never leave a raster in tools/
+        p = os.path.join(td, "tint.png")
+        ST.tint_nail_hand(SRC, skin, line, p)
+        return base64.b64encode(open(p, "rb").read()).decode()
 
 
 def svg(groups, png64):
