@@ -1,5 +1,5 @@
 import React, { useId, useMemo, type ReactNode } from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import Svg, { G, Polygon, SvgXml } from 'react-native-svg';
 
 import openNails from '../art/openNails.json';
@@ -18,30 +18,23 @@ import {
   type HennaStage,
   type PartId,
 } from '../lib/henna';
-import { NailPaint, NailStickers, closeK, nailMetrics, nailPath } from './NailHand';
+import { HandArt, NailPaint, NailStickers, closeK, nailMetrics, nailPath } from './NailHand';
 
 export type { HennaStage };
 
-export const HAND_IMAGES: Record<ToneId, number> = {
-  t0: require('../../assets/hands/open-hand-t0.png'),
-  t1: require('../../assets/hands/open-hand-t1.png'),
-  t2: require('../../assets/hands/open-hand-t2.png'),
-  t3: require('../../assets/hands/open-hand-t3.png'),
-  t4: require('../../assets/hands/open-hand-t4.png'),
-  t5: require('../../assets/hands/open-hand-t5.png'),
-  t6: require('../../assets/hands/open-hand-t6.png'),
-};
-
-/** The tinted hand raster, cropped to the henna viewBox (1024 x 1504 of a 1024 x 1536 image). */
+/** The traced hand (skin and line art in the tone's colours), cropped to the henna viewBox (1024 x 1504 of 1024 x 1536). */
 export function HandRaster({ tone, width }: { tone: ToneId; width: number }) {
   const k = width / VB_W;
   return (
-    <Image
-      source={HAND_IMAGES[tone]}
-      resizeMode="stretch"
-      style={{ position: 'absolute', left: 0, top: 0, width, height: IMG_H * k }}
-      accessibilityIgnoresInvertColors
-    />
+    <Svg
+      pointerEvents="none"
+      width={width}
+      height={IMG_H * k}
+      viewBox={`0 0 ${VB_W} ${IMG_H}`}
+      style={{ position: 'absolute', left: 0, top: 0 }}
+    >
+      <HandArt which="openHand" tone={tone} />
+    </Svg>
   );
 }
 
@@ -54,16 +47,6 @@ export function HandRaster({ tone, width }: { tone: ToneId; width: number }) {
 const ARM_LEFT = { a: 351.22, b: -0.06649 };
 const ARM_RIGHT = { a: 479.62, b: 0.08241 };
 const ARM_LINE = 7.5;
-/** The raster's own skin fills (a shade off the theme's skin swatches), so the join is invisible. */
-const ARM_SKIN: Record<ToneId, string> = {
-  t0: '#FEFEFE',
-  t1: '#F8E3D3',
-  t2: '#EEC7A7',
-  t3: '#D8A37B',
-  t4: '#B37953',
-  t5: '#825239',
-  t6: '#543223',
-};
 /** The extension starts this far above the raster's cropped bottom (VB_H), overlapping it. */
 const ARM_OVERLAP = 16;
 
@@ -90,7 +73,7 @@ function ArmExtension({ tone, width, length }: { tone: ToneId; width: number; le
       style={{ position: 'absolute', left: 0, top: y0 * k }}
     >
       {/* skin first, then the two outline bands on top: no line colour bleeds through the top edge */}
-      <Polygon points={quad(l, r)} fill={ARM_SKIN[tone] ?? t.skin} />
+      <Polygon points={quad(l, r)} fill={t.skin} />
       <Polygon points={quad(l, (y) => l(y) + ARM_LINE)} fill={t.line} />
       <Polygon points={quad((y) => r(y) - ARM_LINE, r)} fill={t.line} />
     </Svg>

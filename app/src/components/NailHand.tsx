@@ -13,12 +13,12 @@ import Svg, {
   ClipPath,
   Defs,
   G,
-  Image as SvgImage,
   Path,
   Pattern,
   Rect,
 } from 'react-native-svg';
 
+import vectors from '../art/handVectors.json';
 import nails from '../art/nails.json';
 import { NAIL_ORDER, lookOf, nailKey, nailSpokenName, sameNail, withLook, type NailRef } from '../lib/nailNames';
 import { DIGITS, handNails, type Digit, type Hand, type NailDesign, type NailLook, type ToneId } from '../state/store';
@@ -599,15 +599,6 @@ export function NailPaint({ uid, d, look, line, strokeWidth, unit = 1 / CLOSE_K 
 
 /* ---------------------------------------------------------------------- hand */
 
-const HAND_IMAGES: Record<ToneId, number> = {
-  t0: require('../../assets/hands/nail-hand-t0.png'),
-  t1: require('../../assets/hands/nail-hand-t1.png'),
-  t2: require('../../assets/hands/nail-hand-t2.png'),
-  t3: require('../../assets/hands/nail-hand-t3.png'),
-  t4: require('../../assets/hands/nail-hand-t4.png'),
-  t5: require('../../assets/hands/nail-hand-t5.png'),
-  t6: require('../../assets/hands/nail-hand-t6.png'),
-};
 
 /** Where a nail's middle sits in viewBox coordinates. */
 export function nailCentre(digit: Digit, shape: string) {
@@ -756,7 +747,29 @@ function NailsLayer({
   );
 }
 
-/** The hands: a skin-toned raster each, with the five painted nails (and their stickers) drawn over it. */
+/**
+ * A hand's traced art: the skin silhouette in the tone's skin colour, then the line art (even-odd
+ * fill) in its line colour, in the rasters' own 1024 x 1536 pixel coordinates. Vector, so it stays
+ * sharp however far it is zoomed.
+ */
+export const HandArt = React.memo(function HandArt({
+  which,
+  tone,
+}: {
+  which: 'nailHand' | 'openHand';
+  tone: ToneId;
+}) {
+  const t = TONES.find((x) => x.id === tone) ?? TONES[0];
+  const art = vectors[which];
+  return (
+    <>
+      <Path d={art.skin} fill={t.skin} />
+      <Path d={art.ink} fill={t.line} fillRule="evenodd" />
+    </>
+  );
+});
+
+/** The hands: a traced vector hand each, with the five painted nails (and their stickers) drawn over it. */
 function HandSvg({
   design,
   tone,
@@ -764,6 +777,7 @@ function HandSvg({
   width,
   logicalWidth = width,
   label,
+  crop,
 }: {
   design: NailDesign;
   tone: ToneId;
@@ -773,17 +787,20 @@ function HandSvg({
   /** Size the art is shown at (line weight follows this; `width` may be drawn larger and scaled down). */
   logicalWidth?: number;
   label: string;
+  /** Draw just this window of the art (art units) into `width` x `height` px, e.g. a zoomed view. */
+  crop?: { x: number; y: number; w: number; h: number; height: number };
 }) {
   const uid = useId().replace(/[^A-Za-z0-9]/g, '');
   const span = SPAN[hands];
-  const height = (VB[3] * width) / span.w;
+  const height = crop ? crop.height : (VB[3] * width) / span.w;
   const { line, sw } = ink(tone, logicalWidth, span.w);
+  const viewBox = crop ? `${crop.x} ${crop.y} ${crop.w} ${crop.h}` : `${span.x0} ${VB[1]} ${span.w} ${VB[3]}`;
 
   return (
-    <Svg width={width} height={height} viewBox={`${span.x0} ${VB[1]} ${span.w} ${VB[3]}`} accessibilityLabel={label}>
+    <Svg width={width} height={height} viewBox={viewBox} accessibilityLabel={label}>
       {handsIn(hands).map((h) => (
         <G key={h} transform={handTransform(h, hands)}>
-          <SvgImage href={HAND_IMAGES[tone] ?? HAND_IMAGES.t0} x={0} y={0} width={IMG.width} height={IMG.height} />
+          <HandArt which="nailHand" tone={tone} />
           <NailsLayer design={design} hand={h} uid={`${uid}${h[0]}`} line={line} sw={sw} />
         </G>
       ))}
@@ -865,7 +882,7 @@ type Fx = {
   glint?: boolean;
 };
 
-/** iOS bitmaps SVGs, so the overlay is drawn bigger and scaled back to stay sharp at the zoom. */
+/** iOS bitmaps SVGs; the small effect and halo overlays are drawn bigger and scaled back so they stay sharp at the zoom. */
 const OVERLAY_SS = Platform.OS === 'ios' ? 2.7 : 1;
 
 /**
@@ -1173,11 +1190,6 @@ const sameLook = (a: NailLook, b: NailLook) =>
 export const ZOOM = 2.7;
 const ZOOM_MS = 520;
 const ZOOM_EASE = Easing.bezier(0.22, 0.8, 0.24, 1);
-/**
- * iOS draws an SVG once into a bitmap, so scaling it up would blur it. Draw the hand this many
- * times larger and shrink it back, so the zoom lands on sharp pixels.
- */
-const SUPERSAMPLE = Platform.OS === 'ios' ? 2 : 1;
 /** Fingers further than this (px) between press and release are a swipe, not a tap. */
 const TAP_SLOP = 12;
 
@@ -1190,6 +1202,8 @@ type ZoomProps = {
   zoom: NailRef | null;
   /** Px the art sits below the middle of its canvas (see `pairFit`); the camera still centres nails. */
   shift?: number;
+  /** The canvas's size (px). With it, the hands are redrawn crisp at the zoomed size once the camera lands. */
+  view?: { w: number; h: number };
   /** A touch (or a screen reader's tap) on a nail. */
   onNailPress: (n: NailRef) => void;
   /** A touch on the hands that is not on a nail. */
@@ -1235,7 +1249,7 @@ function designOf(shape: string, pick: (n: NailRef) => NailLook): NailDesign {
  * It also plays what the child just changed (a sweep of new polish, a sticker popping on or off,
  * a shape cross-fade); nails that were already painted never animate again.
  */
-export function ZoomHand({ design, tone, width, zoom, shift = 0, onNailPress, onOffPress, onNailTap }: ZoomProps) {
+export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPress, onOffPress, onNailTap }: ZoomProps) {
   const span = SPAN.both;
   const scale = width / span.w;
   const height = VB[3] * scale;
@@ -1320,6 +1334,21 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, onNailPress, on
   );
   const reduceMotion = useReduceMotion();
 
+  // The camera's glide is a transform on bitmaps, so it is soft. Once it lands, the hands are
+  // redrawn as vector at the zoomed size in a window the size of the canvas (below the halo and
+  // effect layers, which stay on the transformed box), and the box's own copy is hidden.
+  const [landed, setLanded] = useState<{ key: string | null; done: boolean }>({ key: zoomKey, done: false });
+  if (landed.key !== zoomKey) setLanded({ key: zoomKey, done: false });
+  useEffect(() => {
+    if (!zoomKey) return;
+    const t = setTimeout(
+      () => setLanded((l) => (l.key === zoomKey ? { key: l.key, done: true } : l)),
+      ZOOM_MS + 80,
+    );
+    return () => clearTimeout(t);
+  }, [zoomKey]);
+  const crisp = !!zoom && !!view && landed.key === zoomKey && landed.done;
+
   // Camera target: move the nail's centre (box pixels) to the box centre, then scale about it.
   let tx = 0;
   let ty = 0;
@@ -1356,25 +1385,53 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, onNailPress, on
 
   const downAt = useRef<{ x: number; y: number } | null>(null);
 
+  let win: { left: number; top: number; w: number; h: number; crop: { x: number; y: number; w: number; h: number; height: number } } | null = null;
+  if (crisp && zoom && view) {
+    // The window is the canvas, centred on the nail; it shows the art at `scale * sc` px a unit.
+    const c = pairNailCentre(zoom, design.shape);
+    const aw = view.w / (scale * sc);
+    const ah = view.h / (scale * sc);
+    win = {
+      left: width / 2 - view.w / 2,
+      top: height / 2 - shift - view.h / 2,
+      w: view.w,
+      h: view.h,
+      crop: { x: c.x - aw / 2, y: c.y - ah / 2, w: aw, h: ah, height: view.h },
+    };
+  }
+
   return (
-    <Animated.View style={[{ width, height, top: shift }, camera]}>
+    <View style={{ width, height, top: shift }}>
+      {win && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: win.left, top: win.top, width: win.w, height: win.h }}>
+          <HandSvg
+            design={base}
+            tone={tone}
+            hands="both"
+            width={win.w}
+            logicalWidth={width}
+            crop={win.crop}
+            label=""
+          />
+        </View>
+      )}
+    <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width, height }, camera]}>
       <View
         pointerEvents="none"
         style={{
           position: 'absolute',
           left: 0,
           top: 0,
-          width: width * SUPERSAMPLE,
-          height: height * SUPERSAMPLE,
-          transformOrigin: 'left top',
-          transform: [{ scale: 1 / SUPERSAMPLE }],
+          width,
+          height,
+          opacity: win ? 0 : 1,
         }}
       >
         <HandSvg
           design={base}
           tone={tone}
           hands="both"
-          width={width * SUPERSAMPLE}
+          width={width}
           logicalWidth={width}
           label={zoom ? `Close up of the ${nailSpokenName(zoom).toLowerCase()} nail` : 'Two hands with painted nails. Tap a nail to look closer.'}
         />
@@ -1472,6 +1529,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, onNailPress, on
         }}
       />
     </Animated.View>
+    </View>
   );
 }
 

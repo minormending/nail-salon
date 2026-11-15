@@ -211,6 +211,7 @@ export default function SalonNails() {
             tone={tone}
             width={handW}
             shift={handShift}
+            view={area}
             zoom={zoom}
             onNailPress={(n) => {
               if (!sameNail(n, zoom)) setZoom(n);
