@@ -12,18 +12,20 @@ import { Screen } from '../../src/components/Screen';
 import { SkinToneButton } from '../../src/components/SkinToneButton';
 import { TopBar } from '../../src/components/TopBar';
 import {
-  DEFAULT_STAMP_SCALE,
   MIRROR_X,
   NIB_NAMES,
   VB_H,
   VB_W,
   consumePickedMotif,
+  defaultStampScale,
   designIsEmpty,
+  fitHand,
   getPickedMotif,
   joinLayers,
   letItDry,
   mirrorStamp,
   mirrorStroke,
+  motifById,
   saveDraftForPicture,
   splitLayers,
   type OverlayLayer,
@@ -143,7 +145,8 @@ export default function Studio() {
   const [mirror, setMirror] = useState(init.current.mirror);
   const [activeLayer, setActiveLayer] = useState<0 | 1>(0);
   const [motif, setMotif] = useState(getPickedMotif());
-  const [handW, setHandW] = useState(MAX_HAND_W);
+  const [fit, setFit] = useState({ handW: MAX_HAND_W, bleed: 46 });
+  const handW = fit.handW;
 
   const layers = hist.stack[hist.idx];
   const design = useMemo(() => joinLayers(layers, mirror), [layers, mirror]);
@@ -181,7 +184,7 @@ export default function Studio() {
     commit(replaceLayer(stroke.layer, { strokes: [...l.strokes, ...add] }));
   };
   const onStamp = (x: number, y: number) => {
-    const stamp: Stamp = { layer: activeLayer, motif, x, y, scale: DEFAULT_STAMP_SCALE, rotate: 0 };
+    const stamp: Stamp = { layer: activeLayer, motif, x, y, scale: defaultStampScale(motifById(motif).family), rotate: 0 };
     const l = layers[activeLayer];
     const add = mirror ? [stamp, mirrorStamp(stamp)] : [stamp];
     commit(replaceLayer(activeLayer, { stamps: [...l.stamps, ...add] }));
@@ -225,10 +228,12 @@ export default function Studio() {
     router.push(`/share/${saveDraftForPicture(design, 'Studio henna')}` as never);
   };
 
-  // Keep the whole hand in reach on short phones (the design's 300px hand is the cap).
+  // Keep the hand down to the cuff above the tool panel on short phones (the design's 300px
+  // hand is the cap); the arm below the cuff may hang under the panel.
   const onCanvasLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
-    setHandW(Math.max(180, Math.min(MAX_HAND_W, Math.floor(((h + 46 - 58) * VB_W) / VB_H))));
+    const next = fitHand(h, 58, 10, MAX_HAND_W);
+    setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
   };
   const handH = (VB_H * handW) / VB_W;
 
@@ -327,7 +332,7 @@ export default function Studio() {
 
         <SkinToneButton />
 
-        <View style={{ width: handW, height: handH, marginBottom: -46 }}>
+        <View style={{ width: handW, height: handH, marginBottom: -fit.bleed }}>
           <HennaCanvas
             width={handW}
             tone={tone}

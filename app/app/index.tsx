@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Bunting } from '../src/components/Bunting';
@@ -101,10 +102,16 @@ export default function Home() {
   const router = useRouter();
   const tone = useStore((s) => s.tone);
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
+  // Edge-to-edge on Android: the nav bar sits over the bottom of the window, so the last line
+  // needs the inset too or it scrolls to a place nobody can see.
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}
+        showsVerticalScrollIndicator={false}
+      >
         <Bunting width={width} />
 
         <View style={{ paddingTop: 14, paddingHorizontal: 22, alignItems: 'center' }}>

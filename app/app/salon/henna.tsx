@@ -16,6 +16,7 @@ import {
   PARTS,
   VB_H,
   VB_W,
+  fitHand,
   letItDry,
   overlayXml,
   partBounds,
@@ -118,7 +119,8 @@ export default function SalonHenna() {
   const design = useMemo<HennaDesign>(() => ({ source: 'stencil', parts: inked }), [inked]);
 
   const [inking, setInking] = useState<PartId | null>(null);
-  const [handW, setHandW] = useState(MAX_HAND_W);
+  const [fit, setFit] = useState({ handW: MAX_HAND_W, bleed: 40 });
+  const handW = fit.handW;
   const progress = useRef(new Animated.Value(0)).current;
 
   const next = PARTS.find((p) => !inked.includes(p.id));
@@ -162,13 +164,15 @@ export default function SalonHenna() {
     router.push(`/share/${saveDraftForPicture(design, 'Bloom & vines')}` as never);
   };
 
-  // keep the whole hand in view on short phones (300px is the design's size)
+  const scallopH = (22 * winW) / 390;
+
+  // Keep the hand down to the cuff in view on short phones (300px is the design's size): the
+  // arm below the cuff may hang under the scalloped edge and the panel.
   const onCanvasLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
-    setHandW(Math.max(160, Math.min(MAX_HAND_W, Math.floor(((h + 40 - 54) * VB_W) / VB_H))));
+    const next = fitHand(h, 54, scallopH + 6, MAX_HAND_W);
+    setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
   };
-
-  const scallopH = (22 * winW) / 390;
 
   return (
     <Screen>
@@ -234,7 +238,7 @@ export default function SalonHenna() {
               ? 'A hand with a full henna design in fresh dark paste'
               : 'Ink the next part of the stencil. A hand with a faded henna stencil, partly inked in'
           }
-          style={{ marginBottom: -40 }}
+          style={{ marginBottom: -fit.bleed }}
         >
           <View>
             <HennaHand design={design} tone={tone} width={handW} stage="paste" />

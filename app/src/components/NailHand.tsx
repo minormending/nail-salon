@@ -1,5 +1,5 @@
 import React, { useId } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, type GestureResponderEvent } from 'react-native';
 import Svg, {
   Circle,
   ClipPath,
@@ -18,7 +18,7 @@ import { colors, TONES } from '../theme';
 
 /* ------------------------------------------------------------------ geometry */
 
-type Place = { x: number; y: number; rotate: number; w: number };
+type Place = { x: number; y: number; rotate: number; w: number; tip: number[] };
 const PLACES = nails.digits as Record<Digit, Place>;
 const SHAPES = nails.shapes as Record<string, Record<Digit, string>>;
 const VB = nails.viewBox.split(' ').map(Number); // x y w h
@@ -306,6 +306,21 @@ function nailCentre(digit: Digit, shape: string) {
   return { x: p.x - ly * Math.sin(a), y: p.y + ly * Math.cos(a) };
 }
 
+/** Which nail a touch at (x, y) in viewBox units means: the nearest tip, within 1.6 nail widths. */
+export function nearestNail(x: number, y: number): Digit | undefined {
+  let best: Digit | undefined;
+  let bestD = Infinity;
+  for (const dg of DIGITS) {
+    const p = PLACES[dg];
+    const d = Math.hypot(x - p.tip[0], y - p.tip[1]);
+    if (d <= p.w * 1.6 && d < bestD) {
+      best = dg;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
 type Props = {
   design: NailDesign;
   tone: ToneId;
@@ -326,7 +341,6 @@ export function NailHand({ design, tone, width, onNailPress, selected }: Props) 
   const line = toneInfo.line;
   // About 1.5pt on screen at the canvas size (262pt wide), never thinner than the art's own.
   const sw = Math.max(nails.line.width, (1.5 * VB[2]) / width);
-  const hit = Math.max(44, width * 0.17);
 
   return (
     <View style={{ width, height }}>
@@ -358,26 +372,42 @@ export function NailHand({ design, tone, width, onNailPress, selected }: Props) 
           );
         })}
       </Svg>
-      {onNailPress &&
-        DIGITS.map((dg) => {
-          const c = nailCentre(dg, design.shape);
-          return (
-            <Pressable
-              key={dg}
-              onPress={() => onNailPress(dg)}
-              accessibilityRole="button"
-              accessibilityLabel={`${FINGER_NAMES[dg]} nail`}
-              accessibilityState={{ selected: selected === dg }}
-              style={{
-                position: 'absolute',
-                width: hit,
-                height: hit,
-                left: c.x * scale - hit / 2,
-                top: (c.y - VB[1]) * scale - hit / 2,
-              }}
-            />
-          );
-        })}
+      {onNailPress && (
+        <>
+          {/* Screen readers: one invisible button per nail (the touch layer above them is skipped). */}
+          {DIGITS.map((dg) => {
+            const c = nailCentre(dg, design.shape);
+            return (
+              <Pressable
+                key={dg}
+                onPress={() => onNailPress(dg)}
+                accessibilityRole="button"
+                accessibilityLabel={`${FINGER_NAMES[dg]} nail`}
+                accessibilityState={{ selected: selected === dg }}
+                style={{
+                  position: 'absolute',
+                  width: 44,
+                  height: 44,
+                  left: c.x * scale - 22,
+                  top: (c.y - VB[1]) * scale - 22,
+                }}
+              />
+            );
+          })}
+          {/* Sighted touch: one layer over the whole hand picks the NEAREST nail tip. */}
+          <View
+            accessible={false}
+            importantForAccessibility="no"
+            style={{ position: 'absolute', left: 0, top: 0, width, height }}
+            onStartShouldSetResponder={() => true}
+            onResponderTerminationRequest={() => true}
+            onResponderRelease={(e: GestureResponderEvent) => {
+              const dg = nearestNail(e.nativeEvent.locationX / scale, e.nativeEvent.locationY / scale + VB[1]);
+              if (dg) onNailPress(dg);
+            }}
+          />
+        </>
+      )}
     </View>
   );
 }

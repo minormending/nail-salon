@@ -27,6 +27,23 @@ export const toneById = (id: ToneId): Tone => hennaTones.find((t) => t.id === id
 export const hennaArtClip: string = hennaArt.handClip;
 export const partBounds = hennaArt.partBounds as Record<PartId, [number, number, number, number]>;
 
+/** Bottom of the stencil's cuff in viewBox units: the lowest thing a painted hand must show. */
+export const CUFF_BOTTOM = partBounds.cuff[1] + partBounds.cuff[3];
+
+/**
+ * Sizes the hand on a painting canvas so everything down to the bottom of the cuff is in view.
+ * The hand hangs off the canvas bottom (the arm below the cuff may be cut off or covered).
+ * `top` is the room kept above the fingertips (chips, titles), `clear` the room kept between
+ * the cuff and whatever covers the canvas bottom (a panel, a scalloped edge). Returns the hand
+ * width and how far (px) its bottom edge hangs below the canvas.
+ */
+export function fitHand(canvasH: number, top: number, clear: number, maxW: number, minW = 120) {
+  const wanted = ((canvasH - top - clear) * VB_W) / CUFF_BOTTOM;
+  const handW = Math.max(minW, Math.min(maxW, Math.floor(wanted)));
+  const bleed = Math.max(0, ((VB_H - CUFF_BOTTOM) * handW) / VB_W - clear);
+  return { handW, bleed };
+}
+
 /** Nib sizes in viewBox units (Fine / Medium / Bold). */
 export const NIB_WIDTH: Record<1 | 2 | 3, number> = { 1: 6, 2: 10, 3: 16 };
 export const NIB_NAMES = ['', 'Fine', 'Medium', 'Bold'];
@@ -34,7 +51,15 @@ export const NIB_NAMES = ['', 'Fine', 'Medium', 'Bold'];
 export const JAALI_WIDTH = 40;
 /** The stroke "pressure" never thins below this share of the nib. */
 export const MIN_PRESSURE = 0.6;
-export const DEFAULT_STAMP_SCALE = 2.2;
+/**
+ * How big a new stamp lands, in motif scale (the motifs are drawn in an 80-unit box, a
+ * mandala about 76 units across). A mandala matches the stencil's bloom (partBounds.gol,
+ * 364 units wide); borders span the wrist (~280 units). Stamps already saved keep their own scale.
+ */
+export const DEFAULT_STAMP_SCALE = 4.8;
+export const BORDER_STAMP_SCALE = 4;
+export const defaultStampScale = (family: string): number =>
+  family === 'borders' ? BORDER_STAMP_SCALE : DEFAULT_STAMP_SCALE;
 export const DEFAULT_MOTIF = 'mandala';
 
 /** Kept as an alias; `Stroke` itself now carries the optional `jaali` flag. */
