@@ -26,10 +26,13 @@ export const FINGER_NAMES: Record<Digit, string> = {
 /** One of the ten nails: which hand, which finger. */
 export type NailRef = { hand: Hand; digit: Digit };
 
-/** Screen order, left to right: left little finger ... left thumb, right thumb ... right little finger. */
+/**
+ * Screen order, left to right, thumbs outside: left thumb ... left little finger, then right little
+ * finger ... right thumb.
+ */
 export const NAIL_ORDER: NailRef[] = [
-  ...[...DIGITS].reverse().map((digit) => ({ hand: 'left' as const, digit })),
-  ...DIGITS.map((digit) => ({ hand: 'right' as const, digit })),
+  ...DIGITS.map((digit) => ({ hand: 'left' as const, digit })),
+  ...[...DIGITS].reverse().map((digit) => ({ hand: 'right' as const, digit })),
 ];
 
 export const RIGHT_THUMB: NailRef = { hand: 'right', digit: 'thumb' };

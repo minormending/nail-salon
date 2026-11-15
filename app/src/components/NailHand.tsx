@@ -34,14 +34,15 @@ const VB = nails.viewBox.split(' ').map(Number); // x y w h
 const IMG = nails.image;
 
 /**
- * Two hands side by side, backs to the viewer, thumbs toward the middle. The drawn hand is a right
- * hand; the left is the same raster and geometry mirrored. Each sits in its own 1024-wide box and
- * the boxes overlap on their empty margins. `x0` and `w` are the visible span in pair coordinates.
+ * Two hands side by side, backs to the viewer, thumbs outside. The drawing is of a hand with its
+ * thumb at the left: the screen-left (the "left" hand) uses it as drawn, the screen-right (the
+ * "right" hand) uses it mirrored, so the little-finger sides face each other across a small gap.
+ * Each sits in its own 1024-wide box. `x0` and `w` are the visible span in pair coordinates.
  */
-const RIGHT_OFF = 880;
+const RIGHT_OFF = 788;
 export type Hands = 'both' | 'right';
 const SPAN: Record<Hands, { x0: number; w: number }> = {
-  both: { x0: 150, w: 1600 },
+  both: { x0: 106, w: 1600 },
   right: { x0: 0, w: VB[2] },
 };
 /** Height over width of the pair's art. */
@@ -59,7 +60,7 @@ export function pairFit(w: number, h: number): { width: number; shift: number } 
   const thumbTop = 125; // art units from the top of the art to the top of the thumbs
   const clearTop = 54; // px kept free under the corner pills
   const crop = 220; // art units of forearm allowed off the bottom
-  const armEdge = 180; // art units from the art's left edge to the left forearm at the bottom
+  const armEdge = 176; // art units from the art's left edge to the left forearm at the bottom
   const skin = 66; // px the skin-tone button needs
   const s = Math.max(
     120 / U,
@@ -74,17 +75,17 @@ const handsIn = (hands: Hands): Hand[] => (hands === 'both' ? ['left', 'right'] 
 /** The SVG transform that puts a hand's own drawing into the art's coordinates. */
 function handTransform(hand: Hand, hands: Hands): string | undefined {
   if (hands === 'right') return undefined;
-  return hand === 'right' ? `translate(${RIGHT_OFF} 0)` : `translate(${IMG.width} 0) scale(-1 1)`;
+  return hand === 'left' ? undefined : `translate(${RIGHT_OFF + IMG.width} 0) scale(-1 1)`;
 }
 
 /** A point on a hand's own drawing, in the pair's coordinates. */
 function pairPoint(hand: Hand, x: number, y: number) {
-  return { x: hand === 'right' ? RIGHT_OFF + x : IMG.width - x, y };
+  return { x: hand === 'left' ? x : RIGHT_OFF + IMG.width - x, y };
 }
 
 /** A point in the pair's coordinates, on a hand's own drawing. */
 function handPoint(hand: Hand, x: number, y: number) {
-  return { x: hand === 'right' ? x - RIGHT_OFF : IMG.width - x, y };
+  return { x: hand === 'left' ? x : RIGHT_OFF + IMG.width - x, y };
 }
 /** The close-up draws a nail at this multiple of its size on the hand (less for very long shapes). */
 export const CLOSE_K = 1.25;
@@ -246,7 +247,7 @@ function nailOutline(d: string): number[][] {
       case 'Q': {
         const ctl: number[][] = [[cx, cy]];
         for (let i = 0; i < n.length; i += 2) ctl.push([n[i], n[i + 1]]);
-        for (let t = 0.1; t <= 1.001; t += 0.1) {
+        for (let t = 0.05; t <= 1.001; t += 0.05) {
           let q = ctl;
           while (q.length > 1) {
             const next: number[][] = [];
@@ -265,8 +266,8 @@ function nailOutline(d: string): number[][] {
         // The nail outlines only use half-ellipse tips (both ends at the same height, over the top).
         const [rx, ry, , , , x, y] = n;
         const mid = (cx + x) / 2;
-        for (let i = 1; i <= 12; i++) {
-          const th = (Math.PI * i) / 12;
+        for (let i = 1; i <= 24; i++) {
+          const th = (Math.PI * i) / 24;
           pts.push([mid - ((x - cx) / 2) * Math.cos(th), cy - ry * Math.sin(th) * (rx > 0 ? 1 : 0)]);
         }
         cx = x;
@@ -516,6 +517,77 @@ function isLight(hex: string): boolean {
   return lum > 0.75;
 }
 
+/**
+ * A French tip as plain geometry: the part of the nail outline `d` that lies beyond the smile
+ * line (the tip side), as one polygon, plus the smile line itself where it crosses the nail. Both
+ * are built inside the outline, so nothing has to be clipped (a clip path that fails to resolve
+ * would otherwise let the white band spill past the nail's free edge).
+ */
+const frenchCache = new Map<string, { tip: string; smile: string }>();
+function frenchTip(d: string): { tip: string; smile: string } {
+  const hit = frenchCache.get(d);
+  if (hit) return hit;
+  const poly = nailOutline(d);
+  const { len, hw } = nailMetrics(d);
+  const b = len * 0.66;
+  const W = hw * 1.2;
+  const bump = hw * 0.33;
+  // The smile: a cubic from (-W, -b) to (W, -b) bowing toward the tip; x is monotonic along it.
+  const curve: number[][] = [];
+  for (let i = 0; i <= 80; i++) {
+    const t = i / 80;
+    const m = 1 - t;
+    const x = -W * m ** 3 + 3 * m * m * t * (-0.42 * W) + 3 * m * t * t * (0.42 * W) + W * t ** 3;
+    const y = -b * m ** 3 + 3 * m * m * t * (-b - bump) + 3 * m * t * t * (-b - bump) - b * t ** 3;
+    curve.push([x, y]);
+  }
+  const smileY = (x: number) => {
+    for (let i = 1; i < curve.length; i++) {
+      if (x <= curve[i][0]) {
+        const [x0, y0] = curve[i - 1];
+        const [x1, y1] = curve[i];
+        return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0 || 1);
+      }
+    }
+    return curve[curve.length - 1][1];
+  };
+  // The nail's extent (tip side, cuticle side) at x, from where the outline crosses that vertical.
+  const span = (x: number): [number, number] | null => {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i];
+      const [xj, yj] = poly[j];
+      if (xi === xj || (x < Math.min(xi, xj)) || x > Math.max(xi, xj)) continue;
+      const y = yi + ((yj - yi) * (x - xi)) / (xj - xi);
+      if (y < lo) lo = y;
+      if (y > hi) hi = y;
+    }
+    return lo === Infinity ? null : [lo, hi];
+  };
+  const N = 60;
+  const top: string[] = [];
+  const bottom: string[] = [];
+  let line = '';
+  for (let i = 0; i <= N; i++) {
+    const x = -hw + 0.002 + ((2 * hw - 0.004) * i) / N;
+    const sp = span(x);
+    if (!sp) continue;
+    const ys = smileY(x);
+    if (sp[0] < ys) {
+      top.push(`${x.toFixed(2)} ${sp[0].toFixed(2)}`);
+      bottom.push(`${x.toFixed(2)} ${Math.min(sp[1], ys).toFixed(2)}`);
+    }
+    if (ys >= sp[0] && ys <= sp[1]) line += `${line ? ' L' : 'M'} ${x.toFixed(2)} ${ys.toFixed(2)}`;
+  }
+  const out = {
+    tip: top.length > 1 ? `M ${top.join(' L ')} L ${bottom.reverse().join(' L ')} Z` : '',
+    smile: line,
+  };
+  frenchCache.set(d, out);
+  return out;
+}
+
 type PaintProps = {
   /** Unique, letters and digits only: names this nail's pattern and clip defs. */
   uid: string;
@@ -533,9 +605,7 @@ type PaintProps = {
  * then the outline. Stickers and the sheen are drawn over it by the caller.
  */
 export function NailPaint({ uid, d, look, line, strokeWidth, unit = 1 / CLOSE_K }: PaintProps) {
-  const { len, hw } = nailMetrics(d);
   const fillId = `${uid}f`;
-  const clipId = `${uid}c`;
   const { color, pattern } = look;
   const dot = isLight(color) ? colors.plum : colors.cream;
   const u = unit;
@@ -543,10 +613,7 @@ export function NailPaint({ uid, d, look, line, strokeWidth, unit = 1 / CLOSE_K 
   const fill = pattern === 'dots' || pattern === 'stripes' ? `url(#${fillId})` : color;
 
   // French: the white tip over the colour, its edge a gentle curve across the nail.
-  const b = len * 0.66;
-  const W = hw * 1.2;
-  const bump = hw * 0.33;
-  const smile = `M ${-W} ${-b} C ${-W * 0.42} ${-b - bump} ${W * 0.42} ${-b - bump} ${W} ${-b}`;
+  const french = pattern === 'french' ? frenchTip(d) : null;
 
   return (
     <>
@@ -570,27 +637,14 @@ export function NailPaint({ uid, d, look, line, strokeWidth, unit = 1 / CLOSE_K 
             <Rect width={9 * u} height={22 * u} fill={dot} />
           </Pattern>
         )}
-        {pattern === 'french' && (
-          <ClipPath id={clipId}>
-            <Path d={d} />
-          </ClipPath>
-        )}
       </Defs>
       <Path d={d} fill={fill} />
-      {pattern === 'french' && (
+      {french && (
         <>
-          <Path
-            d={`M ${-W} ${-len - 40} L ${W} ${-len - 40} L ${W} ${-b} C ${W * 0.42} ${-b - bump} ${-W * 0.42} ${-b - bump} ${-W} ${-b} Z`}
-            fill="#FFFFFF"
-            clipPath={`url(#${clipId})`}
-          />
-          <Path
-            d={smile}
-            fill="none"
-            stroke={line}
-            strokeWidth={strokeWidth * 0.75}
-            clipPath={`url(#${clipId})`}
-          />
+          {french.tip ? <Path d={french.tip} fill="#FFFFFF" /> : null}
+          {french.smile ? (
+            <Path d={french.smile} fill="none" stroke={line} strokeWidth={strokeWidth * 0.75} strokeLinejoin="round" />
+          ) : null}
         </>
       )}
       <Path d={d} fill="none" stroke={line} strokeWidth={strokeWidth} strokeLinejoin="round" />
@@ -925,7 +979,7 @@ function FxLayer({
   const ms = fx.kind === 'paint' ? (fx.glint ? GLINT_AT + GLINT_MS : SWEEP_MS) : fx.kind === 'pop' ? POP_MS : UNPOP_MS;
   const t = useElapsed(ms, () => onDone(fx.id), fx.at);
   const p = PLACES[fx.nail.digit];
-  const mirrored = fx.nail.hand === 'left';
+  const mirrored = fx.nail.hand === 'right';
   const d = nailPath(shape, fx.nail.digit);
   const { len, hw, bot } = nailMetrics(d);
   const k = 1 / closeK(d);
@@ -1122,7 +1176,7 @@ function HaloLayer({
   }));
 
   const p = PLACES[nail.digit];
-  const mirrored = nail.hand === 'left';
+  const mirrored = nail.hand === 'right';
   const d = nailPath(shape, nail.digit);
   const { len, hw, bot } = nailMetrics(d);
   const wide = sw + (2 * HALO_OUTER_PX) / ppu;
