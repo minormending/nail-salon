@@ -12,3 +12,4 @@ npm-debug.log*
 
 # Logs / temp
 *.log
+art-private/
