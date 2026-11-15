@@ -1,6 +1,6 @@
 import React, { useId, useMemo, type ReactNode } from 'react';
 import { Image, View } from 'react-native';
-import Svg, { G, SvgXml } from 'react-native-svg';
+import Svg, { G, Polygon, SvgXml } from 'react-native-svg';
 
 import openNails from '../art/openNails.json';
 import { DIGITS, handNails, type Digit, type Hand, type HennaDesign, type NailDesign, type NailLook } from '../state/store';
@@ -42,6 +42,58 @@ export function HandRaster({ tone, width }: { tone: ToneId; width: number }) {
       style={{ position: 'absolute', left: 0, top: 0, width, height: IMG_H * k }}
       accessibilityIgnoresInvertColors
     />
+  );
+}
+
+/* ------------------------------------------------------------------ longer forearms */
+
+/*
+ * The raster's forearm edges below the knuckles are straight lines (fitted over y 1380-1503 of the
+ * viewBox; the same for every tone): x = a + b*y. Its outline is about 7.5 units thick.
+ */
+const ARM_LEFT = { a: 351.22, b: -0.06649 };
+const ARM_RIGHT = { a: 479.62, b: 0.08241 };
+const ARM_LINE = 7.5;
+/** The raster's own skin fills (a shade off the theme's skin swatches), so the join is invisible. */
+const ARM_SKIN: Record<ToneId, string> = {
+  t0: '#FEFEFE',
+  t1: '#F8E3D3',
+  t2: '#EEC7A7',
+  t3: '#D8A37B',
+  t4: '#B37953',
+  t5: '#825239',
+  t6: '#543223',
+};
+/** The extension starts this far above the raster's cropped bottom (VB_H), overlapping it. */
+const ARM_OVERLAP = 16;
+
+/**
+ * Carries both forearm outlines straight down for `length` more viewBox units below the raster's
+ * bottom edge: a line-coloured arm with a skin-coloured inside, laid over the raster's last rows so
+ * the join does not show.
+ */
+function ArmExtension({ tone, width, length }: { tone: ToneId; width: number; length: number }) {
+  const k = width / VB_W;
+  const t = TONES.find((x) => x.id === tone) ?? TONES[0];
+  const y0 = VB_H - ARM_OVERLAP;
+  const y1 = VB_H + length;
+  const l = (y: number) => ARM_LEFT.a + ARM_LEFT.b * y - 0.5;
+  const r = (y: number) => ARM_RIGHT.a + ARM_RIGHT.b * y + 0.5;
+  const quad = (xa: (y: number) => number, xb: (y: number) => number) =>
+    `${xa(y0)},${y0} ${xb(y0)},${y0} ${xb(y1)},${y1} ${xa(y1)},${y1}`;
+  return (
+    <Svg
+      pointerEvents="none"
+      width={width}
+      height={(y1 - y0) * k}
+      viewBox={`0 ${y0} ${VB_W} ${y1 - y0}`}
+      style={{ position: 'absolute', left: 0, top: y0 * k }}
+    >
+      {/* skin first, then the two outline bands on top: no line colour bleeds through the top edge */}
+      <Polygon points={quad(l, r)} fill={ARM_SKIN[tone] ?? t.skin} />
+      <Polygon points={quad(l, (y) => l(y) + ARM_LINE)} fill={t.line} />
+      <Polygon points={quad((y) => r(y) - ARM_LINE, r)} fill={t.line} />
+    </Svg>
   );
 }
 
@@ -130,6 +182,8 @@ type Props = {
   hands?: 'both' | 'left';
   /** Drawn over each hand in that hand's own frame (mirrored with the right hand), e.g. an ink sweep. */
   overlay?: ReactNode;
+  /** Lengthens the forearms by this many viewBox units below the raster's bottom (0: as drawn). */
+  armExtend?: number;
 };
 
 /** One hand: the raster, its henna overlay and (if given) its nails. */
@@ -140,6 +194,7 @@ function OneHand({
   width,
   nails,
   overlay,
+  armExtend = 0,
 }: {
   hand: Hand;
   xml: string;
@@ -147,15 +202,17 @@ function OneHand({
   width: number;
   nails?: NailDesign;
   overlay?: ReactNode;
+  armExtend?: number;
 }) {
   const height = (VB_H * width) / VB_W;
   return (
-    <View style={{ width, height, overflow: nails ? 'visible' : 'hidden' }}>
+    <View style={{ width, height, overflow: nails || armExtend > 0 ? 'visible' : 'hidden' }}>
       <View style={{ width, height, overflow: 'hidden' }}>
         <HandRaster tone={tone} width={width} />
         <SvgXml xml={xml} width={width} height={height} style={{ position: 'absolute', left: 0, top: 0 }} />
         {overlay}
       </View>
+      {armExtend > 0 ? <ArmExtension tone={tone} width={width} length={armExtend} /> : null}
       {nails ? (
         <HennaNails shape={nails.shape} looks={handNails(nails, hand)} tone={tone} width={width} hand={hand} />
       ) : null}
@@ -169,7 +226,7 @@ function OneHand({
  * on the hand it was made on, clipped to the hand. The right hand is the left hand mirrored, so
  * a mark keeps its own-hand coordinates there and the nails too.
  */
-export function HennaHand({ design, tone, width, stage, nails, hands = 'both', overlay }: Props) {
+export function HennaHand({ design, tone, width, stage, nails, hands = 'both', overlay, armExtend }: Props) {
   const height = (VB_H * width) / VB_W;
   const both = hands === 'both';
   const parts = design.parts;
@@ -196,7 +253,7 @@ export function HennaHand({ design, tone, width, stage, nails, hands = 'both', o
   if (!both) {
     return (
       <View style={{ width, height }}>
-        <OneHand hand="left" xml={xml.left} tone={tone} width={width} nails={nails} overlay={overlay} />
+        <OneHand hand="left" xml={xml.left} tone={tone} width={width} nails={nails} overlay={overlay} armExtend={armExtend} />
       </View>
     );
   }
@@ -204,7 +261,7 @@ export function HennaHand({ design, tone, width, stage, nails, hands = 'both', o
   return (
     <View style={{ width: pairWidth(width), height }}>
       <View style={{ position: 'absolute', left: -pad, top: 0, width, height }}>
-        <OneHand hand="left" xml={xml.left} tone={tone} width={width} nails={nails} overlay={overlay} />
+        <OneHand hand="left" xml={xml.left} tone={tone} width={width} nails={nails} overlay={overlay} armExtend={armExtend} />
       </View>
       <View
         style={{
@@ -216,7 +273,7 @@ export function HennaHand({ design, tone, width, stage, nails, hands = 'both', o
           transform: [{ scaleX: -1 }],
         }}
       >
-        <OneHand hand="right" xml={xml.right} tone={tone} width={width} nails={nails} overlay={overlay} />
+        <OneHand hand="right" xml={xml.right} tone={tone} width={width} nails={nails} overlay={overlay} armExtend={armExtend} />
       </View>
     </View>
   );

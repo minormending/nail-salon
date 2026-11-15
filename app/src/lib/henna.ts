@@ -75,6 +75,41 @@ export function fitPair(canvasW: number, canvasH: number, top: number, clear: nu
   return fitHand(canvasH, top, clear, cap, Math.min(120, cap));
 }
 
+/**
+ * How far (px) to lift a painted pair when the canvas has room to spare. The pair is first sized and
+ * anchored by `fitPair` (cuff just above the panel, the forearm running under it, `bleed` px of it
+ * below the canvas). With spare height this centres the pair's visible box (fingernails to cuff)
+ * between `chipBottom` (the hint chip) and the panel's top (`panelOverlap` px above the canvas
+ * bottom). 0 on short phones. A lift beyond `bleed` needs `armFor` to lengthen the forearms.
+ */
+export function pairRaise(o: {
+  canvasH: number;
+  handW: number;
+  bleed: number;
+  chipBottom: number;
+  panelOverlap: number;
+  /** How far the longest nails reach above the hand's top. */
+  nailHead?: number;
+}): number {
+  const k = o.handW / VB_W;
+  const handBottom = o.canvasH + o.bleed;
+  const cuffBottom = handBottom - (VB_H - CUFF_BOTTOM) * k;
+  const nailTop = handBottom - VB_H * k - (o.nailHead ?? 14);
+  const gapAbove = nailTop - o.chipBottom;
+  const gapBelow = o.canvasH - o.panelOverlap - cuffBottom;
+  return Math.max(0, (gapAbove - gapBelow) / 2);
+}
+
+/**
+ * The forearm extension (`HennaHand`'s `armExtend`, in viewBox units) a lifted pair needs so the arms
+ * still run past the canvas bottom: the lift beyond what the raster's own arm hid, plus `margin` px.
+ * 0 when there is no lift.
+ */
+export function armFor(raise: number, bleed: number, handW: number, margin = 16): number {
+  if (raise <= 0) return 0;
+  return Math.max(0, Math.ceil(((raise - bleed + margin) * VB_W) / handW));
+}
+
 /** Nib sizes in viewBox units (Fine / Medium / Bold). */
 export const NIB_WIDTH: Record<1 | 2 | 3, number> = { 1: 6, 2: 10, 3: 16 };
 export const NIB_NAMES = ['', 'Fine', 'Medium', 'Bold'];

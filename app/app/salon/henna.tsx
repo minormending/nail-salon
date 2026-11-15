@@ -18,6 +18,8 @@ import {
   VB_W,
   fitPair,
   letItDry,
+  armFor,
+  pairRaise,
   overlayXml,
   partBounds,
   saveDraftForPicture,
@@ -119,7 +121,7 @@ export default function SalonHenna() {
   const design = useMemo<HennaDesign>(() => ({ source: 'stencil', parts: inked }), [inked]);
 
   const [inking, setInking] = useState<PartId | null>(null);
-  const [fit, setFit] = useState({ handW: 200, bleed: 40 });
+  const [fit, setFit] = useState({ handW: 200, bleed: 40, raise: 0, arm: 0 });
   const handW = fit.handW;
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -171,8 +173,20 @@ export default function SalonHenna() {
   // across the canvas, a hand up to 520 wide): the arms below the cuff may hang under the scalloped edge and the panel.
   const onCanvasLayout = (e: LayoutChangeEvent) => {
     const { width: w, height: h } = e.nativeEvent.layout;
-    const next = fitPair(w, h, 68, scallopH + 6);
-    setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
+    const fitted = fitPair(w, h, 68, scallopH + 6);
+    // spare height: lift the pair to sit centred between the hint chip (bottom ~54) and the scallop, and
+    // lengthen the forearms so they still run under the panel
+    const raise = pairRaise({
+      canvasH: h,
+      handW: fitted.handW,
+      bleed: fitted.bleed,
+      chipBottom: 54,
+      panelOverlap: 22,
+    });
+    const next = { ...fitted, raise: Math.round(raise), arm: armFor(raise, fitted.bleed, fitted.handW) };
+    setFit((f) =>
+      f.handW === next.handW && f.bleed === next.bleed && f.raise === next.raise && f.arm === next.arm ? f : next,
+    );
   };
 
   return (
@@ -239,7 +253,7 @@ export default function SalonHenna() {
               ? 'Two hands with a full henna design in fresh dark paste'
               : 'Ink the next part of the stencil on both hands. Two hands with a faded henna stencil, partly inked in'
           }
-          style={{ marginBottom: -fit.bleed }}
+          style={{ marginBottom: fit.raise - fit.bleed }}
         >
           <HennaHand
             design={design}
@@ -247,6 +261,7 @@ export default function SalonHenna() {
             width={handW}
             stage="paste"
             nails={draftNails}
+            armExtend={fit.arm}
             overlay={inking ? <InkSweep part={inking} tone={tone} progress={progress} handW={handW} /> : null}
           />
         </Pressable>

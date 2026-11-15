@@ -8,7 +8,7 @@ import { HennaHand } from '../../src/components/HennaHand';
 import { Icon } from '../../src/components/Icon';
 import { IconButton } from '../../src/components/IconButton';
 import { Screen } from '../../src/components/Screen';
-import { fitPair } from '../../src/lib/henna';
+import { armFor, fitPair, pairRaise } from '../../src/lib/henna';
 import { STAGE_COLOR, stageAt, type StainStage } from '../../src/lib/stain';
 import { useStore, type HennaDesign } from '../../src/state/store';
 import { border, colors, fonts } from '../../src/theme';
@@ -77,7 +77,7 @@ export default function Stain() {
 
   const [now, setNow] = useState(() => Date.now());
   const [preview, setPreview] = useState<StainStage | null>(null);
-  const [fit, setFit] = useState({ handW: 200, bleed: 70 });
+  const [fit, setFit] = useState({ handW: 200, bleed: 70, raise: 0, arm: 0 });
   const handW = fit.handW;
 
   // Recompute on focus and every minute while this screen is open.
@@ -119,8 +119,20 @@ export default function Stain() {
   const onCanvasLayout = (e: LayoutChangeEvent) => {
     const { width: w, height: h } = e.nativeEvent.layout;
     // the hand down to the cuff stays in view; the arm below it may be cut off
-    const next = fitPair(w, h, 56, 12);
-    setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
+    const fitted = fitPair(w, h, 56, 12);
+    // spare height: lift the pair to sit centred between the "now" chip (bottom ~46) and the panel below,
+    // and lengthen the forearms so they still run past the canvas bottom
+    const raise = pairRaise({
+      canvasH: h,
+      handW: fitted.handW,
+      bleed: fitted.bleed,
+      chipBottom: 46,
+      panelOverlap: 0,
+    });
+    const next = { ...fitted, raise: Math.round(raise), arm: armFor(raise, fitted.bleed, fitted.handW) };
+    setFit((f) =>
+      f.handW === next.handW && f.bleed === next.bleed && f.raise === next.raise && f.arm === next.arm ? f : next,
+    );
   };
 
   const onChip = (sid: StainStage) => {
@@ -192,8 +204,8 @@ export default function Stain() {
             {isPreview ? 'PREVIEW' : 'NOW'} · {shown.when}
           </Text>
         </View>
-        <View style={{ marginBottom: -fit.bleed }} accessible accessibilityLabel={shown.alt}>
-          <HennaHand design={design} tone={item.tone} width={handW} stage={shown.id} nails={item.nails} />
+        <View style={{ marginBottom: fit.raise - fit.bleed }} accessible accessibilityLabel={shown.alt}>
+          <HennaHand design={design} tone={item.tone} width={handW} stage={shown.id} nails={item.nails} armExtend={fit.arm} />
         </View>
       </View>
 
