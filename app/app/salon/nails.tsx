@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { AccessibilityInfo, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Pressable, type GestureResponderEvent, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
@@ -96,6 +96,22 @@ export default function SalonNails() {
     );
   };
 
+  // Where the last bottle / pattern button was tapped, relative to the canvas: the polish brush
+  // flies in from there. (The canvas's window origin sits half the top border below its corner.)
+  const canvasRef = useRef<React.ComponentRef<typeof View>>(null);
+  const toolSeq = useRef(0);
+  const [toolFrom, setToolFrom] = useState<{ x: number; y: number; n: number } | undefined>(undefined);
+  const withTool = (e: GestureResponderEvent, act: () => void) => {
+    const px = e.nativeEvent.pageX;
+    const py = e.nativeEvent.pageY;
+    const c = canvasRef.current;
+    if (!c || typeof px !== 'number') return act();
+    c.measureInWindow((cx, cy) => {
+      setToolFrom({ x: px - cx, y: py - cy - border / 2, n: ++toolSeq.current });
+      act();
+    });
+  };
+
   const paint = (hex: string) => {
     if (!zoom) return nudge();
     setDraft(withLook(draft, zoom, { ...lookOf(draft, zoom), color: hex }));
@@ -184,6 +200,7 @@ export default function SalonNails() {
 
       <GestureDetector gesture={pan}>
         <View
+          ref={canvasRef}
           onLayout={(e) => setArea({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
           style={{
             flex: 1,
@@ -213,6 +230,7 @@ export default function SalonNails() {
             shift={handShift}
             view={area}
             zoom={zoom}
+            toolFrom={toolFrom}
             onNailPress={(n) => {
               if (!sameNail(n, zoom)) setZoom(n);
             }}
@@ -277,7 +295,7 @@ export default function SalonNails() {
                 return (
                   <Pressable
                     key={p.id}
-                    onPress={() => update({ pattern: p.id })}
+                    onPress={(e) => withTool(e, () => update({ pattern: p.id }))}
                     accessibilityRole="button"
                     accessibilityLabel={p.name}
                     accessibilityState={{ selected: on }}
@@ -357,7 +375,7 @@ export default function SalonNails() {
             return (
               <Pressable
                 key={b.hex}
-                onPress={() => paint(b.hex)}
+                onPress={(e) => withTool(e, () => paint(b.hex))}
                 accessibilityRole="button"
                 accessibilityLabel={b.name}
                 accessibilityState={{ selected: on }}

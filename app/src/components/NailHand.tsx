@@ -892,56 +892,59 @@ export function NailHand({ design, tone, width, hands = 'both' }: Props) {
 
 /* ------------------------------------------------------------ painting animations */
 
-const SWEEP_MS = 420;
-const GLINT_AT = 200;
-const GLINT_MS = 250;
-const POP_MS = 280;
-const UNPOP_MS = 220;
-const GHOST_MS = 250;
-const easeOut = (x: number) => 1 - (1 - x) ** 3;
-
-/**
- * Milliseconds since `startedAt` (default: mount), every frame, until `ms` (then `onDone`). Only the
- * caller re-renders. Pass `startedAt` so an effect carries on, not restarts, when its layer is
- * remounted (the camera landing moves the effect layers into the crisp window).
+/*
+ * Every motion here runs on the UI thread: one shared value per effect counts milliseconds and the
+ * animated styles are plain functions of it (transforms and opacity only), so React renders once
+ * when an effect starts and once when it ends, never per frame.
  */
-function useElapsed(ms: number, onDone: () => void, startedAt?: number): number {
-  const [t, setT] = useState(() => (startedAt ? Math.max(0, Math.min(ms, Date.now() - startedAt)) : 0));
-  const done = useRef(onDone);
-  useEffect(() => {
-    done.current = onDone;
-  });
-  useEffect(() => {
-    const t0 = startedAt ?? Date.now();
-    let raf = 0;
-    const tick = () => {
-      const e = Date.now() - t0;
-      if (e >= ms) {
-        done.current();
-        return;
-      }
-      setT(e);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [ms, startedAt]);
-  return t;
-}
+
+const GHOST_MS = 250;
+const FLY_MS = 200;
+const STROKE_MS = 420;
+const LIFT_MS = 140;
+const GLINT_MS = 250;
+const PLACE_IN_MS = 220;
+const PLACE_OUT_MS = 200;
+const FADE_MS = 150;
+
+const clamp01 = (x: number) => {
+  'worklet';
+  return Math.min(1, Math.max(0, x));
+};
+const easeOut = (x: number) => {
+  'worklet';
+  const m = 1 - clamp01(x);
+  return 1 - m * m * m;
+};
+const easeIn = (x: number) => {
+  'worklet';
+  const v = clamp01(x);
+  return v * v;
+};
 
 type Fx = {
   id: number;
   nail: NailRef;
-  kind: 'paint' | 'pop' | 'unpop';
+  /** A brush stroke of new polish / pattern, a sticker set down or lifted off by tweezers, or (reduce motion) a cross-fade. */
+  kind: 'paint' | 'pop' | 'unpop' | 'fade';
   /** The nail as it ends up. */
   to: NailLook;
-  /** The sticker that pops on / off. */
+  /** The sticker that is placed / removed. */
   sticker?: StickerPos;
   /** A wet-sheen glint after a new colour. */
   glint?: boolean;
-  /** When it began (ms), so a remounted layer carries on from the right moment. */
-  at: number;
+  /** The bristles' colour: the polish, or a pattern's mark colour. */
+  bristle?: string;
+  /** Where the brush flies in from, in canvas px (the bottle or pattern button that was tapped). */
+  from?: { x: number; y: number };
 };
+
+const fxMs = (fx: Fx) =>
+  fx.kind === 'fade'
+    ? FADE_MS
+    : fx.kind === 'paint'
+      ? FLY_MS + STROKE_MS + (fx.glint ? GLINT_MS : LIFT_MS)
+      : PLACE_IN_MS + (fx.kind === 'pop' ? 100 : 80) + PLACE_OUT_MS;
 
 /**
  * Where an overlay layer is drawn: art point (x0, y0) sits at the layer's top-left and an art unit
@@ -953,18 +956,81 @@ type Frame = { x0: number; y0: number; k: number; ss: number };
 /** iOS bitmaps SVGs; the small effect and halo overlays are drawn bigger and scaled back so they stay sharp at the zoom. */
 const OVERLAY_SS = Platform.OS === 'ios' ? 2.7 : 1;
 
+/* The tools, drawn once. Mela style: flat fills, plum outlines. */
+
+const BRUSH_S = 1.35;
+const BRUSH = { w: 48 * BRUSH_S, h: 112 * BRUSH_S, tipX: 24 * BRUSH_S, tipY: 108 * BRUSH_S };
+/** A polish brush: bottle-cap handle, a short stem and a tapered tuft in `colour`; the tip is at the bottom. */
+const BrushArt = React.memo(function BrushArt({ colour }: { colour: string }) {
+  return (
+    <Svg width={BRUSH.w} height={BRUSH.h} viewBox="0 0 48 112">
+      <Rect x={11} y={2} width={26} height={38} rx={7} fill={colors.plum} />
+      <Path d="M 15 11 V 30" stroke={colors.cream} strokeWidth={2.4} strokeLinecap="round" opacity={0.55} />
+      <Rect x={16} y={39} width={16} height={14} rx={3} fill={colors.plum} />
+      <Path
+        d="M 18 53 C 15.5 70 18 92 24 108 C 30 92 32.5 70 30 53 Z"
+        fill={colour}
+        stroke={colors.plum}
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+});
+
+const TW_S = 1.5;
+const TWEEZERS = { w: 70 * TW_S, h: 150 * TW_S, tipX: 35 * TW_S, tipY: 146 * TW_S };
+/** One arm of the tweezers, hinged at the top (35, 0); `side` is -1 for the left arm, 1 for the right. */
+const TweezerArm = React.memo(function TweezerArm({ side }: { side: -1 | 1 }) {
+  const top = 35 + side * 12;
+  const tip = 35 + side * 1.6;
+  return (
+    <Svg width={TWEEZERS.w} height={TWEEZERS.h} viewBox="0 0 70 150">
+      <Path
+        d={`M ${top - 4.6} 0 L ${top + 4.6} 0 L ${tip + side * 0.2 + 2} 146 L ${tip + side * 0.2 - 2} 146 Z`}
+        fill={colors.plum}
+        stroke={colors.plum}
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+      <Path
+        d={`M ${top - side * 0.2} 6 L ${tip - side * 0.2 + side * 0.4} 132`}
+        stroke={colors.cream}
+        strokeWidth={1.4}
+        strokeLinecap="round"
+        opacity={0.8}
+      />
+      {[14, 20, 26].map((y) => (
+        <Path
+          key={y}
+          d={`M ${top - 3.4 + side * y * 0.01} ${y} h 6.8`}
+          stroke={colors.cream}
+          strokeWidth={1.1}
+          strokeLinecap="round"
+          opacity={0.7}
+        />
+      ))}
+    </Svg>
+  );
+});
+
 /**
- * What the child just did to one nail, drawn over the hand while it plays: a new colour or
- * pattern sweeping up from the cuticle (then a glint), a sticker popping on, or one popping off.
- * It sits in the nail's own frame in a small SVG of its own, so the rest of the hand never redraws.
+ * What the child just did to one nail, drawn over the hand while it plays (in the crisp window):
+ *  - paint: the new colour or pattern is a static nail-shaped picture inside a clipper; the clipper
+ *    and its content slide in opposite directions, so it uncovers from the cuticle to the free
+ *    edge without redrawing, under a brush that flies in, strokes, and lifts away;
+ *  - pop / unpop: tweezers bring a sticker in and set it down, or lift it off;
+ *  - fade: with reduce motion, the new look just fades in.
  */
-function FxLayer({
+const FxLayer = React.memo(function FxLayer({
   fx,
   shape,
   uid,
   line,
   sw,
-  frame,
+  fx0,
+  fy0,
+  k,
   onDone,
 }: {
   fx: Fx;
@@ -972,112 +1038,327 @@ function FxLayer({
   uid: string;
   line: string;
   sw: number;
-  frame: Frame;
+  /** The frame: art point (fx0, fy0) at the layer's top-left, `k` px per art unit. */
+  fx0: number;
+  fy0: number;
+  k: number;
   onDone: (id: number) => void;
 }) {
-  const scale = frame.k;
-  const ms = fx.kind === 'paint' ? (fx.glint ? GLINT_AT + GLINT_MS : SWEEP_MS) : fx.kind === 'pop' ? POP_MS : UNPOP_MS;
-  const t = useElapsed(ms, () => onDone(fx.id), fx.at);
-  const p = PLACES[fx.nail.digit];
-  const mirrored = fx.nail.hand === 'right';
-  const d = nailPath(shape, fx.nail.digit);
+  const prog = useSharedValue(0);
+  const total = fxMs(fx);
+  useEffect(() => {
+    prog.value = withTiming(total, { duration: total, easing: Easing.linear });
+    const t = setTimeout(() => onDone(fx.id), total + 30);
+    return () => {
+      clearTimeout(t);
+      cancelAnimation(prog);
+    };
+  }, [prog, total, fx.id, onDone]);
+
+  const { digit, hand } = fx.nail;
+  const p = PLACES[digit];
+  const mirrored = hand === 'right';
+  const d = nailPath(shape, digit);
   const { len, hw, bot } = nailMetrics(d);
-  const k = 1 / closeK(d);
-  const PAD = 36;
-  const x0 = -(hw + PAD);
-  const y0 = -(len + PAD);
+  const unit = 1 / closeK(d);
+  const rho = mirrored ? -p.rotate : p.rotate;
+
+  // A point in the nail's own frame, in canvas px.
+  const toCanvas = (lx: number, ly: number) => {
+    const a = (p.rotate * Math.PI) / 180;
+    const q = pairPoint(hand, p.x + lx * Math.cos(a) - ly * Math.sin(a), p.y + lx * Math.sin(a) + ly * Math.cos(a));
+    return { x: (q.x - fx0) * k, y: (q.y - fy0) * k };
+  };
+  const O = toCanvas(0, 0);
+  const A = toCanvas(0, bot); // cuticle
+  const B = toCanvas(0, -len); // free edge
+
+  // The nail's frame as a layer: cuticle origin at (ox, oy) px, turned to the nail's angle.
+  const PAD = 6;
   const w = 2 * (hw + PAD);
   const h = len + bot + 2 * PAD;
-  const clipId = `${uid}s`;
-  const nailClip = `${uid}n`;
+  const ox = (hw + PAD) * k;
+  const oy = (len + PAD) * k;
+  const Hr = (len + bot) * k; // the nail plate, in px, tip to cuticle
+  const frameStyle = {
+    position: 'absolute' as const,
+    left: O.x - ox,
+    top: O.y - oy,
+    width: w * k,
+    height: h * k,
+    transformOrigin: `${ox}px ${oy}px`,
+    transform: [{ rotate: `${rho}deg` }],
+  };
+  const flip = mirrored ? 'scale(-1 1)' : undefined;
+  const plateBox = { position: 'absolute' as const, left: 0, top: PAD * k, width: w * k, height: Hr };
+  const plateView = `${-(hw + PAD)} ${-len} ${w} ${len + bot}`;
 
-  let art: React.ReactNode = null;
-  if (fx.kind === 'paint') {
-    const sweep = easeOut(Math.min(1, t / SWEEP_MS)) * (bot + len + PAD);
-    const g = (t - GLINT_AT) / GLINT_MS;
-    art = (
-      <>
-        <Defs>
-          <ClipPath id={clipId}>
-            <Rect x={x0} y={bot - sweep} width={w} height={sweep} />
-          </ClipPath>
-          <ClipPath id={nailClip}>
-            <Path d={d} />
-          </ClipPath>
-        </Defs>
-        <G clipPath={`url(#${clipId})`}>
-          <NailPaint uid={`${uid}p`} d={d} look={fx.to} line={line} strokeWidth={sw} unit={k} />
-          <NailStickers uid={`${uid}q`} d={d} stickers={fx.to.stickers} hw={hw} len={len} />
-        </G>
-        {fx.glint && g > 0 && g < 1 && (
-          <G clipPath={`url(#${nailClip})`}>
-            <G transform={`translate(0 ${bot + hw - g * (bot + len + 2 * hw)}) rotate(28)`}>
-              <Rect
-                x={-hw * 0.22}
-                y={-hw * 3}
-                width={hw * 0.44}
-                height={hw * 6}
-                fill="#FFFFFF"
-                opacity={Math.sin(Math.PI * g) * 0.6}
-              />
-            </G>
-          </G>
-        )}
-      </>
-    );
-  } else if (fx.sticker) {
-    let s: number;
-    let rot: number;
-    let opacity = 1;
-    if (fx.kind === 'pop') {
-      const x = Math.min(1, t / POP_MS);
-      s = x < 0.6 ? 1.15 * easeOut(x / 0.6) : 1.15 - 0.15 * easeOut((x - 0.6) / 0.4);
-      rot = -25 * (1 - easeOut(x));
+  // ---- paint
+  const clipStyle = useAnimatedStyle(() => {
+    const f = easeOut((prog.value - FLY_MS) / STROKE_MS);
+    return { transform: [{ translateY: Hr * (1 - f) }] };
+  });
+  const innerStyle = useAnimatedStyle(() => {
+    const f = easeOut((prog.value - FLY_MS) / STROKE_MS);
+    return { transform: [{ translateY: -Hr * (1 - f) }] };
+  });
+  const band = Math.max(8, hw * 0.7 * k);
+  const glintAt = FLY_MS + STROKE_MS - 120;
+  const glintClip = useAnimatedStyle(() => {
+    const g = clamp01((prog.value - glintAt) / GLINT_MS);
+    return { opacity: g > 0 && g < 1 ? Math.sin(Math.PI * g) * 0.9 : 0, transform: [{ translateY: -(Hr + band) * g }] };
+  });
+  const glintInner = useAnimatedStyle(() => {
+    const g = clamp01((prog.value - glintAt) / GLINT_MS);
+    return { transform: [{ translateY: (Hr + band) * g }] };
+  });
+  const fade = useAnimatedStyle(() => ({ opacity: clamp01(prog.value / FADE_MS) }));
+
+  // ---- tools
+  const start = fx.from ?? { x: A.x + 90, y: A.y - 90 };
+  // The brush is held about 28 degrees off the nail's axis, handle trailing behind the tip.
+  const dx = B.x - A.x;
+  const dy = B.y - A.y;
+  const dl = Math.hypot(dx, dy) || 1;
+  const tilt = (28 * Math.PI) / 180;
+  const hx = (-dx / dl) * Math.cos(tilt) - (-dy / dl) * Math.sin(tilt);
+  const hy = (-dx / dl) * Math.sin(tilt) + (-dy / dl) * Math.cos(tilt);
+  const phi = (Math.atan2(hy, hx) * 180) / Math.PI + 90;
+  const brushStyle = useAnimatedStyle(() => {
+    const t = prog.value;
+    let x: number;
+    let y: number;
+    let o = 1;
+    if (t < FLY_MS) {
+      const e = easeOut(t / FLY_MS);
+      x = start.x + (A.x - start.x) * e;
+      y = start.y + (A.y - start.y) * e;
+      o = clamp01(t / 70);
+    } else if (t < FLY_MS + STROKE_MS) {
+      const e = easeOut((t - FLY_MS) / STROKE_MS);
+      x = A.x + (B.x - A.x) * e;
+      y = A.y + (B.y - A.y) * e;
     } else {
-      const x = Math.min(1, t / UNPOP_MS);
-      s = x < 0.3 ? 1 + 0.15 * (x / 0.3) : 1.15 * (1 - ((x - 0.3) / 0.7) ** 2);
-      rot = 25 * x * x;
-      opacity = 1 - x * x;
+      const u = clamp01((t - FLY_MS - STROKE_MS) / LIFT_MS);
+      x = B.x;
+      y = B.y - 40 * easeIn(u);
+      o = 1 - u;
     }
-    art = (
-      <G opacity={opacity}>
-        <NailStickers uid={`${uid}q`} d={d} stickers={[fx.sticker]} hw={hw} len={len} scale={s} rotate={rot} />
+    return { opacity: o, transform: [{ translateX: x }, { translateY: y }, { rotate: `${phi}deg` }] };
+  });
+
+  // Tweezers come from the upper right to the sticker's fitted spot.
+  const sticker = fx.sticker;
+  const sp = sticker ? stickerLocal(sticker, hw, len, d) : { x: 0, y: 0, scale: 1 };
+  const T = toCanvas(sp.x, sp.y);
+  const glyph = 34 * sp.scale * k;
+  const OFF = { x: 110, y: -130 };
+  const twPhi = 40;
+  const releaseAt = PLACE_IN_MS;
+  const outAt = PLACE_IN_MS + (fx.kind === 'pop' ? 100 : 80);
+  const twStyle = useAnimatedStyle(() => {
+    const t = prog.value;
+    let ex: number;
+    let o = 1;
+    if (t < PLACE_IN_MS) {
+      ex = 1 - easeOut(t / PLACE_IN_MS);
+      o = clamp01(t / 80);
+    } else if (t < outAt) {
+      ex = 0;
+    } else {
+      const u = clamp01((t - outAt) / PLACE_OUT_MS);
+      ex = easeIn(u);
+      o = 1 - u;
+    }
+    return {
+      opacity: o,
+      transform: [{ translateX: T.x + OFF.x * ex }, { translateY: T.y + OFF.y * ex }, { rotate: `${twPhi}deg` }],
+    };
+  });
+  const isPop = fx.kind === 'pop';
+  const armL = useAnimatedStyle(() => {
+    const t = prog.value;
+    // placing: hold, then open slightly as the sticker is released; removing: arrive open, close on it.
+    const a =
+      isPop
+        ? t < releaseAt
+          ? 1.2
+          : 1.2 + 2.8 * clamp01((t - releaseAt) / 100)
+        : 4 - 3.2 * clamp01((t - PLACE_IN_MS) / 80);
+    return { transform: [{ rotate: `${-a}deg` }] };
+  });
+  const armR = useAnimatedStyle(() => {
+    const t = prog.value;
+    const a =
+      isPop
+        ? t < releaseAt
+          ? 1.2
+          : 1.2 + 2.8 * clamp01((t - releaseAt) / 100)
+        : 4 - 3.2 * clamp01((t - PLACE_IN_MS) / 80);
+    return { transform: [{ rotate: `${a}deg` }] };
+  });
+  // The sticker on the nail: set down with a little pop (placing), or waiting to be lifted (removing).
+  const spotStyle = useAnimatedStyle(() => {
+    const t = prog.value;
+    if (isPop) {
+      const u = clamp01((t - releaseAt) / 150);
+      const s = u < 0.45 ? 1 + 0.12 * easeOut(u / 0.45) : 1.12 - 0.12 * easeOut((u - 0.45) / 0.55);
+      return { opacity: t < releaseAt ? 0 : 1, transform: [{ rotate: `${rho}deg` }, { scale: s }] };
+    }
+    return { opacity: t < PLACE_IN_MS ? 1 : 0, transform: [{ rotate: `${rho}deg` }] };
+  });
+  // The sticker held between the tips (before it is set down, or after it is picked up).
+  const heldStyle = useAnimatedStyle(() => {
+    const t = prog.value;
+    if (isPop) return { opacity: t < releaseAt ? 1 : 0, transform: [{ rotate: `${rho - twPhi}deg` }] };
+    const u = clamp01((t - outAt) / PLACE_OUT_MS);
+    return {
+      opacity: t < PLACE_IN_MS ? 0 : 1 - u,
+      transform: [{ rotate: `${rho - twPhi}deg` }, { scale: 1 - 0.2 * u }],
+    };
+  });
+
+  const glyphSvg = sticker ? (
+    <Svg width={glyph} height={glyph} viewBox="-17 -17 34 34">
+      <G transform={flip}>
+        <StickerGlyph kind={sticker.kind} />
       </G>
+    </Svg>
+  ) : null;
+
+  if (fx.kind === 'fade') {
+    return (
+      <Animated.View pointerEvents="none" style={[frameStyle, fade]}>
+        <View style={plateBox}>
+          <Svg width={w * k} height={Hr} viewBox={plateView}>
+            <G transform={flip}>
+              <NailPaint uid={`${uid}p`} d={d} look={fx.to} line={line} strokeWidth={sw} unit={unit} />
+              <NailStickers uid={`${uid}q`} d={d} stickers={fx.to.stickers} hw={hw} len={len} />
+            </G>
+          </Svg>
+        </View>
+      </Animated.View>
     );
   }
 
-  const ox = (hw + PAD) * scale;
-  const oy = (len + PAD) * scale;
-  // On the left hand the nail's frame is mirrored: draw it flipped, then turn it the other way.
-  const at = pairPoint(fx.nail.hand, p.x, p.y);
+  if (fx.kind === 'paint') {
+    return (
+      <>
+        <View pointerEvents="none" style={frameStyle}>
+          <Animated.View style={[{ ...plateBox, overflow: 'hidden' }, clipStyle]}>
+            <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: w * k, height: Hr }, innerStyle]}>
+              <Svg width={w * k} height={Hr} viewBox={plateView}>
+                <G transform={flip}>
+                  <NailPaint uid={`${uid}p`} d={d} look={fx.to} line={line} strokeWidth={sw} unit={unit} />
+                  <NailStickers uid={`${uid}q`} d={d} stickers={fx.to.stickers} hw={hw} len={len} />
+                </G>
+              </Svg>
+            </Animated.View>
+          </Animated.View>
+          {fx.glint && (
+            <Animated.View
+              style={[
+                {
+                  position: 'absolute',
+                  left: 0,
+                  top: PAD * k + Hr,
+                  width: w * k,
+                  height: band,
+                  overflow: 'hidden',
+                },
+                glintClip,
+              ]}
+            >
+              <Animated.View style={[{ position: 'absolute', left: 0, top: -Hr, width: w * k, height: Hr }, glintInner]}>
+                <Svg width={w * k} height={Hr} viewBox={plateView}>
+                  <G transform={flip}>
+                    <Path d={d} fill="#FFFFFF" fillOpacity={0.7} />
+                  </G>
+                </Svg>
+              </Animated.View>
+            </Animated.View>
+          )}
+        </View>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            {
+              position: 'absolute',
+              left: -BRUSH.tipX,
+              top: -BRUSH.tipY,
+              width: BRUSH.w,
+              height: BRUSH.h,
+              transformOrigin: `${BRUSH.tipX}px ${BRUSH.tipY}px`,
+            },
+            brushStyle,
+          ]}
+        >
+          <BrushArt colour={fx.bristle ?? fx.to.color} />
+        </Animated.View>
+      </>
+    );
+  }
+
+  // pop / unpop: tweezers and a sticker
   return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        left: (at.x - frame.x0) * scale - ox,
-        top: (p.y - frame.y0) * scale - oy,
-        width: w * scale,
-        height: h * scale,
-        transformOrigin: `${ox}px ${oy}px`,
-        transform: [{ rotate: `${mirrored ? -p.rotate : p.rotate}deg` }],
-      }}
-    >
-      <View
-        style={{
-          width: w * scale * frame.ss,
-          height: h * scale * frame.ss,
-          transformOrigin: 'left top',
-          transform: [{ scale: 1 / frame.ss }],
-        }}
+    <>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          { position: 'absolute', left: T.x - glyph / 2, top: T.y - glyph / 2, width: glyph, height: glyph },
+          spotStyle,
+        ]}
       >
-        <Svg width={w * scale * frame.ss} height={h * scale * frame.ss} viewBox={`${x0} ${y0} ${w} ${h}`}>
-          {mirrored ? <G transform="scale(-1 1)">{art}</G> : art}
-        </Svg>
-      </View>
-    </View>
+        {glyphSvg}
+      </Animated.View>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          {
+            position: 'absolute',
+            left: -TWEEZERS.tipX,
+            top: -TWEEZERS.tipY,
+            width: TWEEZERS.w,
+            height: TWEEZERS.h,
+            transformOrigin: `${TWEEZERS.tipX}px ${TWEEZERS.tipY}px`,
+          },
+          twStyle,
+        ]}
+      >
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              left: TWEEZERS.tipX - glyph / 2,
+              top: TWEEZERS.tipY - glyph / 2 - 4,
+              width: glyph,
+              height: glyph,
+            },
+            heldStyle,
+          ]}
+        >
+          {glyphSvg}
+        </Animated.View>
+        <Animated.View
+          style={[
+            { position: 'absolute', left: 0, top: 0, width: TWEEZERS.w, height: TWEEZERS.h, transformOrigin: `${TWEEZERS.w / 2}px 0px` },
+            armL,
+          ]}
+        >
+          <TweezerArm side={-1} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            { position: 'absolute', left: 0, top: 0, width: TWEEZERS.w, height: TWEEZERS.h, transformOrigin: `${TWEEZERS.w / 2}px 0px` },
+            armR,
+          ]}
+        >
+          <TweezerArm side={1} />
+        </Animated.View>
+      </Animated.View>
+    </>
   );
-}
+});
 
 /* ------------------------------------------------------------------- halo */
 
@@ -1239,7 +1520,7 @@ function HaloLayer({
   );
 }
 
-/** The nails of the shape just left, fading out over the new shape. */
+/** The nails of the shape just left, fading out over the new shape (on the UI thread). */
 function GhostLayer({
   design,
   tone,
@@ -1253,22 +1534,29 @@ function GhostLayer({
   uid: string;
   onDone: () => void;
 }) {
-  const t = useElapsed(GHOST_MS, onDone);
+  const o = useSharedValue(1);
+  useEffect(() => {
+    o.value = withTiming(0, { duration: GHOST_MS, easing: Easing.out(Easing.cubic) });
+    const t = setTimeout(onDone, GHOST_MS + 30);
+    return () => {
+      clearTimeout(t);
+      cancelAnimation(o);
+    };
+  }, [o, onDone]);
+  const fade = useAnimatedStyle(() => ({ opacity: o.value }));
   const span = SPAN.both;
   const height = (VB[3] * width) / span.w;
   const { line, sw } = ink(tone, width, span.w);
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width, height }}>
+    <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, top: 0, width, height }, fade]}>
       <Svg width={width} height={height} viewBox={`${span.x0} ${VB[1]} ${span.w} ${VB[3]}`}>
-        <G opacity={1 - easeOut(Math.min(1, t / GHOST_MS))}>
-          {handsIn('both').map((h) => (
-            <G key={h} transform={handTransform(h, 'both')}>
-              <NailsLayer design={design} hand={h} uid={`${uid}${h[0]}`} line={line} sw={sw} />
-            </G>
-          ))}
-        </G>
+        {handsIn('both').map((h) => (
+          <G key={h} transform={handTransform(h, 'both')}>
+            <NailsLayer design={design} hand={h} uid={`${uid}${h[0]}`} line={line} sw={sw} />
+          </G>
+        ))}
       </Svg>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -1295,6 +1583,11 @@ type ZoomProps = {
   shift?: number;
   /** The canvas's size (px). With it, the hands are redrawn crisp at the zoomed size once the camera lands. */
   view?: { w: number; h: number };
+  /**
+   * Where the polish brush flies in from (canvas px): the bottle or pattern button just tapped.
+   * `n` changes with every tap; read when the change to the design arrives.
+   */
+  toolFrom?: { x: number; y: number; n: number };
   /** A touch (or a screen reader's tap) on a nail. */
   onNailPress: (n: NailRef) => void;
   /** A touch on the hands that is not on a nail. */
@@ -1340,72 +1633,12 @@ function designOf(shape: string, pick: (n: NailRef) => NailLook): NailDesign {
  * It also plays what the child just changed (a sweep of new polish, a sticker popping on or off,
  * a shape cross-fade); nails that were already painted never animate again.
  */
-export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPress, onOffPress, onNailTap }: ZoomProps) {
+export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom, onNailPress, onOffPress, onNailTap }: ZoomProps) {
   const span = SPAN.both;
   const scale = width / span.w;
   const height = VB[3] * scale;
   const uid = useId().replace(/[^A-Za-z0-9]/g, '');
   const { line, sw } = ink(tone, width, span.w);
-
-  // What the hands draw (`base`) lags the design for a moment while an animation plays on top.
-  const [base, setBase] = useState(design);
-  const [fxs, setFxs] = useState<Fx[]>([]);
-  const [ghost, setGhost] = useState<{ id: number; design: NailDesign } | null>(null);
-  const fxRef = useRef(fxs);
-  useEffect(() => {
-    fxRef.current = fxs;
-  });
-  const latest = useRef(design);
-  const seq = useRef(0);
-  useEffect(() => {
-    const old = latest.current;
-    latest.current = design;
-    if (old === design) return;
-    if (old.shape !== design.shape) {
-      setBase(design);
-      setFxs([]);
-      setGhost({ id: ++seq.current, design: old });
-      return;
-    }
-    const changed = NAIL_ORDER.filter((n) => !sameLook(lookOf(old, n), lookOf(design, n)));
-    if (!changed.length) return;
-    const instant = () => {
-      setBase(design);
-      setFxs([]);
-    };
-    if (changed.length > 1) return instant(); // Start again: no show
-    const nail = changed[0];
-    const a = lookOf(old, nail);
-    const b = lookOf(design, nail);
-    let fx: Fx | null = null;
-    let baseLook = b;
-    if (a.color !== b.color || a.pattern !== b.pattern) {
-      fx = { id: ++seq.current, nail, kind: 'paint', to: b, glint: a.color !== b.color, at: Date.now() };
-      baseLook = a;
-    } else if (b.stickers.length < a.stickers.length) {
-      let i = a.stickers.findIndex((s, j) => !b.stickers[j] || JSON.stringify(s) !== JSON.stringify(b.stickers[j]));
-      if (i < 0) i = a.stickers.length - 1;
-      fx = { id: ++seq.current, nail, kind: 'unpop', to: b, sticker: a.stickers[i], at: Date.now() };
-    } else if (b.stickers.length) {
-      const last = b.stickers[b.stickers.length - 1];
-      fx = { id: ++seq.current, nail, kind: 'pop', to: b, sticker: last, at: Date.now() };
-      baseLook = { ...b, stickers: b.stickers.slice(0, -1) };
-    }
-    if (!fx) return instant();
-    const running = new Set(fxRef.current.map((f) => nailKey(f.nail)));
-    const next = fx;
-    setBase((cur) =>
-      designOf(design.shape, (n) => (sameNail(n, nail) ? baseLook : running.has(nailKey(n)) ? lookOf(cur, n) : lookOf(design, n))),
-    );
-    setFxs((list) => [...list.filter((f) => !sameNail(f.nail, nail)), next]);
-  }, [design]);
-
-  const fxDone = useCallback((id: number) => {
-    const f = fxRef.current.find((x) => x.id === id);
-    if (!f) return;
-    setFxs((list) => list.filter((x) => x.id !== id));
-    setBase((cur) => withLook({ ...cur, shape: latest.current.shape }, f.nail, lookOf(latest.current, f.nail)));
-  }, []);
 
   // The halo on the selected nail: a new one fades in, the previous one fades out and is dropped.
   const zoomKey = zoom ? nailKey(zoom) : null;
@@ -1427,7 +1660,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPre
 
   // The camera's glide is a transform on bitmaps, so it is soft. Once it lands, the hands are
   // redrawn as vector at the zoomed size in a window the size of the canvas (below the halo and
-  // effect layers, which stay on the transformed box), and the box's own copy is hidden.
+  // effect layers), and the box's own copy is hidden.
   const [landed, setLanded] = useState<{ key: string | null; done: boolean }>({ key: zoomKey, done: false });
   if (landed.key !== zoomKey) setLanded({ key: zoomKey, done: false });
   useEffect(() => {
@@ -1439,6 +1672,89 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPre
     return () => clearTimeout(t);
   }, [zoomKey]);
   const crisp = !!zoom && !!view && landed.key === zoomKey && landed.done;
+
+  // What the hands draw (`base`) lags the design while a brush stroke or the tweezers play on top.
+  // Effects only play once the camera has landed (that is where the tools can be placed exactly);
+  // a change at any other time, or one that arrives while another plays, just lands at once.
+  const [base, setBase] = useState(design);
+  const [fx, setFx] = useState<Fx | null>(null);
+  const [ghost, setGhost] = useState<{ id: number; design: NailDesign } | null>(null);
+  const latest = useRef(design);
+  const seq = useRef(0);
+  const zoomRef = useRef(zoom);
+  const live = useRef({ crisp, reduceMotion, toolFrom });
+  useEffect(() => {
+    live.current = { crisp, reduceMotion, toolFrom };
+    zoomRef.current = zoom;
+  });
+  useEffect(() => {
+    const old = latest.current;
+    latest.current = design;
+    if (old === design) return;
+    if (old.shape !== design.shape) {
+      setBase(design);
+      setFx(null);
+      setGhost({ id: ++seq.current, design: old });
+      return;
+    }
+    const changed = NAIL_ORDER.filter((n) => !sameLook(lookOf(old, n), lookOf(design, n)));
+    if (!changed.length) return;
+    const instant = () => {
+      setBase(design);
+      setFx(null);
+    };
+    const { crisp: on, reduceMotion: calm, toolFrom: tf } = live.current;
+    if (!on || changed.length > 1 || !zoomRef.current || !sameNail(changed[0], zoomRef.current)) return instant();
+    const nail = changed[0];
+    const a = lookOf(old, nail);
+    const b = lookOf(design, nail);
+    let next: Fx | null = null;
+    let baseLook = b;
+    const id = ++seq.current;
+    if (a.color !== b.color || a.pattern !== b.pattern) {
+      baseLook = a;
+      const mark = b.pattern === 'french' ? '#FFFFFF' : b.pattern === 'plain' ? b.color : isLight(b.color) ? colors.plum : colors.cream;
+      next = {
+        id,
+        nail,
+        kind: calm ? 'fade' : 'paint',
+        to: b,
+        glint: a.color !== b.color,
+        bristle: a.color !== b.color ? b.color : mark,
+        from: tf ? { x: tf.x, y: tf.y } : undefined,
+      };
+    } else if (b.stickers.length < a.stickers.length) {
+      let i = a.stickers.findIndex((s, j) => !b.stickers[j] || JSON.stringify(s) !== JSON.stringify(b.stickers[j]));
+      if (i < 0) i = a.stickers.length - 1;
+      baseLook = calm ? a : b;
+      next = { id, nail, kind: calm ? 'fade' : 'unpop', to: b, sticker: a.stickers[i] };
+    } else if (b.stickers.length) {
+      const last = b.stickers[b.stickers.length - 1];
+      baseLook = calm ? a : { ...b, stickers: b.stickers.slice(0, -1) };
+      next = { id, nail, kind: calm ? 'fade' : 'pop', to: b, sticker: last };
+    }
+    if (!next) return instant();
+    // Anything still playing lands at once; this one starts.
+    setBase(designOf(design.shape, (n) => (sameNail(n, nail) ? baseLook : lookOf(design, n))));
+    setFx(next);
+  }, [design]);
+
+  const fxRef = useRef<Fx | null>(null);
+  useEffect(() => {
+    fxRef.current = fx;
+  });
+  const fxDone = useCallback((id: number) => {
+    const cur = fxRef.current;
+    if (!cur || cur.id !== id) return;
+    setFx(null);
+    setBase((b) => withLook({ ...b, shape: latest.current.shape }, cur.nail, lookOf(latest.current, cur.nail)));
+  }, []);
+  // The camera moving off (a glide, a zoom out) lands whatever is playing.
+  if (fx && !crisp) {
+    setFx(null);
+    setBase(design);
+  }
+  const ghostGone = useCallback(() => setGhost(null), []);
 
   // Camera target: move the nail's centre (box pixels) to the box centre, then scale about it.
   let tx = 0;
@@ -1506,18 +1822,6 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPre
           onGone={haloGone}
         />
       ))}
-      {fxs.map((f) => (
-        <FxLayer
-          key={f.id}
-          fx={f}
-          shape={design.shape}
-          uid={`${uid}f${f.id}`}
-          line={line}
-          sw={sw}
-          frame={frame}
-          onDone={fxDone}
-        />
-      ))}
     </>
   );
 
@@ -1536,6 +1840,20 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPre
           />
           {/* The halo and effects redrawn at full resolution too, from where they had got to. */}
           {layers({ x0: win.crop.x, y0: win.crop.y, k: scale * sc, ss: 1 })}
+          {fx && (
+            <FxLayer
+              key={fx.id}
+              fx={fx}
+              shape={design.shape}
+              uid={`${uid}f${fx.id}`}
+              line={line}
+              sw={sw}
+              fx0={win.crop.x}
+              fy0={win.crop.y}
+              k={scale * sc}
+              onDone={fxDone}
+            />
+          )}
         </View>
       )}
     <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width, height }, camera]}>
@@ -1567,7 +1885,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPre
           tone={tone}
           width={width}
           uid={`${uid}g${ghost.id}`}
-          onDone={() => setGhost(null)}
+          onDone={ghostGone}
         />
       )}
       {/* Screen readers: one invisible button per nail (the touch layer above them is skipped). */}
