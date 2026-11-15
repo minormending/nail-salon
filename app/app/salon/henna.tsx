@@ -166,11 +166,11 @@ export default function SalonHenna() {
 
   const scallopH = (22 * winW) / 390;
 
-  // Keep the hand down to the cuff in view on short phones (300px is the design's size): the
+  // Keep the hand down to the cuff in view on short phones (300px is the design's size) and let it grow on tall ones (up to 520): the
   // arm below the cuff may hang under the scalloped edge and the panel.
   const onCanvasLayout = (e: LayoutChangeEvent) => {
-    const h = e.nativeEvent.layout.height;
-    const next = fitHand(h, 54, scallopH + 6, MAX_HAND_W);
+    const { width: w, height: h } = e.nativeEvent.layout;
+    const next = fitHand(h, 54, scallopH + 6, Math.max(MAX_HAND_W, Math.min(w, 520)));
     setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
   };
 

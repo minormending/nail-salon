@@ -6,7 +6,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { Icon } from '../src/components/Icon';
 import { Screen } from '../src/components/Screen';
-import { makeQuestion, type GateQuestion } from '../src/lib/gate';
+import { makeQuestion, markGatePassed, type GateQuestion } from '../src/lib/gate';
 import { shareItem } from '../src/lib/pictures';
 import { colors, fonts } from '../src/theme';
 
@@ -47,6 +47,7 @@ export default function Gate() {
     if (picked !== null || done) return;
     setPicked(n);
     if (n === q.answer) {
+      markGatePassed();
       timer.current = setTimeout(goNext, 350);
     } else {
       // gentle message, then a fresh question

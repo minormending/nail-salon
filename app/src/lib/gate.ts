@@ -41,3 +41,15 @@ export function makeQuestion(previous?: number): GateQuestion {
     choices: shuffle([answer, ...wrong]),
   };
 }
+
+// When the grown-up question was last answered right. Screens behind the gate (the grown-up
+// settings) check it so a deep link can't skip the question. Lives in memory only.
+let passedAt = 0;
+
+export function markGatePassed() {
+  passedAt = Date.now();
+}
+
+export function gatePassedRecently(ms = 60_000) {
+  return passedAt > 0 && Date.now() - passedAt < ms;
+}

@@ -1,9 +1,10 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import { Screen } from '../src/components/Screen';
+import { gatePassedRecently } from '../src/lib/gate';
 import { cancelReminder, scheduleReminder, stageAt } from '../src/lib/stain';
 import { useStore, type Settings } from '../src/state/store';
 import { border, colors, fonts } from '../src/theme';
@@ -74,6 +75,11 @@ const caps = {
 
 export default function Parents() {
   const router = useRouter();
+  // Reached by a deep link (paisley:///parents) without the question? Send it through the gate.
+  const [allowed] = useState(() => gatePassedRecently());
+  useEffect(() => {
+    if (!allowed) router.replace('/gate?next=/parents');
+  }, [allowed, router]);
   const settings = useStore((s) => s.settings);
   const setSettings = useStore((s) => s.setSettings);
 
@@ -95,6 +101,8 @@ export default function Parents() {
   };
 
   const version = Constants.expoConfig?.version;
+
+  if (!allowed) return <Screen>{null}</Screen>;
 
   return (
     <Screen>

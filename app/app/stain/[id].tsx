@@ -118,9 +118,9 @@ export default function Stain() {
   }
 
   const onCanvasLayout = (e: LayoutChangeEvent) => {
-    const h = e.nativeEvent.layout.height;
+    const { width: w, height: h } = e.nativeEvent.layout;
     // the hand down to the cuff stays in view; the arm below it may be cut off
-    const next = fitHand(h, 56, 12, MAX_HAND_W);
+    const next = fitHand(h, 56, 12, Math.max(MAX_HAND_W, Math.min(w, 520)));
     setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
   };
 
@@ -257,7 +257,7 @@ export default function Stain() {
           {shown.body}
         </Text>
 
-        {settings.remind && current !== 'brown' ? (
+        {settings.remind && !!item.notificationId && current !== 'brown' ? (
           <View
             style={{
               marginTop: 10,

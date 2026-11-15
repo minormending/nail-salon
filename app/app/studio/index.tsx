@@ -229,10 +229,10 @@ export default function Studio() {
   };
 
   // Keep the hand down to the cuff above the tool panel on short phones (the design's 300px
-  // hand is the cap); the arm below the cuff may hang under the panel.
+  // hand is the minimum cap; tall phones grow it up to 520); the arm below the cuff may hang under the panel.
   const onCanvasLayout = (e: LayoutChangeEvent) => {
-    const h = e.nativeEvent.layout.height;
-    const next = fitHand(h, 58, 10, MAX_HAND_W);
+    const { width: w, height: h } = e.nativeEvent.layout;
+    const next = fitHand(h, 58, 10, Math.max(MAX_HAND_W, Math.min(w, 520)));
     setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
   };
   const handH = (VB_H * handW) / VB_W;
