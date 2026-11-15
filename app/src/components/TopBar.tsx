@@ -46,6 +46,8 @@ export function TopBar({ title, backTo, hideBack, right }: Props) {
           includeFontPadding: false,
         }}
         numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
       >
         {title}
       </Text>

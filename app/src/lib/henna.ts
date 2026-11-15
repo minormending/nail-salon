@@ -1,6 +1,6 @@
 import hennaArt from '../art/henna.json';
 import motifsArt from '../art/motifs.json';
-import { useStore, type HennaDesign, type Item, type Stamp, type Stroke } from '../state/store';
+import { emptyHennaDesign, useStore, type HennaDesign, type Item, type Stamp, type Stroke } from '../state/store';
 import { henna as HENNA, type ToneId } from '../theme';
 import { scheduleReminder } from './stain';
 
@@ -37,11 +37,11 @@ export const MIN_PRESSURE = 0.6;
 export const DEFAULT_STAMP_SCALE = 2.2;
 export const DEFAULT_MOTIF = 'mandala';
 
-/**
- * The shared store's `Stroke` has no field for the Jaali band, so a Studio stroke may carry an
- * optional `jaali` flag (persisted as plain JSON). Old readers ignore it.
- */
-export type StudioStroke = Stroke & { jaali?: boolean };
+/** Kept as an alias; `Stroke` itself now carries the optional `jaali` flag. */
+export type StudioStroke = Stroke;
+
+/** Old saves mirrored a stamp with a negative scale; new ones set `flip`. Both read as flipped. */
+export const isFlipped = (s: Stamp): boolean => !!s.flip || s.scale < 0;
 
 /* ------------------------------------------------------------------ motifs */
 
@@ -170,9 +170,9 @@ export function mirrorStroke<T extends Stroke>(s: T): T {
   for (let i = 0; i < points.length; i += 3) points[i] = 2 * MIRROR_X - points[i];
   return { ...s, points };
 }
-/** Reflects a stamp across the centre line (a negative scale means flipped left-right). */
+/** Reflects a stamp across the centre line (toggles `flip`; the scale stays positive). */
 export function mirrorStamp(s: Stamp): Stamp {
-  return { ...s, x: 2 * MIRROR_X - s.x, scale: -s.scale, rotate: -s.rotate };
+  return { ...s, x: 2 * MIRROR_X - s.x, scale: Math.abs(s.scale), flip: !isFlipped(s), rotate: -s.rotate };
 }
 
 /* ------------------------------------------------------------------ hit testing (Wipe) */
@@ -254,8 +254,8 @@ function strokeXml(s: StudioStroke, paint: Paint, pass: 'edge' | 'fill' | 'ghost
 
 function stampXml(s: Stamp, paint: Paint, pass: 'edge' | 'fill' | 'ghost'): string {
   const m = motifById(s.motif);
-  const sx = s.scale;
-  const abs = Math.abs(sx) || 1;
+  const abs = Math.abs(s.scale) || 1;
+  const sx = isFlipped(s) ? -abs : abs;
   const t = `translate(${r1(s.x)} ${r1(s.y)}) rotate(${r1(s.rotate)}) scale(${sx} ${abs})`;
   if (pass === 'ghost') {
     return `<g transform="${t}" fill="none" stroke="${paint.ghost}" stroke-width="${r1(3.4 / abs)}" stroke-dasharray="${r1(10 / abs)} ${r1(8 / abs)}" stroke-linejoin="round">${m.svg.replace(/fill="#9C3418"/gi, 'fill="none"').replace(MOTIF_TOKEN, paint.ghost)}</g>`;
@@ -347,7 +347,7 @@ export function splitLayers(design: HennaDesign): [OverlayLayer, OverlayLayer] {
     { strokes: [], stamps: [] },
     { strokes: [], stamps: [] },
   ];
-  for (const s of design.strokes ?? []) out[s.layer === 1 ? 1 : 0].strokes.push(s as StudioStroke);
+  for (const s of design.strokes ?? []) out[s.layer === 1 ? 1 : 0].strokes.push(s);
   for (const s of design.stamps ?? []) out[s.layer === 1 ? 1 : 0].stamps.push(s);
   return out;
 }
@@ -363,8 +363,6 @@ export function joinLayers(layers: OverlayLayer[], mirror: boolean): HennaDesign
 
 /* ------------------------------------------------------------------ finishing a henna */
 
-const emptyHenna = (): HennaDesign => ({ source: 'stencil', parts: [], strokes: [], stamps: [], mirror: false });
-
 export const designIsEmpty = (d: HennaDesign) =>
   d.source === 'studio'
     ? !(d.strokes?.length || d.stamps?.length)
@@ -378,7 +376,8 @@ export function letItDry(design: HennaDesign, name: string): string {
   const st = useStore.getState();
   const now = Date.now();
   const id = st.addItem({ kind: 'henna', name, tone: st.tone, henna: design, createdAt: now, startedAt: now });
-  st.setDraftHenna(emptyHenna());
+  if (design.source === 'studio') st.setDraftStudio(emptyHennaDesign('studio'));
+  else st.setDraftStencil(emptyHennaDesign('stencil'));
   const item: Item = { id, kind: 'henna', name, tone: st.tone, henna: design, createdAt: now, startedAt: now };
   scheduleReminder(item).then((nid) => {
     if (nid) useStore.getState().updateItem(id, { notificationId: nid });

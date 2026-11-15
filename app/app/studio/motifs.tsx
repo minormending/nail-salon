@@ -36,7 +36,7 @@ export default function Motifs() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const tone = useStore((s) => s.tone);
-  const draft = useStore((s) => s.draftHenna);
+  const draft = useStore((s) => s.draftStudio);
   const [family, setFamily] = useState('all');
   const [picked, setPicked] = useState(getPickedMotif());
 
@@ -60,7 +60,7 @@ export default function Motifs() {
         style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 380, alignItems: 'center', overflow: 'hidden' }}
       >
         <View style={{ marginTop: 60 }}>
-          <HennaHand design={draft.source === 'studio' ? draft : { source: 'studio' }} tone={tone} width={300} stage="paste" />
+          <HennaHand design={draft} tone={tone} width={300} stage="paste" />
         </View>
       </View>
       <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(64,22,60,0.42)' }} />

@@ -15,14 +15,23 @@ export type NailLook = {
   stickers: { kind: string; x: number; y: number }[];
 };
 export type NailDesign = { shape: string; nails: Record<Digit, NailLook> };
-export type Stroke = { layer: 0 | 1; nib: 1 | 2 | 3; points: number[] /* x,y,w,... */ };
+export type Stroke = {
+  layer: 0 | 1;
+  nib: 1 | 2 | 3;
+  points: number[] /* x,y,w,... */;
+  /** A Jaali band (diamond lattice) rather than a freehand line. */
+  jaali?: boolean;
+};
 export type Stamp = {
   layer: 0 | 1;
   motif: string;
   x: number;
   y: number;
+  /** Always positive for new stamps; old saves mirrored with a negative scale (read as flipped). */
   scale: number;
   rotate: number;
+  /** Reflected left-right. */
+  flip?: boolean;
 };
 export type HennaDesign = {
   source: 'stencil' | 'studio';
@@ -49,7 +58,10 @@ export type State = {
   tone: ToneId;
   items: Item[];
   draftNails: NailDesign;
-  draftHenna: HennaDesign;
+  /** The Salon stencil's work in progress (source 'stencil'). */
+  draftStencil: HennaDesign;
+  /** The Studio's work in progress (source 'studio'); kept apart so neither overwrites the other. */
+  draftStudio: HennaDesign;
   settings: Settings;
   earlyFamily: boolean;
   firstLaunchAt: number;
@@ -58,7 +70,8 @@ export type State = {
 export type Actions = {
   setTone: (tone: ToneId) => void;
   setDraftNails: (draft: NailDesign) => void;
-  setDraftHenna: (draft: HennaDesign) => void;
+  setDraftStencil: (draft: HennaDesign) => void;
+  setDraftStudio: (draft: HennaDesign) => void;
   /** Adds an item (newest first) and returns its generated id. */
   addItem: (item: Omit<Item, 'id' | 'createdAt'> & Partial<Pick<Item, 'id' | 'createdAt'>>) => string;
   updateItem: (id: string, patch: Partial<Omit<Item, 'id'>>) => void;
@@ -76,8 +89,29 @@ export function emptyNailDesign(shape = 'almond', color = DEFAULT_POLISH): NailD
   };
 }
 
-export function emptyHennaDesign(): HennaDesign {
-  return { source: 'stencil', parts: [], strokes: [], stamps: [], mirror: false };
+export function emptyHennaDesign(source: HennaDesign['source'] = 'stencil'): HennaDesign {
+  return { source, parts: [], strokes: [], stamps: [], mirror: false };
+}
+
+/** Version 1 kept a single shared `draftHenna`; version 2 splits it by source. */
+export const STORE_VERSION = 2;
+
+/**
+ * Moves a persisted v1 `draftHenna` into `draftStencil` or `draftStudio` (whichever matches its
+ * `source`; the other starts empty), so nobody loses a drawing. Later versions pass through.
+ */
+export function migrateStore(persisted: unknown, version: number): unknown {
+  if (!persisted || typeof persisted !== 'object') return persisted;
+  const old = persisted as Record<string, unknown>;
+  if (version >= 2) return old;
+  const { draftHenna, ...rest } = old;
+  const d = draftHenna as HennaDesign | undefined;
+  const has = d && typeof d === 'object';
+  return {
+    ...rest,
+    draftStencil: has && d.source !== 'studio' ? d : emptyHennaDesign('stencil'),
+    draftStudio: has && d.source === 'studio' ? d : emptyHennaDesign('studio'),
+  };
 }
 
 export const useStore = create<State & Actions>()(
@@ -86,7 +120,8 @@ export const useStore = create<State & Actions>()(
       tone: 't0',
       items: [],
       draftNails: emptyNailDesign(),
-      draftHenna: emptyHennaDesign(),
+      draftStencil: emptyHennaDesign('stencil'),
+      draftStudio: emptyHennaDesign('studio'),
       settings: { remind: true, speed: 'real' },
       // A future paid unlock must keep the Studio open for these installs.
       earlyFamily: false,
@@ -94,7 +129,8 @@ export const useStore = create<State & Actions>()(
 
       setTone: (tone) => set({ tone }),
       setDraftNails: (draftNails) => set({ draftNails }),
-      setDraftHenna: (draftHenna) => set({ draftHenna }),
+      setDraftStencil: (draftStencil) => set({ draftStencil }),
+      setDraftStudio: (draftStudio) => set({ draftStudio }),
       addItem: (item) => {
         const id = item.id ?? Crypto.randomUUID();
         const full: Item = { ...item, id, createdAt: item.createdAt ?? Date.now() };
@@ -108,13 +144,15 @@ export const useStore = create<State & Actions>()(
     }),
     {
       name: 'paisley-store',
-      version: 1,
+      version: STORE_VERSION,
+      migrate: (persisted, version) => migrateStore(persisted, version) as State & Actions,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
         tone: s.tone,
         items: s.items,
         draftNails: s.draftNails,
-        draftHenna: s.draftHenna,
+        draftStencil: s.draftStencil,
+        draftStudio: s.draftStudio,
         settings: s.settings,
         earlyFamily: s.earlyFamily,
         firstLaunchAt: s.firstLaunchAt,

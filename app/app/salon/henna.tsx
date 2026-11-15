@@ -22,7 +22,7 @@ import {
   saveDraftForPicture,
   type PartId,
 } from '../../src/lib/henna';
-import { useStore, type HennaDesign } from '../../src/state/store';
+import { emptyHennaDesign, useStore, type HennaDesign } from '../../src/state/store';
 import { border, colors, fonts } from '../../src/theme';
 
 const MAX_HAND_W = 300;
@@ -111,11 +111,10 @@ export default function SalonHenna() {
   const insets = useSafeAreaInsets();
   const { width: winW } = useWindowDimensions();
   const tone = useStore((s) => s.tone);
-  const draft = useStore((s) => s.draftHenna);
-  const setDraftHenna = useStore((s) => s.setDraftHenna);
+  const draft = useStore((s) => s.draftStencil);
+  const setDraftStencil = useStore((s) => s.setDraftStencil);
 
-  // The store holds one henna draft: the stencil's, unless the Studio's is in it.
-  const inked: PartId[] = draft.source === 'stencil' ? ((draft.parts as PartId[] | undefined) ?? NO_PARTS) : NO_PARTS;
+  const inked: PartId[] = (draft.parts as PartId[] | undefined) ?? NO_PARTS;
   const design = useMemo<HennaDesign>(() => ({ source: 'stencil', parts: inked }), [inked]);
 
   const [inking, setInking] = useState<PartId | null>(null);
@@ -136,9 +135,8 @@ export default function SalonHenna() {
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: false,
     }).start(() => {
-      const cur = useStore.getState().draftHenna;
-      const have = cur.source === 'stencil' ? (cur.parts ?? []) : [];
-      setDraftHenna({
+      const have = useStore.getState().draftStencil.parts ?? [];
+      setDraftStencil({
         source: 'stencil',
         parts: have.includes(id) ? have : [...have, id],
         strokes: [],
@@ -147,11 +145,11 @@ export default function SalonHenna() {
       });
       setInking(null);
     });
-  }, [next, inking, progress, setDraftHenna]);
+  }, [next, inking, progress, setDraftStencil]);
 
   const reset = () => {
     if (inking) return;
-    setDraftHenna({ source: 'stencil', parts: [], strokes: [], stamps: [], mirror: false });
+    setDraftStencil(emptyHennaDesign('stencil'));
   };
 
   const dry = () => {

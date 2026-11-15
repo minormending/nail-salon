@@ -124,16 +124,15 @@ function NibSlider({ value, onChange }: { value: 1 | 2 | 3; onChange: (v: 1 | 2 
 }
 
 function startLayers(): { layers: Layers; mirror: boolean } {
-  const d = useStore.getState().draftHenna;
-  if (d.source === 'studio') return { layers: splitLayers(d), mirror: !!d.mirror };
-  return { layers: [{ strokes: [], stamps: [] }, { strokes: [], stamps: [] }], mirror: false };
+  const d = useStore.getState().draftStudio;
+  return { layers: splitLayers(d), mirror: !!d.mirror };
 }
 
 export default function Studio() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tone = useStore((s) => s.tone);
-  const setDraftHenna = useStore((s) => s.setDraftHenna);
+  const setDraftStudio = useStore((s) => s.setDraftStudio);
 
   const init = useRef<ReturnType<typeof startLayers> | null>(null);
   if (!init.current) init.current = startLayers();
@@ -162,7 +161,7 @@ export default function Studio() {
   );
 
   // The draft in the store follows every change, so leaving and coming back keeps the work.
-  const sync = (l: Layers, m: boolean) => setDraftHenna(joinLayers(l, m));
+  const sync = (l: Layers, m: boolean) => setDraftStudio(joinLayers(l, m));
   const commit = (next: Layers) => {
     setHist((h) => {
       const stack = [...h.stack.slice(0, h.idx + 1), next].slice(-HISTORY_LIMIT);
