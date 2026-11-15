@@ -48,7 +48,7 @@ hand (`sheet.py`) is superseded.
 
 ### Skin tones
 
-Six skin tones plus the plain colouring-book outline, chosen at first launch
+Six skin tones plus the plain colouring-book outline, changed from a hand button on the nail chair and the sticker table (no setup step)
 (`tools/hand-2d/skintones.py` holds the palette). The tone goes under the line
 art, so lines stay crisp; on the three deepest tones the outline darkens so
 knuckles and finger edges still read. The nail hand is a raster, so its skin
