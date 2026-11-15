@@ -185,10 +185,14 @@ export function stickerLocal(
     const minY = -(nailLength - 0.35 * halfWidth);
     return { x: sticker.x * halfWidth, y: Math.max(sticker.y * halfWidth, minY), scale: STICKER_K * halfWidth };
   }
-  const k = Math.min(CLOSE_K, 232 / nailLength) ** -1;
+  // Old close-up coordinates were laid out for nail-chair nails (half-width ≥ ~34); on smaller
+  // nails, such as the open henna hand's, shrink them to match and keep them on the plate.
+  const k = Math.min(CLOSE_K, 232 / nailLength) ** -1 * Math.min(1, halfWidth / 34);
+  const x = (sticker.x - CLOSE_ORIGIN.x) * k;
+  const y = (sticker.y - CLOSE_ORIGIN.y) * k;
   return {
-    x: (sticker.x - CLOSE_ORIGIN.x) * k,
-    y: (sticker.y - CLOSE_ORIGIN.y) * k,
+    x: Math.max(-0.7 * halfWidth, Math.min(0.7 * halfWidth, x)),
+    y: Math.max(-(nailLength - 0.35 * halfWidth), Math.min(-0.2 * halfWidth, y)),
     scale: 1.35 * k * 1.25,
   };
 }
