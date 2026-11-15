@@ -9,6 +9,7 @@ copied into tools/), nails_measured.json and open_nails_measured.json, and write
     app/src/art/nails.json
     app/src/art/openNails.json
     app/src/art/henna.json
+    app/src/art/handVectors.json     (vector line art + skin of both hands, vectorize.py)
 
 Needs rsvg-convert (part bounds) and numpy/Pillow.
 """
@@ -18,7 +19,7 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import codexhand as CH, nails as NL, openhand as OH, skintones as ST, sheetbuild as SB
+import codexhand as CH, nails as NL, openhand as OH, skintones as ST, sheetbuild as SB, vectorize as VZ
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 ORIG = os.path.join(ROOT, "art-private", "original")
@@ -245,10 +246,17 @@ def export_henna():
     print("partBounds", bounds)
 
 
+# ---------------------------------------------------------------- vector hands
+def export_vector_hands():
+    """Both hands as crisp vector paths (ink + skin) in raster pixel coordinates."""
+    VZ.export_vectors()
+
+
 if __name__ == "__main__":
     os.makedirs(ART, exist_ok=True)
     export_rasters()
     export_nails()
     export_open_nails()
     export_henna()
+    export_vector_hands()
     print("ok")
