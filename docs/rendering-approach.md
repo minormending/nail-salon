@@ -1,13 +1,40 @@
 # How the hand gets drawn
 
-**Flat 2D SVG, drawn face-on, in the Mela style.** Decided 2026-11-14 after
-trying a 2.5D bake and rejecting it. Implementation in
-[`tools/hand-2d/`](../tools/hand-2d).
+**Flat 2D SVG, drawn face-on, as a henna practice sheet.** Decided 2026-11-14.
+Implementation in [`tools/hand-2d/`](../tools/hand-2d) — `sheet.py` and
+`sheetbuild.py`.
 
-## The style
+## The hand is a canvas, not a character
 
-Mela is the festival direction: cream ground, deep plum keyline,
-turquoise/marigold/magenta/green, Baloo 2 for type.
+This is the thing that took four rejected attempts to see. Henna practice
+sheets are a settled genre, and they answer it:
+
+- a **thin, even outline** — one weight, no heavy keyline
+- **long slender fingers**, gently splayed, with small plain nails
+- **one continuous contour** — no line where the thumb or a finger meets the
+  palm
+- the **forearm included**, because mehndi runs up it and a hand cropped at the
+  wrist has nowhere to put a bracelet
+- deliberately understated, so the design on top is what you look at
+
+Everything rejected before this failed the same way: it made the hand the thing
+you look at — shaded, heavily outlined, brightly manicured.
+
+### Drawing one contour
+
+Merge every part into a single path, stroke it at **double** the target weight
+(this draws the buried seams too), then fill the same path on top. The fill
+covers the inner half of that stroke and every internal seam with it, leaving
+the outer contour at the target weight. All subpaths must wind the same
+direction or `fill-rule: nonzero` subtracts the overlaps instead of uniting
+them.
+
+## The screen around it
+
+Mela stays as the app's chrome: cream ground, deep plum line,
+turquoise/marigold/magenta/green, Baloo 2 for type. The hand inside it is the
+practice sheet above. The notes below describe the earlier, chunkier hand and
+are kept for the palette and for why the bake was dropped.
 
 - **Flat fills. No gradient anywhere.**
 - A heavy plum `#40163C` keyline on *every* part — each finger outlined
