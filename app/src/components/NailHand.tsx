@@ -181,8 +181,25 @@ const STICKER_K = 0.038;
  * -y) and the scale to draw its ~30-unit glyph at. Handles both kinds of saved sticker: new ones
  * (`frame: 'nail'`, x and y in half-widths) and the old close-up's canvas coordinates.
  * `halfWidth` and `nailLength` are the nail's (see `nailMetrics`: `hw` and `len`).
+ * Pass the nail's outline path as `outline` and the spot is also moved inward until the whole
+ * glyph lies inside it, so a sticker placed for one shape re-fits on a narrower or shorter one.
  */
 export function stickerLocal(
+  sticker: StickerPos,
+  halfWidth: number,
+  nailLength: number,
+  outline?: string,
+): { x: number; y: number; scale: number } {
+  const at = stickerRaw(sticker, halfWidth, nailLength);
+  if (!outline) return at;
+  const f = fitSpot(outline, at.x, at.y, GLYPH_R * at.scale);
+  return { x: f.x, y: f.y, scale: at.scale };
+}
+
+/** A sticker glyph is about 30 units across plus its outline: this is its radius at scale 1. */
+const GLYPH_R = 16;
+
+function stickerRaw(
   sticker: StickerPos,
   halfWidth: number,
   nailLength: number,
@@ -289,6 +306,75 @@ function nearestOnPoly(poly: number[][], x: number, y: number): { x: number; y: 
   return best;
 }
 
+type Field = { pts: number[][]; best: number[] };
+const fieldCache = new Map<string, Field>();
+
+/** The spots on a nail where a glyph of radius `r` fits inside the outline, on a coarse grid. */
+function fitField(d: string, r: number): Field {
+  const key = `${d}|${r.toFixed(1)}`;
+  const hit = fieldCache.get(key);
+  if (hit) return hit;
+  const poly = nailOutline(d);
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  for (const [x, y] of poly) {
+    x0 = Math.min(x0, x);
+    x1 = Math.max(x1, x);
+    y0 = Math.min(y0, y);
+    y1 = Math.max(y1, y);
+  }
+  const step = Math.max(1.2, (x1 - x0) / 30);
+  const pts: number[][] = [];
+  let best = [(x0 + x1) / 2, (y0 + y1) / 2];
+  let bestD = -1;
+  for (let x = x0 + step / 2; x < x1; x += step) {
+    for (let y = y0 + step / 2; y < y1; y += step) {
+      if (!insidePoly(poly, x, y)) continue;
+      const dist = nearestOnPoly(poly, x, y).dist;
+      if (dist > bestD) {
+        bestD = dist;
+        best = [x, y];
+      }
+      if (dist >= r) pts.push([x, y]);
+    }
+  }
+  const out = { pts, best };
+  fieldCache.set(key, out);
+  return out;
+}
+
+/**
+ * The nearest spot to (x, y), in a nail's local units, where a glyph of radius `r` lies wholly
+ * inside the outline `d`. If the nail is too small for it anywhere, its widest interior point.
+ */
+export function fitSpot(d: string, x: number, y: number, r: number): { x: number; y: number } {
+  const poly = nailOutline(d);
+  const fits = (px: number, py: number) => insidePoly(poly, px, py) && nearestOnPoly(poly, px, py).dist >= r;
+  if (fits(x, y)) return { x, y };
+  const f = fitField(d, r);
+  if (!f.pts.length) return { x: f.best[0], y: f.best[1] };
+  let g = f.pts[0];
+  let gd = Infinity;
+  for (const q of f.pts) {
+    const dd = (q[0] - x) ** 2 + (q[1] - y) ** 2;
+    if (dd < gd) {
+      gd = dd;
+      g = q;
+    }
+  }
+  // Slide from that grid spot back toward the touch, to the last place the glyph still fits.
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 10; i++) {
+    const m = (lo + hi) / 2;
+    if (fits(g[0] + (x - g[0]) * m, g[1] + (y - g[1]) * m)) lo = m;
+    else hi = m;
+  }
+  return { x: g[0] + (x - g[0]) * lo, y: g[1] + (y - g[1]) * lo };
+}
+
 /** A nail's size and middle in its own frame. */
 export function nailFrame(digit: Digit, shape: string) {
   const { len, hw, bot } = nailMetrics(nailPath(shape, digit));
@@ -316,8 +402,9 @@ export function spotOnNail(digit: Digit, shape: string, x: number, y: number): {
 /** The topmost sticker under a touch at (x, y) in the nail's local units, or -1. */
 export function stickerAt(look: NailLook, digit: Digit, shape: string, x: number, y: number): number {
   const { hw, len } = nailFrame(digit, shape);
+  const d = nailPath(shape, digit);
   for (let i = look.stickers.length - 1; i >= 0; i--) {
-    const p = stickerLocal(look.stickers[i], hw, len);
+    const p = stickerLocal(look.stickers[i], hw, len, d);
     if (Math.hypot(x - p.x, y - p.y) <= 15 * p.scale + 0.25 * hw) return i;
   }
   return -1;
@@ -326,7 +413,9 @@ export function stickerAt(look: NailLook, digit: Digit, shape: string, x: number
 /** A sticker placed at a spot (local units). */
 export function newSticker(kind: string, digit: Digit, shape: string, x: number, y: number): StickerPos {
   const { hw } = nailFrame(digit, shape);
-  return { kind, x: x / hw, y: y / hw, frame: 'nail' };
+  // Moved in until the whole glyph is on the nail.
+  const f = fitSpot(nailPath(shape, digit), x, y, GLYPH_R * STICKER_K * hw);
+  return { kind, x: f.x / hw, y: f.y / hw, frame: 'nail' };
 }
 
 /* ------------------------------------------------------------------ stickers */
@@ -574,20 +663,62 @@ function StickerAt({
   s,
   hw,
   len,
+  d,
   scale = 1,
   rotate = 0,
 }: {
   s: StickerPos;
   hw: number;
   len: number;
+  /** The nail's outline path, so the sticker is fitted inside it. */
+  d: string;
   scale?: number;
   rotate?: number;
 }) {
-  const p = stickerLocal(s, hw, len);
+  const p = stickerLocal(s, hw, len, d);
   return (
     <G transform={`translate(${p.x} ${p.y}) rotate(${rotate}) scale(${Math.max(0.001, p.scale * scale)})`}>
       <StickerGlyph kind={s.kind} />
     </G>
+  );
+}
+
+/**
+ * A nail's stickers in its local frame, each fitted inside the outline `d` and, as a safety net,
+ * clipped to it so nothing can overhang (even old saved positions).
+ */
+export function NailStickers({
+  uid,
+  d,
+  stickers,
+  hw,
+  len,
+  scale,
+  rotate,
+}: {
+  /** Unique, letters and digits only: names the clip. */
+  uid: string;
+  d: string;
+  stickers: StickerPos[];
+  hw: number;
+  len: number;
+  scale?: number;
+  rotate?: number;
+}) {
+  if (!stickers.length) return null;
+  return (
+    <>
+      <Defs>
+        <ClipPath id={`${uid}k`}>
+          <Path d={d} />
+        </ClipPath>
+      </Defs>
+      <G clipPath={`url(#${uid}k)`}>
+        {stickers.map((s, i) => (
+          <StickerAt key={i} s={s} hw={hw} len={len} d={d} scale={scale} rotate={rotate} />
+        ))}
+      </G>
+    </>
   );
 }
 
@@ -617,9 +748,7 @@ function NailsLayer({
         return (
           <G key={dg} transform={`translate(${p.x} ${p.y}) rotate(${p.rotate})`}>
             <NailPaint uid={`${uid}${dg}`} d={d} look={look} line={line} strokeWidth={sw} unit={k} />
-            {look.stickers.map((s, i) => (
-              <StickerAt key={i} s={s} hw={hw} len={len} />
-            ))}
+            <NailStickers uid={`${uid}${dg}`} d={d} stickers={look.stickers} hw={hw} len={len} />
           </G>
         );
       })}
@@ -792,9 +921,7 @@ function FxLayer({
         </Defs>
         <G clipPath={`url(#${clipId})`}>
           <NailPaint uid={`${uid}p`} d={d} look={fx.to} line={line} strokeWidth={sw} unit={k} />
-          {fx.to.stickers.map((s, i) => (
-            <StickerAt key={i} s={s} hw={hw} len={len} />
-          ))}
+          <NailStickers uid={`${uid}q`} d={d} stickers={fx.to.stickers} hw={hw} len={len} />
         </G>
         {fx.glint && g > 0 && g < 1 && (
           <G clipPath={`url(#${nailClip})`}>
@@ -828,7 +955,7 @@ function FxLayer({
     }
     art = (
       <G opacity={opacity}>
-        <StickerAt s={fx.sticker} hw={hw} len={len} scale={s} rotate={rot} />
+        <NailStickers uid={`${uid}q`} d={d} stickers={[fx.sticker]} hw={hw} len={len} scale={s} rotate={rot} />
       </G>
     );
   }

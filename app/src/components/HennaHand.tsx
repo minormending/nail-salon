@@ -18,7 +18,7 @@ import {
   type HennaStage,
   type PartId,
 } from '../lib/henna';
-import { NailPaint, StickerGlyph, closeK, nailMetrics, nailPath, stickerLocal } from './NailHand';
+import { NailPaint, NailStickers, closeK, nailMetrics, nailPath } from './NailHand';
 
 export type { HennaStage };
 
@@ -154,14 +154,7 @@ function HennaNails({
           return (
             <G key={dg} transform={`translate(${p.x} ${p.y}) rotate(${p.rotate})`}>
               <NailPaint uid={`${uid}${dg}`} d={d} look={look} line={line} strokeWidth={sw} unit={c * rx} />
-              {look.stickers.map((s, i) => {
-                const at = stickerLocal(s, open.hw, open.len);
-                return (
-                  <G key={i} transform={`translate(${at.x} ${at.y}) scale(${at.scale})`}>
-                    <StickerGlyph kind={s.kind} />
-                  </G>
-                );
-              })}
+              <NailStickers uid={`${uid}${dg}`} d={d} stickers={look.stickers} hw={open.hw} len={open.len} />
             </G>
           );
         })}
