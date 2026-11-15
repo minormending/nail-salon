@@ -34,8 +34,8 @@ HANDCLIP_EPS = 0.8        # px: Douglas-Peucker tolerance
 def export_rasters():
     os.makedirs(ASSETS, exist_ok=True)
     for tid, label, skin, line in ST.TONES:
-        ST.tint_nail_hand(NAIL_PNG, skin, line, os.path.join(ASSETS, "nail-hand-%s.png" % tid))
-        ST.tint_nail_hand(OPEN_PNG, skin, line, os.path.join(ASSETS, "open-hand-%s.png" % tid))
+        ST.tint_hand_rgba(NAIL_PNG, skin, line, os.path.join(ASSETS, "nail-hand-%s.png" % tid))
+        ST.tint_hand_rgba(OPEN_PNG, skin, line, os.path.join(ASSETS, "open-hand-%s.png" % tid))
 
 
 # ---------------------------------------------------------------- nails

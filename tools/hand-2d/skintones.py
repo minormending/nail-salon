@@ -72,6 +72,18 @@ def tint_nail_hand(src, skin, line, out):
     Image.fromarray(res.astype(np.uint8)).quantize(colors=24, method=Image.Quantize.MEDIANCUT).save(out, optimize=True)
 
 
+def tint_hand_rgba(src, skin, line, out):
+    """As tint_nail_hand, but transparent outside the hand: the app lays the
+    hand straight onto the cream screen, so the paper must not show."""
+    im = np.array(Image.open(src).convert("RGB")).astype(float)
+    k = np.clip((245 - im.mean(2)) / (245 - 60), 0, 1)[..., None]   # ink amount
+    m = skin_mask(src)[..., None]
+    rgb_ = np.where(m, rgb(skin) * (1 - k) + rgb(line) * k, rgb(line))
+    a = np.where(m, 1.0, k)[..., 0] * 255
+    res = np.dstack([rgb_, a]).astype(np.uint8)
+    Image.fromarray(res, "RGBA").quantize(colors=32, method=Image.Quantize.FASTOCTREE).save(out, optimize=True)
+
+
 if __name__ == "__main__":
     src, outdir = sys.argv[1], sys.argv[2]
     for tid, label, skin, line in TONES:

@@ -1,0 +1,65 @@
+[
+ {
+  "id": "mandala",
+  "name": "Mandala",
+  "family": "mandalas",
+  "viewBox": "-40 -40 80 80",
+  "svg": "<g fill=\"#9C3418\"><circle r=\"6\"/><path d=\"M 0 -12 C -7 -16 -7 -27 0 -31 C 7 -27 7 -16 0 -12 Z\"/><path d=\"M 0 -12 C -7 -16 -7 -27 0 -31 C 7 -27 7 -16 0 -12 Z\" transform=\"rotate(45)\"/><path d=\"M 0 -12 C -7 -16 -7 -27 0 -31 C 7 -27 7 -16 0 -12 Z\" transform=\"rotate(90)\"/><path d=\"M 0 -12 C -7 -16 -7 -27 0 -31 C 7 -27 7 -16 0 -12 Z\" transform=\"rotate(135)\"/><path d=\"M 0 -12 C -7 -16 -7 -27 0 -31 C 7 -27 7 -16 0 -12 Z\" transform=\"rotate(180)\"/><path d=\"M 0 -12 C -7 -16 -7 -27 0 -31 C 7 -27 7 -16 0 -12 Z\" transform=\"rotate(225)\"/><path d=\"M 0 -12 C -7 -16 -7 -27 0 -31 C 7 -27 7 -16 0 -12 Z\" transform=\"rotate(270)\"/><path d=\"M 0 -12 C -7 -16 -7 -27 0 -31 C 7 -27 7 -16 0 -12 Z\" transform=\"rotate(315)\"/><circle cx=\"0\" cy=\"-36\" r=\"2\"/><circle cx=\"18\" cy=\"-31.2\" r=\"2\"/><circle cx=\"31.2\" cy=\"-18\" r=\"2\"/><circle cx=\"36\" cy=\"0\" r=\"2\"/><circle cx=\"31.2\" cy=\"18\" r=\"2\"/><circle cx=\"18\" cy=\"31.2\" r=\"2\"/><circle cx=\"0\" cy=\"36\" r=\"2\"/><circle cx=\"-18\" cy=\"31.2\" r=\"2\"/><circle cx=\"-31.2\" cy=\"18\" r=\"2\"/><circle cx=\"-36\" cy=\"0\" r=\"2\"/><circle cx=\"-31.2\" cy=\"-18\" r=\"2\"/><circle cx=\"-18\" cy=\"-31.2\" r=\"2\"/></g>"
+ },
+ {
+  "id": "lotus",
+  "name": "Lotus",
+  "family": "mandalas",
+  "viewBox": "-40 -40 80 80",
+  "svg": "<g fill=\"#9C3418\"><path d=\"M 0 20 C -10 6 -8 -14 0 -26 C 8 -14 10 6 0 20 Z\"/><path d=\"M 0 20 C -10 6 -8 -14 0 -26 C 8 -14 10 6 0 20 Z\" transform=\"rotate(-38 0 20) scale(0.85)\"/><path d=\"M 0 20 C -10 6 -8 -14 0 -26 C 8 -14 10 6 0 20 Z\" transform=\"rotate(38 0 20) scale(0.85)\"/><path d=\"M -28 26 Q 0 36 28 26\" fill=\"none\" stroke=\"#9C3418\" stroke-width=\"3\" stroke-linecap=\"round\"/><circle cx=\"0\" cy=\"-32\" r=\"2.4\"/><circle cx=\"-22\" cy=\"-20\" r=\"2.2\"/><circle cx=\"22\" cy=\"-20\" r=\"2.2\"/></g>"
+ },
+ {
+  "id": "rosette",
+  "name": "Rosette",
+  "family": "mandalas",
+  "viewBox": "-40 -40 80 80",
+  "svg": "<g fill=\"#9C3418\"><circle r=\"5\"/><circle cx=\"13\" cy=\"0\" r=\"4\"/><circle cx=\"6.5\" cy=\"11.3\" r=\"4\"/><circle cx=\"-6.5\" cy=\"11.3\" r=\"4\"/><circle cx=\"-13\" cy=\"0\" r=\"4\"/><circle cx=\"-6.5\" cy=\"-11.3\" r=\"4\"/><circle cx=\"6.5\" cy=\"-11.3\" r=\"4\"/><circle cx=\"26\" cy=\"0\" r=\"2.4\"/><circle cx=\"22.5\" cy=\"13\" r=\"2.4\"/><circle cx=\"13\" cy=\"22.5\" r=\"2.4\"/><circle cx=\"0\" cy=\"26\" r=\"2.4\"/><circle cx=\"-13\" cy=\"22.5\" r=\"2.4\"/><circle cx=\"-22.5\" cy=\"13\" r=\"2.4\"/><circle cx=\"-26\" cy=\"0\" r=\"2.4\"/><circle cx=\"-22.5\" cy=\"-13\" r=\"2.4\"/><circle cx=\"-13\" cy=\"-22.5\" r=\"2.4\"/><circle cx=\"0\" cy=\"-26\" r=\"2.4\"/><circle cx=\"13\" cy=\"-22.5\" r=\"2.4\"/><circle cx=\"22.5\" cy=\"-13\" r=\"2.4\"/></g>"
+ },
+ {
+  "id": "paisley",
+  "name": "Paisley",
+  "family": "paisleys",
+  "viewBox": "-40 -40 80 80",
+  "svg": "<g><path fill-rule=\"evenodd\" fill=\"#9C3418\" d=\"M 0 32 C -26 26 -28 -8 -6 -24 C 10 -36 30 -20 18 -4 C 10 6 22 22 0 32 Z M 0 22 C -14 18 -16 -2 -4 -12 C 4 -18 14 -10 8 -2 C 4 4 10 14 0 22 Z\"/><circle cx=\"-2\" cy=\"6\" r=\"3.2\" fill=\"#9C3418\"/></g>"
+ },
+ {
+  "id": "vine",
+  "name": "Vine",
+  "family": "vines",
+  "viewBox": "-40 -40 80 80",
+  "svg": "<g fill=\"#9C3418\"><path d=\"M -30 32 C -10 12 -12 -10 12 -32\" fill=\"none\" stroke=\"#9C3418\" stroke-width=\"3\" stroke-linecap=\"round\"/><path d=\"M 0 0 C -5 -2 -10 -6 -13 -12.6 C -8.3 -11 -2.6 -6 0 0 Z\" transform=\"translate(-22 22) rotate(-50) scale(1.4)\"/><path d=\"M 0 0 C 5 -2 10 -6 13 -12.6 C 8.3 -11 2.6 -6 0 0 Z\" transform=\"translate(-22 22) rotate(-50) scale(1.4)\"/><path d=\"M 0 0 C -5 -2 -10 -6 -13 -12.6 C -8.3 -11 -2.6 -6 0 0 Z\" transform=\"translate(-10 0) rotate(-20) scale(1.4)\"/><path d=\"M 0 0 C 5 -2 10 -6 13 -12.6 C 8.3 -11 2.6 -6 0 0 Z\" transform=\"translate(-10 0) rotate(-20) scale(1.4)\"/><ellipse cx=\"12\" cy=\"-32\" rx=\"3.4\" ry=\"5\" transform=\"rotate(40 12 -32)\"/></g>"
+ },
+ {
+  "id": "leaf-pair",
+  "name": "Leaf pair",
+  "family": "vines",
+  "viewBox": "-40 -40 80 80",
+  "svg": "<g fill=\"#9C3418\"><path d=\"M 0 0 C -5 -2 -10 -6 -13 -12.6 C -8.3 -11 -2.6 -6 0 0 Z\" transform=\"translate(0 26) scale(2.7)\"/><path d=\"M 0 0 C 5 -2 10 -6 13 -12.6 C 8.3 -11 2.6 -6 0 0 Z\" transform=\"translate(0 26) scale(2.7)\"/><circle cx=\"0\" cy=\"-12\" r=\"3\"/></g>"
+ },
+ {
+  "id": "cuff-band",
+  "name": "Cuff band",
+  "family": "borders",
+  "viewBox": "-40 -40 80 80",
+  "svg": "<g fill=\"#9C3418\"><rect x=\"-34\" y=\"-13\" width=\"68\" height=\"3\"/><rect x=\"-34\" y=\"10\" width=\"68\" height=\"3\"/><path d=\"M -32 -6 L -24 0 L -32 6 Z\"/><path d=\"M -21 -6 L -13 0 L -21 6 Z\"/><path d=\"M -10 -6 L -2 0 L -10 6 Z\"/><path d=\"M 1 -6 L 9 0 L 1 6 Z\"/><path d=\"M 12 -6 L 20 0 L 12 6 Z\"/><path d=\"M 23 -6 L 31 0 L 23 6 Z\"/></g>"
+ },
+ {
+  "id": "scallops",
+  "name": "Scallops",
+  "family": "borders",
+  "viewBox": "-40 -40 80 80",
+  "svg": "<g fill=\"#9C3418\"><path d=\"M -36 12 A 9 9 0 0 1 -18 12 A 9 9 0 0 1 0 12 A 9 9 0 0 1 18 12 A 9 9 0 0 1 36 12 Z\"/><circle cx=\"-27\" cy=\"-6\" r=\"2.6\"/><circle cx=\"-9\" cy=\"-6\" r=\"2.6\"/><circle cx=\"9\" cy=\"-6\" r=\"2.6\"/><circle cx=\"27\" cy=\"-6\" r=\"2.6\"/><rect x=\"-36\" y=\"15\" width=\"72\" height=\"3\"/></g>"
+ },
+ {
+  "id": "jaali",
+  "name": "Jaali",
+  "family": "jaali",
+  "viewBox": "-40 -40 80 80",
+  "svg": "<g><path d=\"M -32 0 L 0 -32 L 32 0 L 0 32 Z M -16 -16 L 16 16 M 16 -16 L -16 16 M -24 -8 L 8 24 M -8 -24 L 24 8 M 24 -8 L -8 24 M 8 -24 L -24 8\" fill=\"none\" stroke=\"#9C3418\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/><circle r=\"3.4\" fill=\"#9C3418\"/></g>"
+ }
+]
