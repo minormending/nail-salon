@@ -100,7 +100,10 @@ const STUDIO_ART: HennaDesign = { source: 'stencil', parts: ['gol', 'vines', 'cu
 
 export default function Home() {
   const router = useRouter();
-  const tone = useStore((s) => s.tone);
+  // The room cards wear the child's own skin tone, but not the dress-up green: the app should
+  // never open on green hands, so it falls back to the colouring-book outline.
+  const chosen = useStore((s) => s.tone);
+  const tone = chosen === 't7' ? 't0' : chosen;
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
