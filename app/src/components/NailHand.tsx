@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, {
@@ -845,15 +846,19 @@ const UNPOP_MS = 220;
 const GHOST_MS = 250;
 const easeOut = (x: number) => 1 - (1 - x) ** 3;
 
-/** Milliseconds since mount, every frame, until `ms` (then `onDone`). Only the caller re-renders. */
-function useElapsed(ms: number, onDone: () => void): number {
-  const [t, setT] = useState(0);
+/**
+ * Milliseconds since `startedAt` (default: mount), every frame, until `ms` (then `onDone`). Only the
+ * caller re-renders. Pass `startedAt` so an effect carries on, not restarts, when its layer is
+ * remounted (the camera landing moves the effect layers into the crisp window).
+ */
+function useElapsed(ms: number, onDone: () => void, startedAt?: number): number {
+  const [t, setT] = useState(() => (startedAt ? Math.max(0, Math.min(ms, Date.now() - startedAt)) : 0));
   const done = useRef(onDone);
   useEffect(() => {
     done.current = onDone;
   });
   useEffect(() => {
-    const t0 = Date.now();
+    const t0 = startedAt ?? Date.now();
     let raf = 0;
     const tick = () => {
       const e = Date.now() - t0;
@@ -866,7 +871,7 @@ function useElapsed(ms: number, onDone: () => void): number {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [ms]);
+  }, [ms, startedAt]);
   return t;
 }
 
@@ -880,7 +885,16 @@ type Fx = {
   sticker?: StickerPos;
   /** A wet-sheen glint after a new colour. */
   glint?: boolean;
+  /** When it began (ms), so a remounted layer carries on from the right moment. */
+  at: number;
 };
+
+/**
+ * Where an overlay layer is drawn: art point (x0, y0) sits at the layer's top-left and an art unit
+ * is `k` px. The transformed box is one frame; the crisp window (zoomed in) is another, in which
+ * `ss` is 1 because the art is already drawn at its on-screen size.
+ */
+type Frame = { x0: number; y0: number; k: number; ss: number };
 
 /** iOS bitmaps SVGs; the small effect and halo overlays are drawn bigger and scaled back so they stay sharp at the zoom. */
 const OVERLAY_SS = Platform.OS === 'ios' ? 2.7 : 1;
@@ -896,7 +910,7 @@ function FxLayer({
   uid,
   line,
   sw,
-  scale,
+  frame,
   onDone,
 }: {
   fx: Fx;
@@ -904,11 +918,12 @@ function FxLayer({
   uid: string;
   line: string;
   sw: number;
-  scale: number;
+  frame: Frame;
   onDone: (id: number) => void;
 }) {
+  const scale = frame.k;
   const ms = fx.kind === 'paint' ? (fx.glint ? GLINT_AT + GLINT_MS : SWEEP_MS) : fx.kind === 'pop' ? POP_MS : UNPOP_MS;
-  const t = useElapsed(ms, () => onDone(fx.id));
+  const t = useElapsed(ms, () => onDone(fx.id), fx.at);
   const p = PLACES[fx.nail.digit];
   const mirrored = fx.nail.hand === 'left';
   const d = nailPath(shape, fx.nail.digit);
@@ -986,8 +1001,8 @@ function FxLayer({
       pointerEvents="none"
       style={{
         position: 'absolute',
-        left: (at.x - SPAN.both.x0) * scale - ox,
-        top: (p.y - VB[1]) * scale - oy,
+        left: (at.x - frame.x0) * scale - ox,
+        top: (p.y - frame.y0) * scale - oy,
         width: w * scale,
         height: h * scale,
         transformOrigin: `${ox}px ${oy}px`,
@@ -996,13 +1011,13 @@ function FxLayer({
     >
       <View
         style={{
-          width: w * scale * OVERLAY_SS,
-          height: h * scale * OVERLAY_SS,
+          width: w * scale * frame.ss,
+          height: h * scale * frame.ss,
           transformOrigin: 'left top',
-          transform: [{ scale: 1 / OVERLAY_SS }],
+          transform: [{ scale: 1 / frame.ss }],
         }}
       >
-        <Svg width={w * scale * OVERLAY_SS} height={h * scale * OVERLAY_SS} viewBox={`${x0} ${y0} ${w} ${h}`}>
+        <Svg width={w * scale * frame.ss} height={h * scale * frame.ss} viewBox={`${x0} ${y0} ${w} ${h}`}>
           {mirrored ? <G transform="scale(-1 1)">{art}</G> : art}
         </Svg>
       </View>
@@ -1034,7 +1049,9 @@ function useReduceMotion(): boolean {
   return on;
 }
 
-type HaloState = { nail: NailRef; id: number; out: boolean };
+type HaloState = { nail: NailRef; id: number; out: boolean; born: number };
+const HALO_IN_MS = 160;
+const HALO_BREATH_MS = 1600;
 
 /**
  * A halo that follows the selected nail's own outline: the nail's path stroked twice (wide and
@@ -1049,7 +1066,7 @@ function HaloLayer({
   shape,
   line,
   sw,
-  scale,
+  frame,
   ppu,
   reduceMotion,
   onGone,
@@ -1058,31 +1075,51 @@ function HaloLayer({
   shape: string;
   line: string;
   sw: number;
-  scale: number;
+  frame: Frame;
   /** Screen px per art unit at the zoom. */
   ppu: number;
   reduceMotion: boolean;
   onGone: (id: number) => void;
 }) {
-  const { nail, out, id } = halo;
-  const enter = useSharedValue(0);
-  const breathe = useSharedValue(1);
+  const { nail, out, id, born } = halo;
+  const scale = frame.k;
+  // Where in its fade-in and its breath this halo is now, so a remount (the camera landing moves
+  // it into the crisp window) carries on rather than blinking.
+  const [start] = useState(() => {
+    const age = Date.now() - born;
+    return { enter: Math.min(1, age / HALO_IN_MS), phase: (age % HALO_BREATH_MS) / HALO_BREATH_MS };
+  });
+  const enter = useSharedValue(start.enter);
+  const phase = useSharedValue(start.phase);
   useEffect(() => {
-    enter.value = withTiming(out ? 0 : 1, { duration: out ? 200 : 160 });
+    enter.value = withTiming(out ? 0 : 1, { duration: out ? 200 : Math.max(1, HALO_IN_MS * (1 - start.enter)) });
     if (!out) return;
     const t = setTimeout(() => onGone(id), 260);
     return () => clearTimeout(t);
-  }, [out, id, enter, onGone]);
+  }, [out, id, enter, onGone, start.enter]);
   useEffect(() => {
-    cancelAnimation(breathe);
-    breathe.value = 1;
-    if (!reduceMotion) {
-      // 1 -> 0.55 -> 1 over 1.6s, looping.
-      breathe.value = withRepeat(withTiming(0.55, { duration: 800, easing: Easing.inOut(Easing.sin) }), -1, true);
+    cancelAnimation(phase);
+    if (reduceMotion) {
+      phase.value = 0;
+    } else {
+      // The rest of this breath, then breath after breath: 1 -> 0.55 -> 1 over 1.6s.
+      phase.value = start.phase;
+      phase.value = withSequence(
+        withTiming(1, { duration: Math.max(1, HALO_BREATH_MS * (1 - start.phase)), easing: Easing.linear }),
+        withRepeat(
+          withSequence(
+            withTiming(0, { duration: 0 }),
+            withTiming(1, { duration: HALO_BREATH_MS, easing: Easing.linear }),
+          ),
+          -1,
+        ),
+      );
     }
-    return () => cancelAnimation(breathe);
-  }, [reduceMotion, breathe]);
-  const fade = useAnimatedStyle(() => ({ opacity: enter.value * breathe.value }));
+    return () => cancelAnimation(phase);
+  }, [reduceMotion, phase, start.phase]);
+  const fade = useAnimatedStyle(() => ({
+    opacity: enter.value * (0.775 + 0.225 * Math.cos(phase.value * 2 * Math.PI)),
+  }));
 
   const p = PLACES[nail.digit];
   const mirrored = nail.hand === 'left';
@@ -1122,8 +1159,8 @@ function HaloLayer({
       style={[
         {
           position: 'absolute',
-          left: (at.x - SPAN.both.x0) * scale - ox,
-          top: (p.y - VB[1]) * scale - oy,
+          left: (at.x - frame.x0) * scale - ox,
+          top: (p.y - frame.y0) * scale - oy,
           width: w * scale,
           height: h * scale,
           transformOrigin: `${ox}px ${oy}px`,
@@ -1134,13 +1171,13 @@ function HaloLayer({
     >
       <View
         style={{
-          width: w * scale * OVERLAY_SS,
-          height: h * scale * OVERLAY_SS,
+          width: w * scale * frame.ss,
+          height: h * scale * frame.ss,
           transformOrigin: 'left top',
-          transform: [{ scale: 1 / OVERLAY_SS }],
+          transform: [{ scale: 1 / frame.ss }],
         }}
       >
-        <Svg width={w * scale * OVERLAY_SS} height={h * scale * OVERLAY_SS} viewBox={`${x0} ${y0} ${w} ${h}`}>
+        <Svg width={w * scale * frame.ss} height={h * scale * frame.ss} viewBox={`${x0} ${y0} ${w} ${h}`}>
           {mirrored ? <G transform="scale(-1 1)">{art}</G> : art}
         </Svg>
       </View>
@@ -1289,15 +1326,15 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPre
     let fx: Fx | null = null;
     let baseLook = b;
     if (a.color !== b.color || a.pattern !== b.pattern) {
-      fx = { id: ++seq.current, nail, kind: 'paint', to: b, glint: a.color !== b.color };
+      fx = { id: ++seq.current, nail, kind: 'paint', to: b, glint: a.color !== b.color, at: Date.now() };
       baseLook = a;
     } else if (b.stickers.length < a.stickers.length) {
       let i = a.stickers.findIndex((s, j) => !b.stickers[j] || JSON.stringify(s) !== JSON.stringify(b.stickers[j]));
       if (i < 0) i = a.stickers.length - 1;
-      fx = { id: ++seq.current, nail, kind: 'unpop', to: b, sticker: a.stickers[i] };
+      fx = { id: ++seq.current, nail, kind: 'unpop', to: b, sticker: a.stickers[i], at: Date.now() };
     } else if (b.stickers.length) {
       const last = b.stickers[b.stickers.length - 1];
-      fx = { id: ++seq.current, nail, kind: 'pop', to: b, sticker: last };
+      fx = { id: ++seq.current, nail, kind: 'pop', to: b, sticker: last, at: Date.now() };
       baseLook = { ...b, stickers: b.stickers.slice(0, -1) };
     }
     if (!fx) return instant();
@@ -1321,11 +1358,11 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPre
   const [halos, setHalos] = useState<{ key: string | null; next: number; list: HaloState[] }>(() => ({
     key: zoomKey,
     next: 2,
-    list: zoom ? [{ nail: zoom, id: 1, out: false }] : [],
+    list: zoom ? [{ nail: zoom, id: 1, out: false, born: Date.now() }] : [],
   }));
   if (halos.key !== zoomKey) {
     const list: HaloState[] = halos.list.map((h) => (h.out ? h : { ...h, out: true }));
-    if (zoom) list.push({ nail: zoom, id: halos.next, out: false });
+    if (zoom) list.push({ nail: zoom, id: halos.next, out: false, born: Date.now() });
     setHalos({ key: zoomKey, next: halos.next + 1, list });
   }
   const haloGone = useCallback(
@@ -1400,6 +1437,36 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPre
     };
   }
 
+  const layers = (frame: Frame) => (
+    <>
+      {halos.list.map((h) => (
+        <HaloLayer
+          key={h.id}
+          halo={h}
+          shape={design.shape}
+          line={line}
+          sw={sw}
+          frame={frame}
+          ppu={Math.max(ZOOM * scale, ZOOM_PX)}
+          reduceMotion={reduceMotion}
+          onGone={haloGone}
+        />
+      ))}
+      {fxs.map((f) => (
+        <FxLayer
+          key={f.id}
+          fx={f}
+          shape={design.shape}
+          uid={`${uid}f${f.id}`}
+          line={line}
+          sw={sw}
+          frame={frame}
+          onDone={fxDone}
+        />
+      ))}
+    </>
+  );
+
   return (
     <View style={{ width, height, top: shift }}>
       {win && (
@@ -1413,6 +1480,8 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPre
             crop={win.crop}
             label=""
           />
+          {/* The halo and effects redrawn at full resolution too, from where they had got to. */}
+          {layers({ x0: win.crop.x, y0: win.crop.y, k: scale * sc, ss: 1 })}
         </View>
       )}
     <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width, height }, camera]}>
@@ -1436,31 +1505,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, onNailPre
           label={zoom ? `Close up of the ${nailSpokenName(zoom).toLowerCase()} nail` : 'Two hands with painted nails. Tap a nail to look closer.'}
         />
       </View>
-      {halos.list.map((h) => (
-        <HaloLayer
-          key={h.id}
-          halo={h}
-          shape={design.shape}
-          line={line}
-          sw={sw}
-          scale={scale}
-          ppu={Math.max(ZOOM * scale, ZOOM_PX)}
-          reduceMotion={reduceMotion}
-          onGone={haloGone}
-        />
-      ))}
-      {fxs.map((f) => (
-        <FxLayer
-          key={f.id}
-          fx={f}
-          shape={design.shape}
-          uid={`${uid}f${f.id}`}
-          line={line}
-          sw={sw}
-          scale={scale}
-          onDone={fxDone}
-        />
-      ))}
+      {!win && layers({ x0: span.x0, y0: VB[1], k: scale, ss: OVERLAY_SS })}
       {ghost && (
         <GhostLayer
           key={ghost.id}
