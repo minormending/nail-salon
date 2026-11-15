@@ -22,6 +22,15 @@ const DEFS = {
   unlock: { sw: 2.4, shapes: [r(4.5, 10.5, 15, 10, 2), p('M8 10.5 V7.5 a4 4 0 0 1 7.6 -1.7')] },
   back: { sw: 2.6, shapes: [p('M15 5 L8 12 L15 19')] },
   forward: { sw: 2.6, shapes: [p('M9 5 L16 12 L9 19')] },
+  // magnifiers: "tap a nail to look closer" / "show the whole hand"
+  zoomIn: {
+    sw: 2.4,
+    shapes: [{ t: 'circle', cx: 10.5, cy: 10.5, r: 6.5 }, p('M15.5 15.5 L21 21'), p('M10.5 7.5 V13.5 M7.5 10.5 H13.5')],
+  },
+  zoomOut: {
+    sw: 2.4,
+    shapes: [{ t: 'circle', cx: 10.5, cy: 10.5, r: 6.5 }, p('M15.5 15.5 L21 21'), p('M7.5 10.5 H13.5')],
+  },
   hand: {
     sw: 2.1,
     shapes: [

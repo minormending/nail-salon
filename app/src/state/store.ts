@@ -12,7 +12,11 @@ export const DIGITS: Digit[] = ['thumb', 'index', 'middle', 'ring', 'pinky'];
 export type NailLook = {
   color: string;
   pattern: 'plain' | 'dots' | 'stripes' | 'french';
-  stickers: { kind: string; x: number; y: number }[];
+  /**
+   * `frame: 'nail'` stickers sit in the nail's own frame, x and y in half-widths from the cuticle
+   * (y is negative toward the tip). Without it they are the old close-up's canvas coordinates.
+   */
+  stickers: { kind: string; x: number; y: number; frame?: 'nail' }[];
 };
 export type NailDesign = { shape: string; nails: Record<Digit, NailLook> };
 export type Stroke = {

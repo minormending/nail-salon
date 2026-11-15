@@ -117,7 +117,7 @@ export default function Share() {
                 alignItems: 'center',
               }}
             >
-              <View style={{ marginTop: 4 }}>
+              <View style={{ marginTop: item.kind === 'henna' && item.nails ? 12 : 4 }}>
                 {item.kind === 'nails' && item.nails ? (
                   <NailHand design={item.nails} tone={item.tone} width={236} />
                 ) : item.henna ? (
@@ -126,6 +126,7 @@ export default function Share() {
                     tone={item.tone}
                     width={236}
                     stage={stageAt(item, now, speed).stage}
+                    nails={item.nails}
                   />
                 ) : null}
               </View>

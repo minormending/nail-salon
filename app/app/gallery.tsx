@@ -231,13 +231,14 @@ export default function Gallery() {
                       borderBottomColor: colors.plum,
                     }}
                   >
-                    <View style={{ marginTop: isHenna ? 4 : 8 }} pointerEvents="none">
+                    <View style={{ marginTop: isHenna ? (item.nails ? 10 : 4) : 8 }} pointerEvents="none">
                       {isHenna && item.henna ? (
                         <HennaHand
                           design={item.henna}
                           tone={item.tone}
                           width={150}
                           stage={stageAt(item, now, speed).stage}
+                          nails={item.nails}
                         />
                       ) : item.nails ? (
                         <NailHand design={item.nails} tone={item.tone} width={118} />

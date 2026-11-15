@@ -70,8 +70,8 @@ app/                    expo-router routes
   _layout.tsx           fonts, stack, no headers
   index.tsx             Home
   gallery.tsx           My hands
-  salon/nails.tsx       nail chair
-  salon/nail.tsx        one nail close up (?digit=thumb)
+  salon/nails.tsx       nail chair; tap a nail to zoom in (?zoom=thumb|index|…)
+  salon/nail.tsx        redirect to /salon/nails?zoom=… (old close-up links)
   salon/henna.tsx       henna stencil
   studio/index.tsx      henna cone
   studio/motifs.tsx     motif library
@@ -95,7 +95,8 @@ assets/hands/           tinted hand rasters per tone (generated)
 type ToneId = 't0'|'t1'|'t2'|'t3'|'t4'|'t5'|'t6'
 type Digit = 'thumb'|'index'|'middle'|'ring'|'pinky'
 type NailLook = { color: string; pattern: 'plain'|'dots'|'stripes'|'french';
-                  stickers: { kind: string; x: number; y: number }[] }
+                  stickers: { kind: string; x: number; y: number; frame?: 'nail' }[] }
+// frame 'nail': x,y in half-widths in the nail's own frame (stickerLocal in NailHand.tsx); else old close-up coordinates
 type NailDesign = { shape: string; nails: Record<Digit, NailLook> }
 type Stroke = { layer: 0|1; nib: 1|2|3; points: number[] /* x,y,w,... */ }
 type Stamp  = { layer: 0|1; motif: string; x: number; y: number; scale: number; rotate: number }

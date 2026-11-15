@@ -9,12 +9,15 @@ export type Room = 'nails' | 'stickers' | 'henna';
 
 const TABS: { id: Room; label: string; icon: IconName; href: string }[] = [
   { id: 'nails', label: 'Nails', icon: 'nails', href: '/salon/nails' },
-  { id: 'stickers', label: 'Stickers', icon: 'star', href: '/salon/nail' },
+  { id: 'stickers', label: 'Stickers', icon: 'star', href: '/salon/nails?zoom=thumb' },
   { id: 'henna', label: 'Henna', icon: 'henna', href: '/salon/henna' },
 ];
 
-/** The Nails / Stickers / Henna tab strip under the Salon header. */
-export function RoomTabs({ current }: { current: Room }) {
+/**
+ * The Nails / Stickers / Henna tab strip under the Salon header. `onSelect` lets the nail chair
+ * handle Nails and Stickers itself (they are one screen, zoomed out and in); return true if handled.
+ */
+export function RoomTabs({ current, onSelect }: { current: Room; onSelect?: (room: Room) => boolean | void }) {
   const router = useRouter();
   return (
     <View
@@ -41,7 +44,10 @@ export function RoomTabs({ current }: { current: Room }) {
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
             accessibilityLabel={t.label}
-            onPress={() => !on && router.replace(t.href as never)}
+            onPress={() => {
+              if (on || onSelect?.(t.id)) return;
+              router.replace(t.href as never);
+            }}
             style={{
               flex: 1,
               height: 44,

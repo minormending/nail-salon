@@ -194,7 +194,7 @@ export default function Stain() {
           </Text>
         </View>
         <View style={{ marginBottom: -fit.bleed }} accessible accessibilityLabel={shown.alt}>
-          <HennaHand design={design} tone={item.tone} width={handW} stage={shown.id} />
+          <HennaHand design={design} tone={item.tone} width={handW} stage={shown.id} nails={item.nails} />
         </View>
       </View>
 

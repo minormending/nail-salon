@@ -3,10 +3,11 @@
     python3 export_app.py
 
 Reads nail_hand_v1.png and open_hand_v1.png from art-private/original/ (never
-copied into tools/) and nails_measured.json, and writes
+copied into tools/), nails_measured.json and open_nails_measured.json, and writes
 
     app/assets/hands/nail-hand-t0..t6.png, open-hand-t0..t6.png
     app/src/art/nails.json
+    app/src/art/openNails.json
     app/src/art/henna.json
 
 Needs rsvg-convert (part bounds) and numpy/Pillow.
@@ -85,6 +86,61 @@ def export_nails():
            "line": {"color": CH.LINE, "width": CH.LW},
            "digits": digits, "shapes": shapes}
     json.dump(out, open(os.path.join(ART, "nails.json"), "w"), indent=1)
+
+
+# ---------------------------------------------------------------- nails on the open hand
+OPEN_LINE_W = 7.0          # px: the open hand's drawn nail line weight (5.5 to 7 where the nails meet the finger outline)
+OPEN_JSON = os.path.join(HERE, "open_nails_measured.json")
+
+
+def open_specs():
+    """The same placement as codexhand.specs(), for the five nails drawn on the
+    open hand (open_nails_measured.json, from measure_open_nails.py): cuticle
+    origin, angle, width and the along-nail stretch that makes Natural cover
+    the drawn nail."""
+    M = json.load(open(OPEN_JSON))
+    LW = OPEN_LINE_W
+    out = {}
+    for k in CH.DIGITS:
+        m = M[k]
+        ax = m["ax"]
+        w = m["width"] + LW                    # stroke centre to stroke centre
+        ld = m["tmax"] - m["tmin"] + 1.2 * LW
+        s = ld / ((NL.LENGTH["natural"] + 0.206) * w)
+        t0 = m["tmin"] - 0.65 * LW
+        cut = [m["c"][0] + ax[0] * t0, m["c"][1] + ax[1] * t0]
+        o = [cut[0] + ax[0] * 0.206 * w * s, cut[1] + ax[1] * 0.206 * w * s]
+        out[k] = (o[0], o[1], math.degrees(math.atan2(ax[0], -ax[1])), w, s, m)
+    return out
+
+
+def export_open_nails():
+    specs = open_specs()
+    digits, shapes = {}, {}
+    xs, ys = [], []
+    for k in CH.DIGITS:
+        x, y, a, w, s, m = specs[k]
+        digits[k] = {"x": round(x, 2), "y": round(y, 2), "rotate": round(a, 3),
+                     "scaleY": round(s, 4), "w": round(w, 2),
+                     "tip": [round(m["c"][0], 1), round(m["c"][1], 1)]}
+    for shape in NL.SHAPES:
+        shapes[shape] = {}
+        for k in CH.DIGITS:
+            x, y, a, w, s, m = specs[k]
+            d = CH.stretch(NL.path(shape, w), s)
+            shapes[shape][k] = d
+            for px, py in path_points(d, a, x, y):
+                xs.append(px); ys.append(py)
+    pad = OPEN_LINE_W / 2 + 2
+    vb = [float(v) for v in OH.VIEWBOX.split()]
+    head = int(math.ceil((-min(ys) + pad) / 10.0) * 10) if min(ys) < 0 else 0
+    print("open nail extents x %.0f..%.0f y %.0f..%.0f -> headroom %d"
+          % (min(xs), max(xs), min(ys), max(ys), head))
+    out = {"viewBox": OH.VIEWBOX,
+           "image": {"width": W, "height": H},
+           "line": {"color": CH.LINE, "width": OPEN_LINE_W},
+           "digits": digits, "shapes": shapes}
+    json.dump(out, open(os.path.join(ART, "openNails.json"), "w"), indent=1)
 
 
 # ---------------------------------------------------------------- henna
@@ -193,5 +249,6 @@ if __name__ == "__main__":
     os.makedirs(ART, exist_ok=True)
     export_rasters()
     export_nails()
+    export_open_nails()
     export_henna()
     print("ok")

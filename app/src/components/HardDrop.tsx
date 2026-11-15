@@ -15,6 +15,7 @@ type Props = {
   accessibilityLabel?: string;
   accessibilityRole?: 'button' | 'link';
   disabled?: boolean;
+  accessibilityState?: { selected?: boolean; disabled?: boolean };
   children?: React.ReactNode;
 };
 
@@ -32,6 +33,7 @@ export function HardDrop({
   accessibilityLabel,
   accessibilityRole = 'button',
   disabled,
+  accessibilityState,
   children,
 }: Props) {
   return (
@@ -50,6 +52,7 @@ export function HardDrop({
         disabled={disabled}
         accessibilityRole={accessibilityRole}
         accessibilityLabel={accessibilityLabel}
+        accessibilityState={accessibilityState}
         style={({ pressed }) => [
           {
             borderWidth: border,

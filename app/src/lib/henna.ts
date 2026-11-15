@@ -1,6 +1,6 @@
 import hennaArt from '../art/henna.json';
 import motifsArt from '../art/motifs.json';
-import { emptyHennaDesign, useStore, type HennaDesign, type Item, type Stamp, type Stroke } from '../state/store';
+import { emptyHennaDesign, useStore, type HennaDesign, type Item, type NailDesign, type Stamp, type Stroke } from '../state/store';
 import { henna as HENNA, type ToneId } from '../theme';
 import { scheduleReminder } from './stain';
 
@@ -394,16 +394,25 @@ export const designIsEmpty = (d: HennaDesign) =>
     : !d.parts?.length;
 
 /**
+ * The polish painted on the nail chair, as a copy for a stencil henna to carry (it shows on the open
+ * hand and on the saved henna). Studio hennas carry none.
+ */
+export function nailsFor(design: HennaDesign): NailDesign | undefined {
+  return design.source === 'studio' ? undefined : (JSON.parse(JSON.stringify(useStore.getState().draftNails)) as NailDesign);
+}
+
+/**
  * "Let it dry": makes the Item, starts the stain clock, asks for the (optional) reminder, resets the
  * draft. Returns the new id; the reminder is scheduled in the background.
  */
 export function letItDry(design: HennaDesign, name: string): string {
   const st = useStore.getState();
   const now = Date.now();
-  const id = st.addItem({ kind: 'henna', name, tone: st.tone, henna: design, createdAt: now, startedAt: now });
+  const nails = nailsFor(design);
+  const id = st.addItem({ kind: 'henna', name, tone: st.tone, henna: design, nails, createdAt: now, startedAt: now });
   if (design.source === 'studio') st.setDraftStudio(emptyHennaDesign('studio'));
   else st.setDraftStencil(emptyHennaDesign('stencil'));
-  const item: Item = { id, kind: 'henna', name, tone: st.tone, henna: design, createdAt: now, startedAt: now };
+  const item: Item = { id, kind: 'henna', name, tone: st.tone, henna: design, nails, createdAt: now, startedAt: now };
   scheduleReminder(item).then((nid) => {
     if (nid) useStore.getState().updateItem(id, { notificationId: nid });
   });
@@ -417,9 +426,10 @@ let lastSaved: { sig: string; id: string } | null = null;
  */
 export function saveDraftForPicture(design: HennaDesign, name: string): string {
   const st = useStore.getState();
-  const sig = JSON.stringify([design, st.tone]);
+  const nails = nailsFor(design);
+  const sig = JSON.stringify([design, st.tone, nails]);
   if (lastSaved && lastSaved.sig === sig && st.items.some((i) => i.id === lastSaved!.id)) return lastSaved.id;
-  const id = st.addItem({ kind: 'henna', name, tone: st.tone, henna: design });
+  const id = st.addItem({ kind: 'henna', name, tone: st.tone, henna: design, nails });
   lastSaved = { sig, id };
   return id;
 }

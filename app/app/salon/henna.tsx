@@ -113,6 +113,7 @@ export default function SalonHenna() {
   const { width: winW } = useWindowDimensions();
   const tone = useStore((s) => s.tone);
   const draft = useStore((s) => s.draftStencil);
+  const draftNails = useStore((s) => s.draftNails);
   const setDraftStencil = useStore((s) => s.setDraftStencil);
 
   const inked: PartId[] = (draft.parts as PartId[] | undefined) ?? NO_PARTS;
@@ -166,11 +167,12 @@ export default function SalonHenna() {
 
   const scallopH = (22 * winW) / 390;
 
+  // (68 = 54 for the hint chip plus the 14 a long polished nail can reach above the fingertips.)
   // Keep the hand down to the cuff in view on short phones (300px is the design's size) and let it grow on tall ones (up to 520): the
   // arm below the cuff may hang under the scalloped edge and the panel.
   const onCanvasLayout = (e: LayoutChangeEvent) => {
     const { width: w, height: h } = e.nativeEvent.layout;
-    const next = fitHand(h, 54, scallopH + 6, Math.max(MAX_HAND_W, Math.min(w, 520)));
+    const next = fitHand(h, 68, scallopH + 6, Math.max(MAX_HAND_W, Math.min(w, 520)));
     setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
   };
 
@@ -241,7 +243,7 @@ export default function SalonHenna() {
           style={{ marginBottom: -fit.bleed }}
         >
           <View>
-            <HennaHand design={design} tone={tone} width={handW} stage="paste" />
+            <HennaHand design={design} tone={tone} width={handW} stage="paste" nails={draftNails} />
             {inking ? <InkSweep part={inking} tone={tone} progress={progress} handW={handW} /> : null}
           </View>
         </Pressable>
