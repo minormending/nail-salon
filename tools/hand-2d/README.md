@@ -27,6 +27,7 @@ python3 strips.py               # the stain and skin-tone contact sheets
 | file | what it does |
 | --- | --- |
 | `nails.py` | **in use** — fifteen nail shapes as parametric outlines |
+| `skintones.py` | **in use** — the tone palette; tints the nail hand under its line art (`python3 skintones.py <hand.png> <outdir>`); henna stains multiply with skin, with a light edge on the three deepest tones |
 | `codexhand.py` | **in use** — nail placement on Codex's clean redraw of the chart hand (the raster lives on the canvas, not here) |
 | `pose2.py` | superseded by `codexhand.py` — my own drawing of the nail-chair hand |
 | `sheet.py` | **in use** — practice-sheet geometry, and the shared helpers' caller |

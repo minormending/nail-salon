@@ -38,6 +38,18 @@ along the nail so Natural exactly covers the drawn one. The raster is kept on
 the design canvas and out of this repo until the chart's licence is settled —
 it is a derivative of that chart.
 
+### Skin tones
+
+Six skin tones plus the plain colouring-book outline, chosen at first launch
+(`tools/hand-2d/skintones.py` holds the palette). The tone goes under the line
+art, so lines stay crisp; on the three deepest tones the outline darkens so
+knuckles and finger edges still read. The nail hand is a raster, so its skin
+is found by flood-filling the background in from the corners — everything the
+outline encloses is skin. Henna is a dye, so the stain multiplies with the
+skin: on deep tones it is darker and quieter, as in life. To keep a child's
+design visible there, the stain gets a thin edge 30% lighter than the skin,
+drawn behind it — the stain's own colour never changes.
+
 ### Fifteen nail shapes
 
 `tools/hand-2d/nails.py` defines natural, round, round long, oval, square,
