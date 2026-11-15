@@ -1,6 +1,13 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { Platform, Pressable, View, type GestureResponderEvent } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { AccessibilityInfo, Platform, Pressable, View, type GestureResponderEvent } from 'react-native';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import Svg, {
   Circle,
   ClipPath,
@@ -859,6 +866,144 @@ function FxLayer({
   );
 }
 
+/* ------------------------------------------------------------------- halo */
+
+/** The magenta band that marks the selected nail. */
+const HALO_COLOUR = colors.magenta;
+/** How far the band reaches past the nail's outline, in screen px: the soft edge, the firm core. */
+const HALO_OUTER_PX = 5;
+const HALO_INNER_PX = 3;
+
+function useReduceMotion(): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((v) => live && setOn(v))
+      .catch(() => {});
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setOn);
+    return () => {
+      live = false;
+      sub.remove();
+    };
+  }, []);
+  return on;
+}
+
+type HaloState = { nail: NailRef; id: number; out: boolean };
+
+/**
+ * A halo that follows the selected nail's own outline: the nail's path stroked twice (wide and
+ * faint, narrower and firmer) in magenta, kept OUTSIDE the nail so it never covers its paint,
+ * pattern or stickers, with the nail's own outline redrawn over its inner half. It fades in when
+ * the camera lands, breathes between 55% and 100% (on the UI thread; steady with reduce-motion),
+ * and fades out when it is replaced or the hands zoom back out. Like the effect layers it is a
+ * small SVG in the nail's own frame, mirrored on the left hand.
+ */
+function HaloLayer({
+  halo,
+  shape,
+  line,
+  sw,
+  scale,
+  ppu,
+  reduceMotion,
+  onGone,
+}: {
+  halo: HaloState;
+  shape: string;
+  line: string;
+  sw: number;
+  scale: number;
+  /** Screen px per art unit at the zoom. */
+  ppu: number;
+  reduceMotion: boolean;
+  onGone: (id: number) => void;
+}) {
+  const { nail, out, id } = halo;
+  const enter = useSharedValue(0);
+  const breathe = useSharedValue(1);
+  useEffect(() => {
+    enter.value = withTiming(out ? 0 : 1, { duration: out ? 200 : 160 });
+    if (!out) return;
+    const t = setTimeout(() => onGone(id), 260);
+    return () => clearTimeout(t);
+  }, [out, id, enter, onGone]);
+  useEffect(() => {
+    cancelAnimation(breathe);
+    breathe.value = 1;
+    if (!reduceMotion) {
+      // 1 -> 0.55 -> 1 over 1.6s, looping.
+      breathe.value = withRepeat(withTiming(0.55, { duration: 800, easing: Easing.inOut(Easing.sin) }), -1, true);
+    }
+    return () => cancelAnimation(breathe);
+  }, [reduceMotion, breathe]);
+  const fade = useAnimatedStyle(() => ({ opacity: enter.value * breathe.value }));
+
+  const p = PLACES[nail.digit];
+  const mirrored = nail.hand === 'left';
+  const d = nailPath(shape, nail.digit);
+  const { len, hw, bot } = nailMetrics(d);
+  const wide = sw + (2 * HALO_OUTER_PX) / ppu;
+  const narrow = sw + (2 * HALO_INNER_PX) / ppu;
+  const PAD = wide / 2 + 6;
+  const x0 = -(hw + PAD);
+  const y0 = -(len + PAD);
+  const w = 2 * (hw + PAD);
+  const h = len + bot + 2 * PAD;
+  const ox = (hw + PAD) * scale;
+  const oy = (len + PAD) * scale;
+  const at = pairPoint(nail.hand, p.x, p.y);
+  const art = (
+    <>
+      <Defs>
+        {/* Everything but the nail: a box with the nail cut out of it. */}
+        <ClipPath id={`haloOutside${id}`}>
+          <Path
+            d={`M ${x0 - 4} ${y0 - 4} H ${x0 + w + 4} V ${y0 + h + 4} H ${x0 - 4} Z ${d}`}
+            clipRule="evenodd"
+          />
+        </ClipPath>
+      </Defs>
+      <G clipPath={`url(#haloOutside${id})`}>
+        <Path d={d} fill="none" stroke={HALO_COLOUR} strokeOpacity={0.35} strokeWidth={wide} strokeLinejoin="round" />
+        <Path d={d} fill="none" stroke={HALO_COLOUR} strokeOpacity={0.85} strokeWidth={narrow} strokeLinejoin="round" />
+      </G>
+      <Path d={d} fill="none" stroke={line} strokeWidth={sw} strokeLinejoin="round" />
+    </>
+  );
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: 'absolute',
+          left: (at.x - SPAN.both.x0) * scale - ox,
+          top: (p.y - VB[1]) * scale - oy,
+          width: w * scale,
+          height: h * scale,
+          transformOrigin: `${ox}px ${oy}px`,
+          transform: [{ rotate: `${mirrored ? -p.rotate : p.rotate}deg` }],
+        },
+        fade,
+      ]}
+    >
+      <View
+        style={{
+          width: w * scale * OVERLAY_SS,
+          height: h * scale * OVERLAY_SS,
+          transformOrigin: 'left top',
+          transform: [{ scale: 1 / OVERLAY_SS }],
+        }}
+      >
+        <Svg width={w * scale * OVERLAY_SS} height={h * scale * OVERLAY_SS} viewBox={`${x0} ${y0} ${w} ${h}`}>
+          {mirrored ? <G transform="scale(-1 1)">{art}</G> : art}
+        </Svg>
+      </View>
+    </Animated.View>
+  );
+}
+
 /** The nails of the shape just left, fading out over the new shape. */
 function GhostLayer({
   design,
@@ -1030,6 +1175,24 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, onNailPress, on
     setBase((cur) => withLook({ ...cur, shape: latest.current.shape }, f.nail, lookOf(latest.current, f.nail)));
   }, []);
 
+  // The halo on the selected nail: a new one fades in, the previous one fades out and is dropped.
+  const zoomKey = zoom ? nailKey(zoom) : null;
+  const [halos, setHalos] = useState<{ key: string | null; next: number; list: HaloState[] }>(() => ({
+    key: zoomKey,
+    next: 2,
+    list: zoom ? [{ nail: zoom, id: 1, out: false }] : [],
+  }));
+  if (halos.key !== zoomKey) {
+    const list: HaloState[] = halos.list.map((h) => (h.out ? h : { ...h, out: true }));
+    if (zoom) list.push({ nail: zoom, id: halos.next, out: false });
+    setHalos({ key: zoomKey, next: halos.next + 1, list });
+  }
+  const haloGone = useCallback(
+    (id: number) => setHalos((cur) => ({ ...cur, list: cur.list.filter((h) => h.id !== id) })),
+    [],
+  );
+  const reduceMotion = useReduceMotion();
+
   // Camera target: move the nail's centre (box pixels) to the box centre, then scale about it.
   let tx = 0;
   let ty = 0;
@@ -1089,6 +1252,19 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, onNailPress, on
           label={zoom ? `Close up of the ${nailSpokenName(zoom).toLowerCase()} nail` : 'Two hands with painted nails. Tap a nail to look closer.'}
         />
       </View>
+      {halos.list.map((h) => (
+        <HaloLayer
+          key={h.id}
+          halo={h}
+          shape={design.shape}
+          line={line}
+          sw={sw}
+          scale={scale}
+          ppu={Math.max(ZOOM * scale, ZOOM_PX)}
+          reduceMotion={reduceMotion}
+          onGone={haloGone}
+        />
+      ))}
       {fxs.map((f) => (
         <FxLayer
           key={f.id}
