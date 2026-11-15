@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, View, type GestureResponderEvent } from 'react-native';
+import { PanResponder, Pressable, View, type GestureResponderEvent } from 'react-native';
 import Svg, { ClipPath, Circle, Defs, G, Path, Pattern, SvgXml } from 'react-native-svg';
 
 import {
@@ -9,7 +9,6 @@ import {
   VB_H,
   VB_W,
   hennaArtClip,
-  mirrorStroke,
   overlayXml,
   stampHit,
   strokeHit,
@@ -19,6 +18,7 @@ import {
   type OverlayLayer,
   type StudioStroke,
 } from '../lib/henna';
+import type { Hand } from '../state/store';
 import type { ToneId } from '../theme';
 import { HandRaster } from './HennaHand';
 
@@ -28,13 +28,19 @@ export type WipeHits = { strokes: number[]; stamps: number[] };
 type Props = {
   width: number;
   tone: ToneId;
-  /** Both layers, committed marks only. */
+  /**
+   * Which hand this is. The right hand is the left hand mirrored: marks are kept in the hand's
+   * own coordinates, so on the right hand the screen's x is reflected going in and out.
+   */
+  hand: Hand;
+  /** This hand's two layers, committed marks only. */
   layers: OverlayLayer[];
   activeLayer: 0 | 1;
   tool: StudioTool;
   nib: 1 | 2 | 3;
-  /** Draws the live stroke mirrored too. */
-  mirror: boolean;
+  /** The hand being drawn on. The other one waits: a tap on it calls `onFocus`. */
+  active: boolean;
+  onFocus: () => void;
   onStroke: (stroke: StudioStroke) => void;
   onStamp: (x: number, y: number) => void;
   /** Indices (into the active layer's strokes / stamps) the finger rubbed out in one drag. */
@@ -63,13 +69,11 @@ const LIVE_CLIP = 'liveHand';
 const LiveSvg = memo(function LiveSvg({
   live,
   tone,
-  mirror,
   width,
   height,
 }: {
   live: Live;
   tone: ToneId;
-  mirror: boolean;
   width: number;
   height: number;
 }) {
@@ -83,7 +87,6 @@ const LiveSvg = memo(function LiveSvg({
       jaali: live.jaali,
     });
     marks.push(mk(live.points));
-    if (mirror) marks.push(mk(mirrorStroke({ layer: 0, nib: 2, points: live.points }).points));
   }
   const line = { strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
   return (
@@ -132,7 +135,7 @@ const V_MAX = 4;
  * handling for Cone / Stamp / Jaali / Wipe. Points are stored in viewBox units.
  */
 export function HennaCanvas(props: Props) {
-  const { width, tone, layers, activeLayer, tool, mirror } = props;
+  const { width, tone, hand, layers, activeLayer, tool, active } = props;
   const height = (VB_H * width) / VB_W;
   const k = VB_W / width; // viewBox units per px
 
@@ -168,7 +171,8 @@ export function HennaCanvas(props: Props) {
 
   const pos = (e: GestureResponderEvent) => {
     const ne = e.nativeEvent;
-    return { x: ne.locationX * k, y: ne.locationY * k, t: ne.timestamp || Date.now() };
+    const x = ne.locationX * k;
+    return { x: propsRef.current.hand === 'right' ? VB_W - x : x, y: ne.locationY * k, t: ne.timestamp || Date.now() };
   };
 
   const rub = (x: number, y: number) => {
@@ -267,7 +271,7 @@ export function HennaCanvas(props: Props) {
       pts.current = [];
       setLive(null);
       if (a.length >= 3) {
-        const stroke: StudioStroke = { layer: p.activeLayer, nib: p.nib, points: a };
+        const stroke: StudioStroke = { layer: p.activeLayer, nib: p.nib, points: a, hand: p.hand };
         if (isJaali.current) stroke.jaali = true;
         p.onStroke(stroke);
       }
@@ -304,26 +308,38 @@ export function HennaCanvas(props: Props) {
 
   return (
     <View style={{ width, height }}>
-      <HandRaster tone={tone} width={width} />
-      {shown.map((l, i) => (
-        <View
-          key={i}
-          pointerEvents="none"
-          style={{ position: 'absolute', left: 0, top: 0, width, height, opacity: i === activeLayer ? 1 : 0.45 }}
-        >
-          <LayerSvg strokes={l.strokes} stamps={l.stamps} tone={tone} width={width} height={height} />
-        </View>
-      ))}
-      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width, height }}>
-        <LiveSvg live={live} tone={tone} mirror={mirror} width={width} height={height} />
-      </View>
-      {/* the touch surface sits on top so nothing below can steal the gesture */}
+      {/* the picture is drawn in the hand's own coordinates, then mirrored as a whole for the right hand */}
       <View
-        {...responder.panHandlers}
-        accessible
-        accessibilityLabel="Drawing area: draw on the hand"
-        style={{ position: 'absolute', left: 0, top: 0, width, height }}
-      />
+        pointerEvents="none"
+        style={{ position: 'absolute', left: 0, top: 0, width, height, transform: hand === 'right' ? [{ scaleX: -1 }] : [] }}
+      >
+        <HandRaster tone={tone} width={width} />
+        {shown.map((l, i) => (
+          <View
+            key={i}
+            style={{ position: 'absolute', left: 0, top: 0, width, height, opacity: i === activeLayer ? 1 : 0.45 }}
+          >
+            <LayerSvg strokes={l.strokes} stamps={l.stamps} tone={tone} width={width} height={height} />
+          </View>
+        ))}
+        {active ? <LiveSvg live={live} tone={tone} width={width} height={height} /> : null}
+      </View>
+      {/* the touch surface sits on top (never mirrored) so nothing below can steal the gesture */}
+      {active ? (
+        <View
+          {...responder.panHandlers}
+          accessible
+          accessibilityLabel={`Drawing area: draw on the ${hand} hand`}
+          style={{ position: 'absolute', left: 0, top: 0, width, height }}
+        />
+      ) : (
+        <Pressable
+          onPress={props.onFocus}
+          accessibilityRole="button"
+          accessibilityLabel={`Draw on the ${hand} hand`}
+          style={{ position: 'absolute', left: 0, top: 0, width, height }}
+        />
+      )}
     </View>
   );
 }

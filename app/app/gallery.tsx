@@ -9,6 +9,7 @@ import { Icon, type IconName } from '../src/components/Icon';
 import { IconButton } from '../src/components/IconButton';
 import { NailHand } from '../src/components/NailHand';
 import { Screen } from '../src/components/Screen';
+import { PAIR_SPAN, VB_H, VB_W } from '../src/lib/henna';
 import { deletePicture } from '../src/lib/pictures';
 import { cancelReminder, deepestAt, stageAt } from '../src/lib/stain';
 import { emptyNailDesign, useStore, type Item } from '../src/state/store';
@@ -124,6 +125,8 @@ export default function Gallery() {
 
   const shown = items.filter((it) => filter === 'all' || it.kind === filter);
   const cardW = (width - 32 - 14) / 2;
+  // a pair of hands fills the card's picture (168 tall), the arms bleeding off its bottom
+  const hennaW = Math.floor((cardW - 2 * border - 12) / PAIR_SPAN);
 
   return (
     <Screen>
@@ -231,17 +234,17 @@ export default function Gallery() {
                       borderBottomColor: colors.plum,
                     }}
                   >
-                    <View style={{ marginTop: isHenna ? (item.nails ? 10 : 4) : 8 }} pointerEvents="none">
+                    <View style={{ marginTop: isHenna ? 168 - Math.round((VB_H * hennaW) / VB_W) : 8 }} pointerEvents="none">
                       {isHenna && item.henna ? (
                         <HennaHand
                           design={item.henna}
                           tone={item.tone}
-                          width={150}
+                          width={hennaW}
                           stage={stageAt(item, now, speed).stage}
                           nails={item.nails}
                         />
                       ) : item.nails ? (
-                        <NailHand design={item.nails} tone={item.tone} width={118} />
+                        <NailHand design={item.nails} tone={item.tone} width={Math.min(150, cardW - 10)} />
                       ) : null}
                     </View>
                   </View>

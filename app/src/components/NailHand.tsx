@@ -13,8 +13,8 @@ import Svg, {
 } from 'react-native-svg';
 
 import nails from '../art/nails.json';
-import { FINGER_NAMES } from '../lib/nailNames';
-import { DIGITS, type Digit, type NailDesign, type NailLook, type ToneId } from '../state/store';
+import { NAIL_ORDER, lookOf, nailKey, nailSpokenName, sameNail, withLook, type NailRef } from '../lib/nailNames';
+import { DIGITS, handNails, type Digit, type Hand, type NailDesign, type NailLook, type ToneId } from '../state/store';
 import { colors, TONES } from '../theme';
 
 /* ------------------------------------------------------------------ geometry */
@@ -25,6 +25,59 @@ const SHAPES = nails.shapes as Record<string, Record<Digit, string>>;
 const VB = nails.viewBox.split(' ').map(Number); // x y w h
 const IMG = nails.image;
 
+/**
+ * Two hands side by side, backs to the viewer, thumbs toward the middle. The drawn hand is a right
+ * hand; the left is the same raster and geometry mirrored. Each sits in its own 1024-wide box and
+ * the boxes overlap on their empty margins. `x0` and `w` are the visible span in pair coordinates.
+ */
+const RIGHT_OFF = 880;
+export type Hands = 'both' | 'right';
+const SPAN: Record<Hands, { x0: number; w: number }> = {
+  both: { x0: 150, w: 1600 },
+  right: { x0: 0, w: VB[2] },
+};
+/** Height over width of the pair's art. */
+export const PAIR_ASPECT = VB[3] / SPAN.both.w;
+/** The widest the pair is drawn: each hand as large as the single hand used to be (262 across). */
+export const PAIR_MAX_WIDTH = (262 / VB[2]) * SPAN.both.w;
+
+/**
+ * How big the pair is drawn in a canvas `w` x `h`, and how far (px) to drop it from the canvas
+ * centre. As large as fits across, with the thumbs clear of the pills in the top corners (arms may
+ * run off the bottom) and the forearms clear of the skin-tone button at the bottom left.
+ */
+export function pairFit(w: number, h: number): { width: number; shift: number } {
+  const U = SPAN.both.w;
+  const thumbTop = 125; // art units from the top of the art to the top of the thumbs
+  const clearTop = 54; // px kept free under the corner pills
+  const crop = 220; // art units of forearm allowed off the bottom
+  const armEdge = 180; // art units from the art's left edge to the left forearm at the bottom
+  const skin = 66; // px the skin-tone button needs
+  const s = Math.max(
+    120 / U,
+    Math.min(PAIR_MAX_WIDTH / U, (w - 24) / U, (h - clearTop) / (VB[3] - thumbTop - crop), (w / 2 - skin) / (U / 2 - armEdge)),
+  );
+  const top = (h - VB[3] * s) / 2 + thumbTop * s;
+  return { width: s * U, shift: Math.max(0, clearTop - top) };
+}
+
+const handsIn = (hands: Hands): Hand[] => (hands === 'both' ? ['left', 'right'] : ['right']);
+
+/** The SVG transform that puts a hand's own drawing into the art's coordinates. */
+function handTransform(hand: Hand, hands: Hands): string | undefined {
+  if (hands === 'right') return undefined;
+  return hand === 'right' ? `translate(${RIGHT_OFF} 0)` : `translate(${IMG.width} 0) scale(-1 1)`;
+}
+
+/** A point on a hand's own drawing, in the pair's coordinates. */
+function pairPoint(hand: Hand, x: number, y: number) {
+  return { x: hand === 'right' ? RIGHT_OFF + x : IMG.width - x, y };
+}
+
+/** A point in the pair's coordinates, on a hand's own drawing. */
+function handPoint(hand: Hand, x: number, y: number) {
+  return { x: hand === 'right' ? x - RIGHT_OFF : IMG.width - x, y };
+}
 /** The close-up draws a nail at this multiple of its size on the hand (less for very long shapes). */
 export const CLOSE_K = 1.25;
 /** The close-up nail's cuticle and the canvas's sticker spots (390x844 close-up svg, 350x420). */
@@ -480,11 +533,29 @@ export function nearestNail(x: number, y: number): Digit | undefined {
   return best;
 }
 
+/** Which of the ten nails a touch at (x, y) in the pair's coordinates means: the nearest tip. */
+export function nearestPairNail(x: number, y: number): NailRef | undefined {
+  let best: NailRef | undefined;
+  let bestD = Infinity;
+  for (const hand of handsIn('both')) {
+    const q = handPoint(hand, x, y);
+    for (const dg of DIGITS) {
+      const p = PLACES[dg];
+      const d = Math.hypot(q.x - p.tip[0], q.y - p.tip[1]);
+      if (d <= p.w * 1.6 && d < bestD) {
+        best = { hand, digit: dg };
+        bestD = d;
+      }
+    }
+  }
+  return best;
+}
+
 /** Line colour and weight for the nails on a hand shown `logicalWidth` wide. */
-function ink(tone: ToneId, logicalWidth: number) {
+function ink(tone: ToneId, logicalWidth: number, units: number = VB[2]) {
   const toneInfo = TONES.find((t) => t.id === tone) ?? TONES[0];
   // About 1.5pt on screen at the canvas size (262pt wide), never thinner than the art's own.
-  return { line: toneInfo.line, sw: Math.max(nails.line.width, (1.5 * VB[2]) / logicalWidth) };
+  return { line: toneInfo.line, sw: Math.max(nails.line.width, (1.5 * units) / logicalWidth) };
 }
 
 /** One sticker in a nail's local frame; `pop` scales / turns it for the pop on / off animations. */
@@ -509,24 +580,27 @@ function StickerAt({
   );
 }
 
-/** The five painted nails (and their stickers) at their places on the hand. */
+/** One hand's five painted nails (and their stickers) at their places on the hand. */
 function NailsLayer({
   design,
+  hand,
   uid,
   line,
   sw,
 }: {
   design: NailDesign;
+  hand: Hand;
   uid: string;
   line: string;
   sw: number;
 }) {
+  const looks = handNails(design, hand);
   return (
     <>
       {DIGITS.map((dg) => {
         const p = PLACES[dg];
         const d = nailPath(design.shape, dg);
-        const look = design.nails[dg];
+        const look = looks[dg];
         const k = 1 / closeK(d);
         const { len, hw } = nailMetrics(d);
         return (
@@ -542,30 +616,37 @@ function NailsLayer({
   );
 }
 
-/** The hand: a skin-toned raster with the five painted nails (and their stickers) drawn over it. */
+/** The hands: a skin-toned raster each, with the five painted nails (and their stickers) drawn over it. */
 function HandSvg({
   design,
   tone,
+  hands,
   width,
   logicalWidth = width,
   label,
 }: {
   design: NailDesign;
   tone: ToneId;
+  hands: Hands;
   /** Size to draw at. */
   width: number;
-  /** Size the hand is shown at (line weight follows this; `width` may be drawn larger and scaled down). */
+  /** Size the art is shown at (line weight follows this; `width` may be drawn larger and scaled down). */
   logicalWidth?: number;
   label: string;
 }) {
   const uid = useId().replace(/[^A-Za-z0-9]/g, '');
-  const height = (VB[3] * width) / VB[2];
-  const { line, sw } = ink(tone, logicalWidth);
+  const span = SPAN[hands];
+  const height = (VB[3] * width) / span.w;
+  const { line, sw } = ink(tone, logicalWidth, span.w);
 
   return (
-    <Svg width={width} height={height} viewBox={nails.viewBox} accessibilityLabel={label}>
-      <SvgImage href={HAND_IMAGES[tone] ?? HAND_IMAGES.t0} x={0} y={0} width={IMG.width} height={IMG.height} />
-      <NailsLayer design={design} uid={uid} line={line} sw={sw} />
+    <Svg width={width} height={height} viewBox={`${span.x0} ${VB[1]} ${span.w} ${VB[3]}`} accessibilityLabel={label}>
+      {handsIn(hands).map((h) => (
+        <G key={h} transform={handTransform(h, hands)}>
+          <SvgImage href={HAND_IMAGES[tone] ?? HAND_IMAGES.t0} x={0} y={0} width={IMG.width} height={IMG.height} />
+          <NailsLayer design={design} hand={h} uid={`${uid}${h[0]}`} line={line} sw={sw} />
+        </G>
+      ))}
     </Svg>
   );
 }
@@ -573,18 +654,26 @@ function HandSvg({
 type Props = {
   design: NailDesign;
   tone: ToneId;
+  /** Width of the art: the pair when `hands` is 'both' (the default), one hand when 'right'. */
   width: number;
+  hands?: Hands;
 };
 
 /**
- * The hand with its fingers curled so the nails face you, for display only (Home, My hands,
+ * The hands with their fingers curled so the nails face you, for display only (Home, My hands,
  * the share picture). Height follows the art's aspect ratio.
  */
-export function NailHand({ design, tone, width }: Props) {
-  const height = (VB[3] * width) / VB[2];
+export function NailHand({ design, tone, width, hands = 'both' }: Props) {
+  const height = (VB[3] * width) / SPAN[hands].w;
   return (
     <View style={{ width, height }}>
-      <HandSvg design={design} tone={tone} width={width} label="A hand with painted nails" />
+      <HandSvg
+        design={design}
+        tone={tone}
+        hands={hands}
+        width={width}
+        label={hands === 'both' ? 'Two hands with painted nails' : 'A hand with painted nails'}
+      />
     </View>
   );
 }
@@ -626,7 +715,7 @@ function useElapsed(ms: number, onDone: () => void): number {
 
 type Fx = {
   id: number;
-  dg: Digit;
+  nail: NailRef;
   kind: 'paint' | 'pop' | 'unpop';
   /** The nail as it ends up. */
   to: NailLook;
@@ -663,8 +752,9 @@ function FxLayer({
 }) {
   const ms = fx.kind === 'paint' ? (fx.glint ? GLINT_AT + GLINT_MS : SWEEP_MS) : fx.kind === 'pop' ? POP_MS : UNPOP_MS;
   const t = useElapsed(ms, () => onDone(fx.id));
-  const p = PLACES[fx.dg];
-  const d = nailPath(shape, fx.dg);
+  const p = PLACES[fx.nail.digit];
+  const mirrored = fx.nail.hand === 'left';
+  const d = nailPath(shape, fx.nail.digit);
   const { len, hw, bot } = nailMetrics(d);
   const k = 1 / closeK(d);
   const PAD = 36;
@@ -734,17 +824,19 @@ function FxLayer({
 
   const ox = (hw + PAD) * scale;
   const oy = (len + PAD) * scale;
+  // On the left hand the nail's frame is mirrored: draw it flipped, then turn it the other way.
+  const at = pairPoint(fx.nail.hand, p.x, p.y);
   return (
     <View
       pointerEvents="none"
       style={{
         position: 'absolute',
-        left: p.x * scale - ox,
+        left: (at.x - SPAN.both.x0) * scale - ox,
         top: (p.y - VB[1]) * scale - oy,
         width: w * scale,
         height: h * scale,
         transformOrigin: `${ox}px ${oy}px`,
-        transform: [{ rotate: `${p.rotate}deg` }],
+        transform: [{ rotate: `${mirrored ? -p.rotate : p.rotate}deg` }],
       }}
     >
       <View
@@ -756,7 +848,7 @@ function FxLayer({
         }}
       >
         <Svg width={w * scale * OVERLAY_SS} height={h * scale * OVERLAY_SS} viewBox={`${x0} ${y0} ${w} ${h}`}>
-          {art}
+          {mirrored ? <G transform="scale(-1 1)">{art}</G> : art}
         </Svg>
       </View>
     </View>
@@ -778,13 +870,18 @@ function GhostLayer({
   onDone: () => void;
 }) {
   const t = useElapsed(GHOST_MS, onDone);
-  const height = (VB[3] * width) / VB[2];
-  const { line, sw } = ink(tone, width);
+  const span = SPAN.both;
+  const height = (VB[3] * width) / span.w;
+  const { line, sw } = ink(tone, width, span.w);
   return (
     <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, width, height }}>
-      <Svg width={width} height={height} viewBox={nails.viewBox}>
+      <Svg width={width} height={height} viewBox={`${span.x0} ${VB[1]} ${span.w} ${VB[3]}`}>
         <G opacity={1 - easeOut(Math.min(1, t / GHOST_MS))}>
-          <NailsLayer design={design} uid={uid} line={line} sw={sw} />
+          {handsIn('both').map((h) => (
+            <G key={h} transform={handTransform(h, 'both')}>
+              <NailsLayer design={design} hand={h} uid={`${uid}${h[0]}`} line={line} sw={sw} />
+            </G>
+          ))}
         </G>
       </Svg>
     </View>
@@ -811,12 +908,15 @@ const TAP_SLOP = 12;
 type ZoomProps = {
   design: NailDesign;
   tone: ToneId;
+  /** Width of the pair's art (both hands). */
   width: number;
-  /** The fingertip the camera is on, or null for the whole hand. */
-  zoom: Digit | null;
+  /** The fingertip the camera is on, or null for both whole hands. */
+  zoom: NailRef | null;
+  /** Px the art sits below the middle of its canvas (see `pairFit`); the camera still centres nails. */
+  shift?: number;
   /** A touch (or a screen reader's tap) on a nail. */
-  onNailPress: (d: Digit) => void;
-  /** A touch on the hand that is not on a nail. */
+  onNailPress: (n: NailRef) => void;
+  /** A touch on the hands that is not on a nail. */
   onOffPress?: () => void;
   /**
    * A touch on the zoomed nail itself (or just off its plate, moved onto it), as a spot in that
@@ -825,30 +925,48 @@ type ZoomProps = {
   onNailTap?: (spot: { x: number; y: number }) => void;
 };
 
-/** A point in hand (viewBox) coordinates, in a nail's local frame. */
-function toNailLocal(digit: Digit, vx: number, vy: number) {
-  const p = PLACES[digit];
+/** A point in the pair's coordinates, in a nail's local frame (on the left hand: the mirrored one). */
+function toNailLocal(n: NailRef, vx: number, vy: number) {
+  const p = PLACES[n.digit];
   const a = (p.rotate * Math.PI) / 180;
-  const dx = vx - p.x;
-  const dy = vy - p.y;
+  const q = handPoint(n.hand, vx, vy);
+  const dx = q.x - p.x;
+  const dy = q.y - p.y;
   return { x: dx * Math.cos(a) + dy * Math.sin(a), y: -dx * Math.sin(a) + dy * Math.cos(a) };
 }
 
+/** Where a nail's middle sits in the pair's coordinates. */
+function pairNailCentre(n: NailRef, shape: string) {
+  const c = nailCentre(n.digit, shape);
+  return pairPoint(n.hand, c.x, c.y);
+}
+
+/** The zoomed nail is drawn at least this many px per art unit, whatever size the pair is. */
+const ZOOM_PX = (ZOOM * 262) / VB[2];
+
+/** A design with every nail's look from `pick`. */
+function designOf(shape: string, pick: (n: NailRef) => NailLook): NailDesign {
+  const hand = (h: Hand) =>
+    Object.fromEntries(DIGITS.map((digit) => [digit, pick({ hand: h, digit })])) as Record<Digit, NailLook>;
+  return { shape, nails: hand('right'), left: hand('left') };
+}
+
 /**
- * The hand with a camera: `zoom` slides the chosen nail's middle to the middle of the hand box,
+ * Both hands with a camera: `zoom` slides the chosen nail's middle to the middle of the box,
  * scaled by ZOOM, over 520ms. The whole thing is one transform on the container (on the UI
  * thread), so the nails, stickers and patterns inside scale with it. Nothing rotates.
  *
  * It also plays what the child just changed (a sweep of new polish, a sticker popping on or off,
  * a shape cross-fade); nails that were already painted never animate again.
  */
-export function ZoomHand({ design, tone, width, zoom, onNailPress, onOffPress, onNailTap }: ZoomProps) {
-  const scale = width / VB[2];
+export function ZoomHand({ design, tone, width, zoom, shift = 0, onNailPress, onOffPress, onNailTap }: ZoomProps) {
+  const span = SPAN.both;
+  const scale = width / span.w;
   const height = VB[3] * scale;
   const uid = useId().replace(/[^A-Za-z0-9]/g, '');
-  const { line, sw } = ink(tone, width);
+  const { line, sw } = ink(tone, width, span.w);
 
-  // What the hand draws (`base`) lags the design for a moment while an animation plays on top.
+  // What the hands draw (`base`) lags the design for a moment while an animation plays on top.
   const [base, setBase] = useState(design);
   const [fxs, setFxs] = useState<Fx[]>([]);
   const [ghost, setGhost] = useState<{ id: number; design: NailDesign } | null>(null);
@@ -868,47 +986,44 @@ export function ZoomHand({ design, tone, width, zoom, onNailPress, onOffPress, o
       setGhost({ id: ++seq.current, design: old });
       return;
     }
-    const changed = DIGITS.filter((dg) => !sameLook(old.nails[dg], design.nails[dg]));
+    const changed = NAIL_ORDER.filter((n) => !sameLook(lookOf(old, n), lookOf(design, n)));
     if (!changed.length) return;
     const instant = () => {
       setBase(design);
       setFxs([]);
     };
     if (changed.length > 1) return instant(); // Start again: no show
-    const dg = changed[0];
-    const a = old.nails[dg];
-    const b = design.nails[dg];
+    const nail = changed[0];
+    const a = lookOf(old, nail);
+    const b = lookOf(design, nail);
     let fx: Fx | null = null;
     let baseLook = b;
     if (a.color !== b.color || a.pattern !== b.pattern) {
-      fx = { id: ++seq.current, dg, kind: 'paint', to: b, glint: a.color !== b.color };
+      fx = { id: ++seq.current, nail, kind: 'paint', to: b, glint: a.color !== b.color };
       baseLook = a;
     } else if (b.stickers.length < a.stickers.length) {
       let i = a.stickers.findIndex((s, j) => !b.stickers[j] || JSON.stringify(s) !== JSON.stringify(b.stickers[j]));
       if (i < 0) i = a.stickers.length - 1;
-      fx = { id: ++seq.current, dg, kind: 'unpop', to: b, sticker: a.stickers[i] };
+      fx = { id: ++seq.current, nail, kind: 'unpop', to: b, sticker: a.stickers[i] };
     } else if (b.stickers.length) {
       const last = b.stickers[b.stickers.length - 1];
-      fx = { id: ++seq.current, dg, kind: 'pop', to: b, sticker: last };
+      fx = { id: ++seq.current, nail, kind: 'pop', to: b, sticker: last };
       baseLook = { ...b, stickers: b.stickers.slice(0, -1) };
     }
     if (!fx) return instant();
-    const running = new Set(fxRef.current.map((f) => f.dg));
+    const running = new Set(fxRef.current.map((f) => nailKey(f.nail)));
     const next = fx;
-    setBase((cur) => ({
-      ...design,
-      nails: Object.fromEntries(
-        DIGITS.map((k) => [k, k === dg ? baseLook : running.has(k) ? cur.nails[k] : design.nails[k]]),
-      ) as Record<Digit, NailLook>,
-    }));
-    setFxs((list) => [...list.filter((f) => f.dg !== dg), next]);
+    setBase((cur) =>
+      designOf(design.shape, (n) => (sameNail(n, nail) ? baseLook : running.has(nailKey(n)) ? lookOf(cur, n) : lookOf(design, n))),
+    );
+    setFxs((list) => [...list.filter((f) => !sameNail(f.nail, nail)), next]);
   }, [design]);
 
   const fxDone = useCallback((id: number) => {
     const f = fxRef.current.find((x) => x.id === id);
     if (!f) return;
     setFxs((list) => list.filter((x) => x.id !== id));
-    setBase((cur) => ({ ...cur, shape: latest.current.shape, nails: { ...cur.nails, [f.dg]: latest.current.nails[f.dg] } }));
+    setBase((cur) => withLook({ ...cur, shape: latest.current.shape }, f.nail, lookOf(latest.current, f.nail)));
   }, []);
 
   // Camera target: move the nail's centre (box pixels) to the box centre, then scale about it.
@@ -916,10 +1031,10 @@ export function ZoomHand({ design, tone, width, zoom, onNailPress, onOffPress, o
   let ty = 0;
   let sc = 1;
   if (zoom) {
-    const c = nailCentre(zoom, design.shape);
-    sc = ZOOM;
-    tx = -ZOOM * (c.x * scale - width / 2);
-    ty = -ZOOM * ((c.y - VB[1]) * scale - height / 2);
+    const c = pairNailCentre(zoom, design.shape);
+    sc = Math.max(ZOOM, ZOOM_PX / scale);
+    tx = -sc * ((c.x - span.x0) * scale - width / 2);
+    ty = -sc * ((c.y - VB[1]) * scale - height / 2) - shift;
   }
 
   const x = useSharedValue(tx);
@@ -948,7 +1063,7 @@ export function ZoomHand({ design, tone, width, zoom, onNailPress, onOffPress, o
   const downAt = useRef<{ x: number; y: number } | null>(null);
 
   return (
-    <Animated.View style={[{ width, height }, camera]}>
+    <Animated.View style={[{ width, height, top: shift }, camera]}>
       <View
         pointerEvents="none"
         style={{
@@ -964,9 +1079,10 @@ export function ZoomHand({ design, tone, width, zoom, onNailPress, onOffPress, o
         <HandSvg
           design={base}
           tone={tone}
+          hands="both"
           width={width * SUPERSAMPLE}
           logicalWidth={width}
-          label={zoom ? `Close up of the ${FINGER_NAMES[zoom].toLowerCase()} nail` : 'A hand with painted nails. Tap a nail to look closer.'}
+          label={zoom ? `Close up of the ${nailSpokenName(zoom).toLowerCase()} nail` : 'Two hands with painted nails. Tap a nail to look closer.'}
         />
       </View>
       {fxs.map((f) => (
@@ -992,26 +1108,26 @@ export function ZoomHand({ design, tone, width, zoom, onNailPress, onOffPress, o
         />
       )}
       {/* Screen readers: one invisible button per nail (the touch layer above them is skipped). */}
-      {DIGITS.map((dg) => {
-        const c = nailCentre(dg, design.shape);
+      {NAIL_ORDER.map((n) => {
+        const c = pairNailCentre(n, design.shape);
         return (
           <Pressable
-            key={dg}
-            onPress={() => (dg === zoom ? onNailTap?.(nailFrame(dg, design.shape).centre) : onNailPress(dg))}
+            key={nailKey(n)}
+            onPress={() => (sameNail(n, zoom) ? onNailTap?.(nailFrame(n.digit, design.shape).centre) : onNailPress(n))}
             accessibilityRole="button"
-            accessibilityLabel={`${FINGER_NAMES[dg]} nail`}
-            accessibilityState={{ selected: zoom === dg }}
+            accessibilityLabel={`${nailSpokenName(n)} nail`}
+            accessibilityState={{ selected: sameNail(zoom, n) }}
             style={{
               position: 'absolute',
               width: 44,
               height: 44,
-              left: c.x * scale - 22,
+              left: (c.x - span.x0) * scale - 22,
               top: (c.y - VB[1]) * scale - 22,
             }}
           />
         );
       })}
-      {/* Sighted touch: one layer over the whole hand picks the NEAREST nail tip. */}
+      {/* Sighted touch: one layer over both hands picks the NEAREST nail tip. */}
       <View
         accessible={false}
         importantForAccessibility="no"
@@ -1027,24 +1143,24 @@ export function ZoomHand({ design, tone, width, zoom, onNailPress, onOffPress, o
           if (from && Math.hypot(e.nativeEvent.pageX - from.x, e.nativeEvent.pageY - from.y) > TAP_SLOP) return;
           // Native reports the touch in the layer's own (unscaled) units; the web reports screen px.
           const k = scale * (Platform.OS === 'web' ? s.value : 1);
-          const vx = e.nativeEvent.locationX / k;
+          const vx = e.nativeEvent.locationX / k + span.x0;
           const vy = e.nativeEvent.locationY / k + VB[1];
           if (zoom) {
             // On (or just off) the zoomed nail: that is a touch on the nail. Otherwise a
             // neighbouring nail glides in; nothing near any nail zooms out.
             const lo = toNailLocal(zoom, vx, vy);
-            const spot = spotOnNail(zoom, design.shape, lo.x, lo.y);
+            const spot = spotOnNail(zoom.digit, design.shape, lo.x, lo.y);
             if (spot) {
               onNailTap?.(spot);
               return;
             }
-            const dg = nearestNail(vx, vy);
-            if (dg && dg !== zoom) onNailPress(dg);
-            else if (!dg) onOffPress?.();
+            const n = nearestPairNail(vx, vy);
+            if (n && !sameNail(n, zoom)) onNailPress(n);
+            else if (!n) onOffPress?.();
             return;
           }
-          const dg = nearestNail(vx, vy);
-          if (dg) onNailPress(dg);
+          const n = nearestPairNail(vx, vy);
+          if (n) onNailPress(n);
           else onOffPress?.();
         }}
       />

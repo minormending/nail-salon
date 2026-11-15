@@ -8,7 +8,7 @@ import { HennaHand } from '../../src/components/HennaHand';
 import { Icon } from '../../src/components/Icon';
 import { IconButton } from '../../src/components/IconButton';
 import { Screen } from '../../src/components/Screen';
-import { fitHand } from '../../src/lib/henna';
+import { fitPair } from '../../src/lib/henna';
 import { STAGE_COLOR, stageAt, type StainStage } from '../../src/lib/stain';
 import { useStore, type HennaDesign } from '../../src/state/store';
 import { border, colors, fonts } from '../../src/theme';
@@ -49,7 +49,6 @@ const STAGES: { id: StainStage; name: string; short: string; when: string; alt: 
 ];
 
 const ALL_PARTS: HennaDesign = { source: 'stencil', parts: ['gol', 'vines', 'cuff'] };
-const MAX_HAND_W = 282;
 
 /** "started today, 4:10 pm" / "started yesterday, …" / "started Mon 3 Nov, …" */
 function startedText(startedAt: number, now: number): string {
@@ -78,7 +77,7 @@ export default function Stain() {
 
   const [now, setNow] = useState(() => Date.now());
   const [preview, setPreview] = useState<StainStage | null>(null);
-  const [fit, setFit] = useState({ handW: MAX_HAND_W, bleed: 70 });
+  const [fit, setFit] = useState({ handW: 200, bleed: 70 });
   const handW = fit.handW;
 
   // Recompute on focus and every minute while this screen is open.
@@ -120,7 +119,7 @@ export default function Stain() {
   const onCanvasLayout = (e: LayoutChangeEvent) => {
     const { width: w, height: h } = e.nativeEvent.layout;
     // the hand down to the cuff stays in view; the arm below it may be cut off
-    const next = fitHand(h, 56, 12, Math.max(MAX_HAND_W, Math.min(w, 520)));
+    const next = fitPair(w, h, 56, 12);
     setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
   };
 

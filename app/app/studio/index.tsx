@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Animated, Easing, PanResponder, Platform, Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -12,7 +12,6 @@ import { Screen } from '../../src/components/Screen';
 import { SkinToneButton } from '../../src/components/SkinToneButton';
 import { TopBar } from '../../src/components/TopBar';
 import {
-  MIRROR_X,
   NIB_NAMES,
   VB_H,
   VB_W,
@@ -21,21 +20,21 @@ import {
   designIsEmpty,
   fitHand,
   getPickedMotif,
-  joinLayers,
+  joinHands,
   letItDry,
-  mirrorStamp,
-  mirrorStroke,
   motifById,
+  otherHand,
   saveDraftForPicture,
-  splitLayers,
+  splitHands,
+  type BothHands,
+  type HandLayers,
   type OverlayLayer,
   type StudioStroke,
 } from '../../src/lib/henna';
-import { useStore, type Stamp } from '../../src/state/store';
+import { useStore, type Hand, type Stamp } from '../../src/state/store';
 import { border, colors, fonts } from '../../src/theme';
 
-type Layers = [OverlayLayer, OverlayLayer];
-type History = { stack: Layers[]; idx: number };
+type History = { stack: BothHands[]; idx: number };
 
 const TOOLS: { id: StudioTool | 'mirror'; name: string; icon: IconName }[] = [
   { id: 'cone', name: 'Cone', icon: 'cone' },
@@ -52,8 +51,20 @@ const TOOL_LABEL: Record<StudioTool, (nib: 1 | 2 | 3) => string> = {
   wipe: () => 'WIPE · RUB IT OUT',
 };
 
-const MAX_HAND_W = 300;
 const HISTORY_LIMIT = 80;
+/** Room above the focused hand: the layer and tool chips, then the hand switch (62 + 42). */
+const TOP_CLEAR = 112;
+const SWAP_MS = 420;
+/** The waiting hand is this share of the focused hand's size. */
+const WAIT_SCALE = 0.5;
+
+/** The left- and right-hand glyphs from the design (the pair's switch). */
+const HAND_GLYPH: Record<Hand, string> = {
+  left: 'M16 13 V6.5 a1.5 1.5 0 0 0 -3 0 V12 M13 11.5 V4.5 a1.5 1.5 0 0 0 -3 0 V11.5 M10 11.5 V5.5 a1.5 1.5 0 0 0 -3 0 V13 M7 9.5 a1.5 1.5 0 0 0 -3 0 V15 a6 6 0 0 0 6 6 h1.5 a6 6 0 0 0 5 -2.7 L19.8 14.6 a1.5 1.5 0 0 0 -2.4 -1.8 L16 14.5',
+  right:
+    'M8 13 V6.5 a1.5 1.5 0 0 1 3 0 V12 M11 11.5 V4.5 a1.5 1.5 0 0 1 3 0 V11.5 M14 11.5 V5.5 a1.5 1.5 0 0 1 3 0 V13 M17 9.5 a1.5 1.5 0 0 1 3 0 V15 a6 6 0 0 1 -6 6 h-1.5 a6 6 0 0 1 -5 -2.7 L4.2 14.6 a1.5 1.5 0 0 1 2.4 -1.8 L8 14.5',
+};
+const HAND_NAME: Record<Hand, string> = { left: 'Left hand', right: 'Right hand' };
 
 /** The Nib size slider: three steps, tap or drag. */
 function NibSlider({ value, onChange }: { value: 1 | 2 | 3; onChange: (v: 1 | 2 | 3) => void }) {
@@ -125,9 +136,10 @@ function NibSlider({ value, onChange }: { value: 1 | 2 | 3; onChange: (v: 1 | 2 
   );
 }
 
-function startLayers(): { layers: Layers; mirror: boolean } {
+/** The draft in the store; marks saved before there were two hands (no `hand`) land on the left hand. */
+function startLayers(): { hands: BothHands; mirror: boolean } {
   const d = useStore.getState().draftStudio;
-  return { layers: splitLayers(d), mirror: !!d.mirror };
+  return { hands: splitHands(d), mirror: !!d.mirror };
 }
 
 export default function Studio() {
@@ -139,17 +151,19 @@ export default function Studio() {
   const init = useRef<ReturnType<typeof startLayers> | null>(null);
   if (!init.current) init.current = startLayers();
 
-  const [hist, setHist] = useState<History>({ stack: [init.current.layers], idx: 0 });
+  const [hist, setHist] = useState<History>({ stack: [init.current.hands], idx: 0 });
   const [tool, setTool] = useState<StudioTool>('cone');
   const [nib, setNib] = useState<1 | 2 | 3>(2);
   const [mirror, setMirror] = useState(init.current.mirror);
   const [activeLayer, setActiveLayer] = useState<0 | 1>(0);
   const [motif, setMotif] = useState(getPickedMotif());
-  const [fit, setFit] = useState({ handW: MAX_HAND_W, bleed: 46 });
-  const handW = fit.handW;
+  const [focus, setFocus] = useState<Hand>('left');
+  const [canvas, setCanvas] = useState({ w: 360, h: 420 });
+  // 0 = the left hand is in front, 1 = the right hand is
+  const swap = useRef(new Animated.Value(0)).current;
 
-  const layers = hist.stack[hist.idx];
-  const design = useMemo(() => joinLayers(layers, mirror), [layers, mirror]);
+  const hands = hist.stack[hist.idx];
+  const design = useMemo(() => joinHands(hands, mirror), [hands, mirror]);
   const empty = designIsEmpty(design);
 
   // Coming back from the motif library: stamp the one just picked.
@@ -164,38 +178,57 @@ export default function Studio() {
   );
 
   // The draft in the store follows every change, so leaving and coming back keeps the work.
-  const sync = (l: Layers, m: boolean) => setDraftStudio(joinLayers(l, m));
-  const commit = (next: Layers) => {
+  const sync = (h: BothHands, m: boolean) => setDraftStudio(joinHands(h, m));
+  const commit = (next: BothHands) => {
     setHist((h) => {
       const stack = [...h.stack.slice(0, h.idx + 1), next].slice(-HISTORY_LIMIT);
       return { stack, idx: stack.length - 1 };
     });
     sync(next, mirror);
   };
-  const replaceLayer = (i: 0 | 1, patch: Partial<OverlayLayer>): Layers => {
-    const next: Layers = [layers[0], layers[1]];
-    next[i] = { ...layers[i], ...patch };
-    return next;
+  /** `hand`'s layer `i` with `patch` applied; the other hand is untouched. */
+  const withLayer = (base: BothHands, hand: Hand, i: 0 | 1, patch: (l: OverlayLayer) => OverlayLayer): BothHands => {
+    const layers: HandLayers = [base[hand][0], base[hand][1]];
+    layers[i] = patch(layers[i]);
+    return { ...base, [hand]: layers };
   };
 
+  // Mirror copies each new mark to the other hand with the same points, so it shows reflected there;
+  // both go in one commit, so Undo takes the pair away together.
   const onStroke = (stroke: StudioStroke) => {
-    const l = layers[stroke.layer];
-    const add = mirror ? [stroke, mirrorStroke(stroke)] : [stroke];
-    commit(replaceLayer(stroke.layer, { strokes: [...l.strokes, ...add] }));
+    const hand = stroke.hand ?? focus;
+    let next = withLayer(hands, hand, stroke.layer, (l) => ({ ...l, strokes: [...l.strokes, stroke] }));
+    if (mirror) {
+      const copy: StudioStroke = { ...stroke, hand: otherHand(hand) };
+      next = withLayer(next, otherHand(hand), stroke.layer, (l) => ({ ...l, strokes: [...l.strokes, copy] }));
+    }
+    commit(next);
   };
   const onStamp = (x: number, y: number) => {
-    const stamp: Stamp = { layer: activeLayer, motif, x, y, scale: defaultStampScale(motifById(motif).family), rotate: 0 };
-    const l = layers[activeLayer];
-    const add = mirror ? [stamp, mirrorStamp(stamp)] : [stamp];
-    commit(replaceLayer(activeLayer, { stamps: [...l.stamps, ...add] }));
+    const stamp: Stamp = {
+      layer: activeLayer,
+      motif,
+      x,
+      y,
+      scale: defaultStampScale(motifById(motif).family),
+      rotate: 0,
+      hand: focus,
+    };
+    let next = withLayer(hands, focus, activeLayer, (l) => ({ ...l, stamps: [...l.stamps, stamp] }));
+    if (mirror) {
+      const copy: Stamp = { ...stamp, hand: otherHand(focus) };
+      next = withLayer(next, otherHand(focus), activeLayer, (l) => ({ ...l, stamps: [...l.stamps, copy] }));
+    }
+    commit(next);
   };
+  /** Wipe only rubs out the marks on the hand being drawn on (indices are into that hand's layer). */
   const onWipe = (hits: WipeHits) => {
-    const l = layers[activeLayer];
     commit(
-      replaceLayer(activeLayer, {
+      withLayer(hands, focus, activeLayer, (l) => ({
+        ...l,
         strokes: l.strokes.filter((_, i) => !hits.strokes.includes(i)),
         stamps: l.stamps.filter((_, i) => !hits.stamps.includes(i)),
-      }),
+      })),
     );
   };
 
@@ -215,7 +248,18 @@ export default function Studio() {
   const toggleMirror = () => {
     const m = !mirror;
     setMirror(m);
-    if (!empty) sync(layers, m);
+    if (!empty) sync(hands, m);
+  };
+
+  const focusHand = (hand: Hand) => {
+    if (hand === focus) return;
+    setFocus(hand);
+    Animated.timing(swap, {
+      toValue: hand === 'right' ? 1 : 0,
+      duration: SWAP_MS,
+      easing: Easing.bezier(0.22, 0.8, 0.24, 1),
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
   };
 
   const dry = () => {
@@ -228,14 +272,48 @@ export default function Studio() {
     router.push(`/share/${saveDraftForPicture(design, 'Studio henna')}` as never);
   };
 
-  // Keep the hand down to the cuff above the tool panel on short phones (the design's 300px
-  // hand is the minimum cap; tall phones grow it up to 520); the arm below the cuff may hang under the panel.
+  // Keep the hand in front down to the cuff above the tool panel on short phones; tall phones grow it
+  // (up to 82% of the width, or 520); the arm below the cuff may hang under the panel.
   const onCanvasLayout = (e: LayoutChangeEvent) => {
     const { width: w, height: h } = e.nativeEvent.layout;
-    const next = fitHand(h, 58, 10, Math.max(MAX_HAND_W, Math.min(w, 520)));
-    setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
+    setCanvas((c) => (c.w === w && c.h === h ? c : { w, h }));
   };
+  const W = canvas.w;
+  const { handW, bleed } = fitHand(canvas.h, TOP_CLEAR, 10, Math.max(120, Math.min(Math.floor(W * 0.82), 520)));
   const handH = (VB_H * handW) / VB_W;
+  const waitW = handW * WAIT_SCALE;
+
+  // Where each hand rests, as a shift (px) of its full-size box from the canvas's bottom-left corner.
+  // The focused hand is full size on its own side; the other waits half size, faded, at the far edge.
+  const rest = {
+    left: {
+      big: { x: 16, y: bleed },
+      small: { x: -6 - (handW - waitW) / 2, y: handH * (1 - WAIT_SCALE) * 0.5 - handW * 0.133 },
+    },
+    right: {
+      big: { x: W - handW - 16, y: bleed },
+      small: { x: W + 6 - waitW - (handW - waitW) / 2, y: handH * (1 - WAIT_SCALE) * 0.5 - handW * 0.133 },
+    },
+  };
+  const place = (hand: Hand) => {
+    const r = rest[hand];
+    // swap = 0: left in front; 1: right in front
+    const inputRange = [0, 1];
+    const big = hand === 'left' ? [r.big, r.small] : [r.small, r.big];
+    return {
+      opacity: swap.interpolate({ inputRange, outputRange: hand === 'left' ? [1, 0.55] : [0.55, 1] }),
+      transform: [
+        { translateX: swap.interpolate({ inputRange, outputRange: big.map((b) => b.x) }) },
+        { translateY: swap.interpolate({ inputRange, outputRange: big.map((b) => b.y) }) },
+        {
+          scale: swap.interpolate({
+            inputRange,
+            outputRange: hand === 'left' ? [1, WAIT_SCALE] : [WAIT_SCALE, 1],
+          }),
+        },
+      ],
+    };
+  };
 
   return (
     <Screen>
@@ -315,6 +393,8 @@ export default function Studio() {
           <View
             pointerEvents="none"
             style={{
+              flexShrink: 1,
+              marginLeft: 8,
               height: 40,
               paddingHorizontal: 14,
               justifyContent: 'center',
@@ -324,66 +404,95 @@ export default function Studio() {
               backgroundColor: colors.turquoise,
             }}
           >
-            <Text style={{ fontFamily: fonts.bodyHeavy, fontSize: 12.5, color: colors.plum }}>
-              {TOOL_LABEL[tool](nib)}
+            {/* the Mirror line is long: on narrow phones it wraps onto two lines inside the pill */}
+            <Text
+              numberOfLines={2}
+              style={{ fontFamily: fonts.bodyHeavy, fontSize: 12.5, lineHeight: 15, textAlign: 'center', color: colors.plum }}
+            >
+              {mirror ? `MIRROR → ${otherHand(focus).toUpperCase()} HAND` : TOOL_LABEL[tool](nib)}
             </Text>
           </View>
         </View>
 
         <SkinToneButton />
 
-        <View style={{ width: handW, height: handH, marginBottom: -fit.bleed }}>
-          <HennaCanvas
-            width={handW}
-            tone={tone}
-            layers={layers}
-            activeLayer={activeLayer}
-            tool={tool}
-            nib={nib}
-            mirror={mirror}
-            onStroke={onStroke}
-            onStamp={onStamp}
-            onWipe={onWipe}
-          />
-        </View>
-
-        {mirror ? (
-          <View
-            pointerEvents="none"
-            style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center' }}
-          >
-            <View style={{ width: handW, height: '100%' }}>
-              <View
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel="Which hand"
+          style={{
+            position: 'absolute',
+            top: 62,
+            alignSelf: 'center',
+            zIndex: 3,
+            flexDirection: 'row',
+            padding: 3,
+            gap: 3,
+            borderRadius: 999,
+            borderWidth: border,
+            borderColor: colors.plum,
+            backgroundColor: colors.white,
+          }}
+        >
+          {(['left', 'right'] as Hand[]).map((h) => {
+            const on = focus === h;
+            return (
+              <Pressable
+                key={h}
+                onPress={() => focusHand(h)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on, checked: on }}
+                accessibilityLabel={`Draw on the ${h} hand`}
                 style={{
-                  position: 'absolute',
-                  top: 64,
-                  bottom: 0,
-                  left: (MIRROR_X * handW) / VB_W - 1.25,
-                  borderLeftWidth: border,
-                  borderLeftColor: colors.turquoiseDeep,
-                  borderStyle: 'dashed',
-                }}
-              />
-              <Text
-                style={{
-                  position: 'absolute',
-                  top: 70,
-                  left: (MIRROR_X * handW) / VB_W + 7,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  overflow: 'hidden',
-                  borderRadius: 8,
-                  backgroundColor: colors.turquoiseDeep,
-                  fontFamily: fonts.bodyHeavy,
-                  fontSize: 11,
-                  color: colors.white,
+                  height: 36,
+                  paddingHorizontal: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  borderRadius: 999,
+                  backgroundColor: on ? colors.marigold : 'transparent',
                 }}
               >
-                MIRROR
-              </Text>
-            </View>
-          </View>
-        ) : null}
+                <Svg width={16} height={16} viewBox="0 0 24 24">
+                  <Path
+                    d={HAND_GLYPH[h]}
+                    fill="none"
+                    stroke={colors.plum}
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+                <Text style={{ fontFamily: fonts.bodyHeavy, fontSize: 12.5, color: colors.plum }}>{HAND_NAME[h]}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* the hands: each is a full-size box that slides and scales between "in front" and "waiting" */}
+        {(['left', 'right'] as Hand[]).map((h) => (
+          <Animated.View
+            key={h}
+            style={[
+              { position: 'absolute', left: 0, bottom: 0, width: handW, height: handH, zIndex: focus === h ? 2 : 1 },
+              place(h) as object,
+            ]}
+          >
+            <HennaCanvas
+              width={handW}
+              tone={tone}
+              hand={h}
+              layers={hands[h]}
+              activeLayer={activeLayer}
+              tool={tool}
+              nib={nib}
+              active={focus === h}
+              onFocus={() => focusHand(h)}
+              onStroke={onStroke}
+              onStamp={onStamp}
+              onWipe={onWipe}
+            />
+          </Animated.View>
+        ))}
 
         <View pointerEvents="none" style={{ position: 'absolute', right: 70, bottom: 54, zIndex: 2 }}>
           <Svg width={58} height={74} viewBox="0 0 58 74">

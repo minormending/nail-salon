@@ -23,6 +23,7 @@ import {
   ShapeIcon,
   StickerGlyph,
   ZoomHand,
+  pairFit,
 } from '../../src/components/NailHand';
 import { Button } from '../../src/components/Button';
 import { HardDrop } from '../../src/components/HardDrop';
@@ -32,23 +33,27 @@ import { RoomTabs } from '../../src/components/RoomTabs';
 import { Screen } from '../../src/components/Screen';
 import { SkinToneButton } from '../../src/components/SkinToneButton';
 import { TopBar } from '../../src/components/TopBar';
-import { BOTTLES, FINGER_NAMES, SALON_SHAPES, capitalise, nailName } from '../../src/lib/nailNames';
-import { DIGITS, emptyNailDesign, useStore, type Digit, type NailLook } from '../../src/state/store';
+import {
+  BOTTLES,
+  NAIL_ORDER,
+  RIGHT_THUMB,
+  SALON_SHAPES,
+  capitalise,
+  lookOf,
+  nailChipLabel,
+  nailFromParam,
+  nailName,
+  sameNail,
+  withLook,
+  type NailRef,
+} from '../../src/lib/nailNames';
+import { emptyNailDesign, handNails, useStore, type NailLook } from '../../src/state/store';
 import { border, colors, fonts } from '../../src/theme';
 
-const HAND_ASPECT = 1646 / 1024;
 const MAX_STICKERS = 8;
 /** The panel's two swappable rows keep one height, so the canvas above never jumps. */
 const TOP_ROW_H = 54;
 const BOTTOM_ROW_H = 56;
-
-function digitFromParam(v: string | undefined): Digit | null {
-  if (!v) return null;
-  const named = DIGITS.find((d) => d === v);
-  if (named) return named;
-  const i = /^[0-4]$/.test(v) ? Number(v) : -1;
-  return i >= 0 ? DIGITS[i] : null;
-}
 
 export default function SalonNails() {
   const router = useRouter();
@@ -66,18 +71,19 @@ export default function SalonNails() {
 
   // Whole hand (null): bottles wait for a nail to be chosen. Zoomed on a fingertip: they paint just that one.
   const params = useLocalSearchParams<{ zoom?: string }>();
-  const [zoom, setZoom] = useState<Digit | null>(() => digitFromParam(params.zoom));
+  const [zoom, setZoom] = useState<NailRef | null>(() => nailFromParam(params.zoom));
   // A link that lands on this screen again (e.g. the Stickers tab from the henna screen).
   const [seenZoomParam, setSeenZoomParam] = useState(params.zoom);
   if (params.zoom !== seenZoomParam) {
     setSeenZoomParam(params.zoom);
-    if (params.zoom !== undefined) setZoom(digitFromParam(params.zoom));
+    if (params.zoom !== undefined) setZoom(nailFromParam(params.zoom));
   }
   const [area, setArea] = useState({ w: 390, h: 440 });
 
-  const handW = Math.max(80, Math.min(262, (area.h - 12) / HAND_ASPECT, area.w - 24));
+  // Both hands as large as fit, clear of the pills and the skin-tone button.
+  const { width: handW, shift: handShift } = pairFit(area.w, area.h);
 
-  const look = zoom ? draft.nails[zoom] : undefined;
+  const look = zoom ? lookOf(draft, zoom) : undefined;
 
   // The hint pill wiggles when a bottle is tapped before a nail is chosen.
   const wiggle = useSharedValue(0);
@@ -92,12 +98,12 @@ export default function SalonNails() {
 
   const paint = (hex: string) => {
     if (!zoom) return nudge();
-    setDraft({ ...draft, nails: { ...draft.nails, [zoom]: { ...draft.nails[zoom], color: hex } } });
+    setDraft(withLook(draft, zoom, { ...lookOf(draft, zoom), color: hex }));
   };
 
   const update = (patch: Partial<NailLook>) => {
     if (!zoom || !look) return;
-    setDraft({ ...draft, nails: { ...draft.nails, [zoom]: { ...look, ...patch } } });
+    setDraft(withLook(draft, zoom, { ...look, ...patch }));
   };
 
   // Stickers are picked, then placed where the child taps the zoomed nail. With none picked,
@@ -106,11 +112,11 @@ export default function SalonNails() {
   const onNailTap = (spot: { x: number; y: number }) => {
     if (!zoom || !look) return;
     if (pick) {
-      const st = newSticker(pick, zoom, draft.shape, spot.x, spot.y);
+      const st = newSticker(pick, zoom.digit, draft.shape, spot.x, spot.y);
       update({ stickers: [...look.stickers, st].slice(-MAX_STICKERS) });
       AccessibilityInfo.announceForAccessibility('Sticker on');
     } else {
-      const i = stickerAt(look, zoom, draft.shape, spot.x, spot.y);
+      const i = stickerAt(look, zoom.digit, draft.shape, spot.x, spot.y);
       if (i < 0) return;
       update({ stickers: look.stickers.filter((_, j) => j !== i) });
       AccessibilityInfo.announceForAccessibility('Sticker off');
@@ -119,7 +125,8 @@ export default function SalonNails() {
 
   const go = (step: number) => {
     if (!zoom) return;
-    setZoom(DIGITS[(DIGITS.indexOf(zoom) + step + DIGITS.length) % DIGITS.length]);
+    const i = NAIL_ORDER.findIndex((n) => sameNail(n, zoom));
+    setZoom(NAIL_ORDER[(i + step + NAIL_ORDER.length) % NAIL_ORDER.length]);
   };
 
   // A horizontal swipe on the zoomed canvas moves to the next / previous nail.
@@ -134,7 +141,7 @@ export default function SalonNails() {
     },
   });
 
-  const colours = new Set(DIGITS.map((dg) => draft.nails[dg].color));
+  const colours = new Set(NAIL_ORDER.map((n) => lookOf(draft, n).color));
   const current = look ? look.color : colours.size === 1 ? [...colours][0] : undefined;
 
   const save = () => {
@@ -170,7 +177,7 @@ export default function SalonNails() {
         current={zoom ? 'stickers' : 'nails'}
         onSelect={(room) => {
           if (room === 'henna') return false;
-          setZoom(room === 'stickers' ? zoom ?? 'thumb' : null);
+          setZoom(room === 'stickers' ? zoom ?? RIGHT_THUMB : null);
           return true;
         }}
       />
@@ -203,9 +210,10 @@ export default function SalonNails() {
             design={draft}
             tone={tone}
             width={handW}
+            shift={handShift}
             zoom={zoom}
-            onNailPress={(dg) => {
-              if (dg !== zoom) setZoom(dg);
+            onNailPress={(n) => {
+              if (!sameNail(n, zoom)) setZoom(n);
             }}
             onOffPress={() => setZoom(null)}
             onNailTap={onNailTap}
@@ -233,7 +241,7 @@ export default function SalonNails() {
                 <Text style={{ fontFamily: fonts.bodyHeavy, fontSize: 13, color: colors.plum }}>Whole hand</Text>
               </HardDrop>
               <Chip style={{ right: 12 }} bg={colors.marigold}>
-                {FINGER_NAMES[zoom].toUpperCase()}
+                {nailChipLabel(zoom)}
               </Chip>
               <ArrowButton icon="back" label="Previous nail" side="left" onPress={() => go(-1)} />
               <ArrowButton icon="forward" label="Next nail" side="right" onPress={() => go(1)} />
@@ -321,7 +329,7 @@ export default function SalonNails() {
                   backgroundColor: on ? colors.marigold : colors.cream,
                 }}
               >
-                <ShapeIcon shape={name} fill={current ?? draft.nails.thumb.color} />
+                <ShapeIcon shape={name} fill={current ?? handNails(draft, 'right').thumb.color} />
                 <Text style={{ fontFamily: fonts.bodyHeavy, fontSize: 14, color: colors.plum }}>
                   {capitalise(name)}
                 </Text>
@@ -407,7 +415,7 @@ export default function SalonNails() {
               height={52}
               fontSize={19}
               drop={4}
-              onPress={() => setZoom('thumb')}
+              onPress={() => setZoom(RIGHT_THUMB)}
             />
           )}
         </View>

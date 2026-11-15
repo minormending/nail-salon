@@ -1,6 +1,16 @@
 import hennaArt from '../art/henna.json';
 import motifsArt from '../art/motifs.json';
-import { emptyHennaDesign, useStore, type HennaDesign, type Item, type NailDesign, type Stamp, type Stroke } from '../state/store';
+import {
+  emptyHennaDesign,
+  markHand,
+  useStore,
+  type Hand,
+  type HennaDesign,
+  type Item,
+  type NailDesign,
+  type Stamp,
+  type Stroke,
+} from '../state/store';
 import { henna as HENNA, type ToneId } from '../theme';
 import { scheduleReminder } from './stain';
 
@@ -9,8 +19,6 @@ import { scheduleReminder } from './stain';
 export const VB_W = 1024;
 export const VB_H = 1504; // viewBox height; the raster is 1024x1536 and is cropped to this
 export const IMG_H = 1536;
-/** The centre of the back of the hand: Mirror reflects across x = 445. */
-export const MIRROR_X = 445;
 
 export type HennaStage = 'ghost' | 'paste' | 'orange' | 'red' | 'brown';
 export type PartId = 'gol' | 'vines' | 'cuff';
@@ -42,6 +50,29 @@ export function fitHand(canvasH: number, top: number, clear: number, maxW: numbe
   const handW = Math.max(minW, Math.min(maxW, Math.floor(wanted)));
   const bleed = Math.max(0, ((VB_H - CUFF_BOTTOM) * handW) / VB_W - clear);
   return { handW, bleed };
+}
+
+/**
+ * The pair. The drawn open hand is a left hand; the right hand is the same raster mirrored. Seen
+ * from the back, with the thumbs toward the middle, the two images overlap by `PAIR_OVERLAP` of a
+ * hand's width: only their empty margins meet (the hand's art spans 17%-90% of the image, so the
+ * mirrored one spans 10%-83%), leaving a small gap between the thumbs and their nails.
+ */
+export const PAIR_OVERLAP = 0.12;
+/** Where one hand's art starts in its image (share of the width): the pair box starts here. */
+export const PAIR_PAD = 0.174;
+/** The pair's art spans this many hand-widths (from the left hand's edge to the right hand's). */
+export const PAIR_SPAN = 1.532;
+/** Width of the pair's box for a hand `handW` wide. */
+export const pairWidth = (handW: number) => Math.round(handW * PAIR_SPAN);
+
+/**
+ * `fitHand` for the pair: the hand's width is also capped so both hands fit across `canvasW`
+ * (with `gutter` to spare on each side).
+ */
+export function fitPair(canvasW: number, canvasH: number, top: number, clear: number, gutter = 8, maxW = 520) {
+  const cap = Math.max(60, Math.min(maxW, Math.floor((canvasW - gutter * 2) / PAIR_SPAN)));
+  return fitHand(canvasH, top, clear, cap, Math.min(120, cap));
 }
 
 /** Nib sizes in viewBox units (Fine / Medium / Bold). */
@@ -187,17 +218,6 @@ export function strokeLine(points: number[]): string {
 
 export function strokeWidthAt(s: StudioStroke): number {
   return s.jaali ? JAALI_WIDTH : NIB_WIDTH[s.nib] ?? NIB_WIDTH[2];
-}
-
-/** Reflects a stroke across the centre line. */
-export function mirrorStroke<T extends Stroke>(s: T): T {
-  const points = s.points.slice();
-  for (let i = 0; i < points.length; i += 3) points[i] = 2 * MIRROR_X - points[i];
-  return { ...s, points };
-}
-/** Reflects a stamp across the centre line (toggles `flip`; the scale stays positive). */
-export function mirrorStamp(s: Stamp): Stamp {
-  return { ...s, x: 2 * MIRROR_X - s.x, scale: Math.abs(s.scale), flip: !isFlipped(s), rotate: -s.rotate };
 }
 
 /* ------------------------------------------------------------------ hit testing (Wipe) */
@@ -385,6 +405,43 @@ export function joinLayers(layers: OverlayLayer[], mirror: boolean): HennaDesign
     mirror,
   };
 }
+
+/** One hand's two layers. */
+export type HandLayers = [OverlayLayer, OverlayLayer];
+/** Both hands' marks, each in its own hand's drawing coordinates. */
+export type BothHands = Record<Hand, HandLayers>;
+
+const blankLayers = (): HandLayers => [
+  { strokes: [], stamps: [] },
+  { strokes: [], stamps: [] },
+];
+
+/** Splits a Studio design by hand and layer; marks without a `hand` (older saves) go to the left hand. */
+export function splitHands(design: HennaDesign): BothHands {
+  const out: BothHands = { left: blankLayers(), right: blankLayers() };
+  for (const s of design.strokes ?? []) {
+    const hand = markHand(s);
+    out[hand][s.layer === 1 ? 1 : 0].strokes.push(s.hand ? s : { ...s, hand });
+  }
+  for (const s of design.stamps ?? []) {
+    const hand = markHand(s);
+    out[hand][s.layer === 1 ? 1 : 0].stamps.push(s.hand ? s : { ...s, hand });
+  }
+  return out;
+}
+
+export function joinHands(hands: BothHands, mirror: boolean): HennaDesign {
+  const all = [...hands.left, ...hands.right];
+  return {
+    source: 'studio',
+    strokes: all.flatMap((l) => l.strokes),
+    stamps: all.flatMap((l) => l.stamps),
+    mirror,
+  };
+}
+
+/** "Mirror" copies a mark to the other hand: the same points, so it shows reflected. */
+export const otherHand = (hand: Hand): Hand => (hand === 'left' ? 'right' : 'left');
 
 /* ------------------------------------------------------------------ finishing a henna */
 

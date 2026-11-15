@@ -18,13 +18,23 @@ export type NailLook = {
    */
   stickers: { kind: string; x: number; y: number; frame?: 'nail' }[];
 };
-export type NailDesign = { shape: string; nails: Record<Digit, NailLook> };
+/** The two hands. The drawn nail-chair hand is a right hand; the drawn open hand is a left hand. */
+export type Hand = 'left' | 'right';
+export const HANDS: Hand[] = ['left', 'right'];
+/**
+ * Both hands share one shape. `nails` is the right hand (the drawn nail-chair hand, and every
+ * design saved before there were two hands); `left` is the left hand, missing in older saves,
+ * which then show a bare left hand.
+ */
+export type NailDesign = { shape: string; nails: Record<Digit, NailLook>; left?: Record<Digit, NailLook> };
 export type Stroke = {
   layer: 0 | 1;
   nib: 1 | 2 | 3;
   points: number[] /* x,y,w,... */;
   /** A Jaali band (diamond lattice) rather than a freehand line. */
   jaali?: boolean;
+  /** The hand it's on, in that hand's own drawing coordinates; missing means left (older saves). */
+  hand?: Hand;
 };
 export type Stamp = {
   layer: 0 | 1;
@@ -36,6 +46,8 @@ export type Stamp = {
   rotate: number;
   /** Reflected left-right. */
   flip?: boolean;
+  /** The hand it's on, in that hand's own drawing coordinates; missing means left (older saves). */
+  hand?: Hand;
 };
 export type HennaDesign = {
   source: 'stencil' | 'studio';
@@ -90,8 +102,20 @@ export function emptyNailDesign(shape = 'almond', color = DEFAULT_POLISH): NailD
   return {
     shape,
     nails: { thumb: look(), index: look(), middle: look(), ring: look(), pinky: look() },
+    left: { thumb: look(), index: look(), middle: look(), ring: look(), pinky: look() },
   };
 }
+
+/** One hand's nails; a design saved before there were two hands has a bare (unpainted) left hand. */
+export function handNails(design: NailDesign, hand: Hand): Record<Digit, NailLook> {
+  if (hand === 'right') return design.nails;
+  if (design.left) return design.left;
+  const bare = (): NailLook => ({ color: '#FFFFFF', pattern: 'plain', stickers: [] });
+  return { thumb: bare(), index: bare(), middle: bare(), ring: bare(), pinky: bare() };
+}
+
+/** Which hand a Studio mark is on (older marks were all drawn on the left hand). */
+export const markHand = (m: { hand?: Hand }): Hand => m.hand ?? 'left';
 
 export function emptyHennaDesign(source: HennaDesign['source'] = 'stencil'): HennaDesign {
   return { source, parts: [], strokes: [], stamps: [], mirror: false };

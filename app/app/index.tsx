@@ -168,7 +168,7 @@ export default function Home() {
             onPress={() => router.push('/salon/nails')}
           >
             <PictureBox>
-              <NailHand design={SALON_ART} tone={tone} width={100} />
+              <NailHand design={SALON_ART} tone={tone} width={100} hands="right" />
             </PictureBox>
           </RoomCard>
 
@@ -184,7 +184,7 @@ export default function Home() {
           >
             <PictureBox>
               <View style={{ alignSelf: 'stretch', flex: 1, alignItems: 'center', paddingTop: 2 }}>
-                <HennaHand design={STUDIO_ART} tone={tone} width={112} stage="brown" />
+                <HennaHand design={STUDIO_ART} tone={tone} width={112} stage="brown" hands="left" />
               </View>
             </PictureBox>
           </RoomCard>

@@ -77,7 +77,7 @@ export default function Unlock() {
             }}
           >
             <View style={{ marginTop: 2 }}>
-              <HennaHand design={STENCIL} tone={tone} width={124} stage="brown" />
+              <HennaHand design={STENCIL} tone={tone} width={124} stage="brown" hands="left" />
             </View>
           </View>
           <View style={{ flex: 1, paddingBottom: 4 }}>

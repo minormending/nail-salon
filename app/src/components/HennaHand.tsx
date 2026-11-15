@@ -1,12 +1,24 @@
-import React, { useId, useMemo } from 'react';
+import React, { useId, useMemo, type ReactNode } from 'react';
 import { Image, View } from 'react-native';
 import Svg, { G, SvgXml } from 'react-native-svg';
 
 import openNails from '../art/openNails.json';
-import { DIGITS, type Digit, type HennaDesign, type NailDesign } from '../state/store';
+import { DIGITS, handNails, type Digit, type Hand, type HennaDesign, type NailDesign, type NailLook } from '../state/store';
 import { TONES, type ToneId } from '../theme';
-import { IMG_H, PARTS, VB_H, VB_W, overlayXml, splitLayers, type HennaStage, type PartId } from '../lib/henna';
-import { CLOSE_ORIGIN, NailPaint, StickerGlyph, closeK, nailMetrics, nailPath } from './NailHand';
+import {
+  IMG_H,
+  PAIR_OVERLAP,
+  PAIR_PAD,
+  PARTS,
+  VB_H,
+  VB_W,
+  overlayXml,
+  pairWidth,
+  splitHands,
+  type HennaStage,
+  type PartId,
+} from '../lib/henna';
+import { NailPaint, StickerGlyph, closeK, nailMetrics, nailPath, stickerLocal } from './NailHand';
 
 export type { HennaStage };
 
@@ -41,40 +53,28 @@ const SHAPES = openNails.shapes as Record<string, Record<Digit, string>>;
 /** How far the longest shapes reach above the raster's top edge (middle finger, stiletto). */
 const NAIL_HEAD = 60;
 
-type Placed = { kind: string; x: number; y: number; frame?: 'nail' };
-
-/**
- * Where a sticker sits on a nail, in the nail's local units (cuticle at the origin, tip toward -y).
- * Local adapter with the signature of the nail chair's `stickerLocal(sticker, halfWidth,
- * nailLength)`; switch to that import once it ships. New stickers (`frame: 'nail'`) are stored
- * relative to the nail's half-width; older ones are close-up canvas coordinates, mapped by the chair
- * nail's size (`chair`) onto this nail.
- */
-function stickerLocal(
-  s: Placed,
-  hw: number,
-  len: number,
-  chair: { hw: number; len: number; c: number },
-): { x: number; y: number; scale: number } {
-  if (s.frame === 'nail') return { x: s.x * hw, y: s.y * hw, scale: 0.0307 * hw };
-  const rx = hw / chair.hw;
-  return {
-    x: (s.x - CLOSE_ORIGIN.x) * chair.c * rx,
-    y: (s.y - CLOSE_ORIGIN.y) * chair.c * (len / chair.len),
-    scale: 1.35 * chair.c * 1.25 * rx,
-  };
-}
-
 const openPath = (shape: string, digit: Digit): string => (SHAPES[shape] ?? SHAPES.almond)[digit];
 
 /**
- * The child's polished nails (colour, pattern, French tip, stickers) over the open hand, in its
- * own nail outlines. Stickers sit at the nail chair's spots, scaled to each nail's size on the
- * chair; long shapes may reach above the hand, so the layer is taller than the hand and sits
- * above it (negative top) without changing the hand's footprint.
+ * One hand's polished nails (colour, pattern, French tip, stickers) over the open hand, in its
+ * own nail outlines. Stickers sit where they were put on the nail chair (`stickerLocal`), scaled
+ * to each nail's size; long shapes may reach above the hand, so the layer is taller than the hand
+ * and sits above it (negative top) without changing the hand's footprint.
  */
-function HennaNails({ design, tone, width }: { design: NailDesign; tone: ToneId; width: number }) {
-  const uid = useId().replace(/[^A-Za-z0-9]/g, '');
+function HennaNails({
+  shape,
+  looks,
+  tone,
+  width,
+  hand,
+}: {
+  shape: string;
+  looks: Record<Digit, NailLook>;
+  tone: ToneId;
+  width: number;
+  hand: Hand;
+}) {
+  const uid = useId().replace(/[^A-Za-z0-9]/g, '') + hand;
   const k = width / VB_W;
   const line = (TONES.find((t) => t.id === tone) ?? TONES[0]).line;
   const sw = openNails.line.width;
@@ -91,9 +91,9 @@ function HennaNails({ design, tone, width }: { design: NailDesign; tone: ToneId;
       >
         {DIGITS.map((dg) => {
           const p = PLACES[dg];
-          const d = openPath(design.shape, dg);
-          const look = design.nails[dg];
-          const chairD = nailPath(design.shape, dg);
+          const d = openPath(shape, dg);
+          const look = looks[dg];
+          const chairD = nailPath(shape, dg);
           const chair = nailMetrics(chairD);
           const open = nailMetrics(d);
           // chair nail -> this nail, for the pattern tiles
@@ -103,7 +103,7 @@ function HennaNails({ design, tone, width }: { design: NailDesign; tone: ToneId;
             <G key={dg} transform={`translate(${p.x} ${p.y}) rotate(${p.rotate})`}>
               <NailPaint uid={`${uid}${dg}`} d={d} look={look} line={line} strokeWidth={sw} unit={c * rx} />
               {look.stickers.map((s, i) => {
-                const at = stickerLocal(s, open.hw, open.len, { hw: chair.hw, len: chair.len, c });
+                const at = stickerLocal(s, open.hw, open.len);
                 return (
                   <G key={i} transform={`translate(${at.x} ${at.y}) scale(${at.scale})`}>
                     <StickerGlyph kind={s.kind} />
@@ -121,42 +121,103 @@ function HennaNails({ design, tone, width }: { design: NailDesign; tone: ToneId;
 type Props = {
   design: HennaDesign;
   tone: ToneId;
+  /** The width of ONE hand; a pair's box is `pairWidth(width)` wide (the hands' empty margins overlap). */
   width: number;
   stage: HennaStage;
-  /** The polish the child painted on the nail chair; drawn over the hand's own nails. */
+  /** The polish the child painted on the nail chair; drawn over each hand's own nails. */
   nails?: NailDesign;
+  /** 'both' (default) the left and right hand; 'left' just the left hand. */
+  hands?: 'both' | 'left';
+  /** Drawn over each hand in that hand's own frame (mirrored with the right hand), e.g. an ink sweep. */
+  overlay?: ReactNode;
 };
 
-/**
- * The hand with its henna. A 'stencil' design inks its `parts` at `stage` and shows the rest as
- * ghost guides; a 'studio' design draws every stroke and stamp (both layers) at `stage`, clipped
- * to the hand.
- */
-export function HennaHand({ design, tone, width, stage, nails }: Props) {
+/** One hand: the raster, its henna overlay and (if given) its nails. */
+function OneHand({
+  hand,
+  xml,
+  tone,
+  width,
+  nails,
+  overlay,
+}: {
+  hand: Hand;
+  xml: string;
+  tone: ToneId;
+  width: number;
+  nails?: NailDesign;
+  overlay?: ReactNode;
+}) {
   const height = (VB_H * width) / VB_W;
-  const parts = design.parts;
-  const strokes = design.strokes;
-  const stamps = design.stamps;
-  const xml = useMemo(() => {
-    if (design.source === 'studio') {
-      return overlayXml({ tone, stage, layers: splitLayers({ source: 'studio', strokes, stamps }) });
-    }
-    const inked = (parts ?? []) as PartId[];
-    return overlayXml({
-      tone,
-      stage,
-      parts: inked,
-      guides: PARTS.map((p) => p.id).filter((id) => !inked.includes(id)),
-    });
-  }, [design.source, parts, strokes, stamps, tone, stage]);
-
   return (
     <View style={{ width, height, overflow: nails ? 'visible' : 'hidden' }}>
       <View style={{ width, height, overflow: 'hidden' }}>
         <HandRaster tone={tone} width={width} />
         <SvgXml xml={xml} width={width} height={height} style={{ position: 'absolute', left: 0, top: 0 }} />
+        {overlay}
       </View>
-      {nails ? <HennaNails design={nails} tone={tone} width={width} /> : null}
+      {nails ? (
+        <HennaNails shape={nails.shape} looks={handNails(nails, hand)} tone={tone} width={width} hand={hand} />
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * The hands with their henna. A 'stencil' design inks its `parts` at `stage` on both hands and
+ * shows the rest as ghost guides; a 'studio' design draws every stroke and stamp (both layers)
+ * on the hand it was made on, clipped to the hand. The right hand is the left hand mirrored, so
+ * a mark keeps its own-hand coordinates there and the nails too.
+ */
+export function HennaHand({ design, tone, width, stage, nails, hands = 'both', overlay }: Props) {
+  const height = (VB_H * width) / VB_W;
+  const both = hands === 'both';
+  const parts = design.parts;
+  const strokes = design.strokes;
+  const stamps = design.stamps;
+  const xml = useMemo(() => {
+    if (design.source === 'studio') {
+      const marks = splitHands({ source: 'studio', strokes, stamps });
+      return {
+        left: overlayXml({ tone, stage, layers: marks.left }),
+        right: overlayXml({ tone, stage, layers: marks.right }),
+      };
+    }
+    const inked = (parts ?? []) as PartId[];
+    const one = overlayXml({
+      tone,
+      stage,
+      parts: inked,
+      guides: PARTS.map((p) => p.id).filter((id) => !inked.includes(id)),
+    });
+    return { left: one, right: one };
+  }, [design.source, parts, strokes, stamps, tone, stage]);
+
+  if (!both) {
+    return (
+      <View style={{ width, height }}>
+        <OneHand hand="left" xml={xml.left} tone={tone} width={width} nails={nails} overlay={overlay} />
+      </View>
+    );
+  }
+  const pad = PAIR_PAD * width;
+  return (
+    <View style={{ width: pairWidth(width), height }}>
+      <View style={{ position: 'absolute', left: -pad, top: 0, width, height }}>
+        <OneHand hand="left" xml={xml.left} tone={tone} width={width} nails={nails} overlay={overlay} />
+      </View>
+      <View
+        style={{
+          position: 'absolute',
+          left: (1 - PAIR_OVERLAP) * width - pad,
+          top: 0,
+          width,
+          height,
+          transform: [{ scaleX: -1 }],
+        }}
+      >
+        <OneHand hand="right" xml={xml.right} tone={tone} width={width} nails={nails} overlay={overlay} />
+      </View>
     </View>
   );
 }

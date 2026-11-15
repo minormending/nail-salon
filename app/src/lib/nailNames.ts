@@ -1,5 +1,5 @@
-import type { Digit, NailDesign } from '../state/store';
-import { DIGITS } from '../state/store';
+import type { Digit, Hand, NailDesign, NailLook } from '../state/store';
+import { DIGITS, HANDS, handNails } from '../state/store';
 
 /** The polish bottles in the Salon, by their names in the canvas. */
 export const BOTTLES: { name: string; hex: string }[] = [
@@ -22,6 +22,56 @@ export const FINGER_NAMES: Record<Digit, string> = {
   ring: 'Ring finger',
   pinky: 'Little finger',
 };
+
+/** One of the ten nails: which hand, which finger. */
+export type NailRef = { hand: Hand; digit: Digit };
+
+/** Screen order, left to right: left little finger ... left thumb, right thumb ... right little finger. */
+export const NAIL_ORDER: NailRef[] = [
+  ...[...DIGITS].reverse().map((digit) => ({ hand: 'left' as const, digit })),
+  ...DIGITS.map((digit) => ({ hand: 'right' as const, digit })),
+];
+
+export const RIGHT_THUMB: NailRef = { hand: 'right', digit: 'thumb' };
+
+export const sameNail = (a: NailRef | null | undefined, b: NailRef | null | undefined) =>
+  !!a && !!b && a.hand === b.hand && a.digit === b.digit;
+
+export const nailKey = (r: NailRef) => `${r.hand}:${r.digit}`;
+
+/** "LEFT · RING FINGER" for the chip on the zoomed canvas. */
+export function nailChipLabel(r: NailRef): string {
+  return `${r.hand.toUpperCase()} · ${FINGER_NAMES[r.digit].toUpperCase()}`;
+}
+
+/** "Left ring finger" for screen readers. */
+export function nailSpokenName(r: NailRef): string {
+  return `${capitalise(r.hand)} ${FINGER_NAMES[r.digit].toLowerCase()}`;
+}
+
+/** The look on one of the ten nails. */
+export function lookOf(design: NailDesign, r: NailRef): NailLook {
+  return handNails(design, r.hand)[r.digit];
+}
+
+/** The design with one nail's look replaced (a missing left hand is filled in bare first). */
+export function withLook(design: NailDesign, r: NailRef, look: NailLook): NailDesign {
+  if (r.hand === 'right') return { ...design, nails: { ...design.nails, [r.digit]: look } };
+  return { ...design, left: { ...handNails(design, 'left'), [r.digit]: look } };
+}
+
+/**
+ * `?zoom=` for the nail chair: a digit (0-4) or finger name means the right hand;
+ * `left:<digit>` / `right:<digit>` picks a hand.
+ */
+export function nailFromParam(v: string | undefined): NailRef | null {
+  if (!v) return null;
+  const m = /^(?:(left|right):)?(.+)$/.exec(v.trim().toLowerCase());
+  if (!m) return null;
+  const hand = (m[1] as Hand | undefined) ?? 'right';
+  const digit = DIGITS.find((d) => d === m[2]) ?? (/^[0-4]$/.test(m[2]) ? DIGITS[Number(m[2])] : undefined);
+  return digit && HANDS.includes(hand) ? { hand, digit } : null;
+}
 
 const PLURALS: Record<string, string> = {
   almond: 'almonds',
@@ -75,8 +125,10 @@ export function nearestBottle(hex: string): { name: string; hex: string } {
 export function nailName(design: NailDesign): string {
   const counts = new Map<string, number>();
   const order: string[] = [];
-  for (const dg of DIGITS) {
-    const name = nearestBottle(design.nails[dg].color).name;
+  // Right hand first (thumb to little finger), so a tie goes to the colour the right thumb wears.
+  const all: NailRef[] = [...DIGITS.map((digit) => ({ hand: 'right' as const, digit })), ...DIGITS.map((digit) => ({ hand: 'left' as const, digit }))];
+  for (const r of all) {
+    const name = nearestBottle(lookOf(design, r).color).name;
     if (!counts.has(name)) order.push(name);
     counts.set(name, (counts.get(name) ?? 0) + 1);
   }

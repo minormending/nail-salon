@@ -7,6 +7,7 @@ import { HennaHand } from '../../src/components/HennaHand';
 import { NailHand } from '../../src/components/NailHand';
 import { Screen } from '../../src/components/Screen';
 import { TopBar } from '../../src/components/TopBar';
+import { VB_H, VB_W } from '../../src/lib/henna';
 import { savePicture } from '../../src/lib/pictures';
 import { stageAt } from '../../src/lib/stain';
 import { useStore } from '../../src/state/store';
@@ -20,6 +21,9 @@ const FRAMES = [
 ] as const;
 type FrameId = (typeof FRAMES)[number]['id'];
 
+/** One hand's width on the picture (the pair is 1.53x as wide, 224 of the frame's 232) and its height. */
+const HENNA_W = 146;
+const HENNA_H = Math.round((VB_H * HENNA_W) / VB_W);
 const DAY = 24 * 60 * 60 * 1000;
 
 export default function Share() {
@@ -108,7 +112,7 @@ export default function Share() {
           >
             <View
               style={{
-                height: 330,
+                height: 270,
                 borderWidth: border,
                 borderColor: colors.plum,
                 borderRadius: 12,
@@ -117,14 +121,14 @@ export default function Share() {
                 alignItems: 'center',
               }}
             >
-              <View style={{ marginTop: item.kind === 'henna' && item.nails ? 12 : 4 }}>
+              <View style={{ marginTop: item.kind === 'henna' ? 270 - HENNA_H : 30 }}>
                 {item.kind === 'nails' && item.nails ? (
-                  <NailHand design={item.nails} tone={item.tone} width={236} />
+                  <NailHand design={item.nails} tone={item.tone} width={228} />
                 ) : item.henna ? (
                   <HennaHand
                     design={item.henna}
                     tone={item.tone}
-                    width={236}
+                    width={HENNA_W}
                     stage={stageAt(item, now, speed).stage}
                     nails={item.nails}
                   />

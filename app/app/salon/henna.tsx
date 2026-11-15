@@ -16,7 +16,7 @@ import {
   PARTS,
   VB_H,
   VB_W,
-  fitHand,
+  fitPair,
   letItDry,
   overlayXml,
   partBounds,
@@ -26,7 +26,6 @@ import {
 import { emptyHennaDesign, useStore, type HennaDesign } from '../../src/state/store';
 import { border, colors, fonts } from '../../src/theme';
 
-const MAX_HAND_W = 300;
 const NO_PARTS: PartId[] = [];
 
 /** The part icons from the canvas (the Vines one is the Icon set's `henna`). */
@@ -120,7 +119,7 @@ export default function SalonHenna() {
   const design = useMemo<HennaDesign>(() => ({ source: 'stencil', parts: inked }), [inked]);
 
   const [inking, setInking] = useState<PartId | null>(null);
-  const [fit, setFit] = useState({ handW: MAX_HAND_W, bleed: 40 });
+  const [fit, setFit] = useState({ handW: 200, bleed: 40 });
   const handW = fit.handW;
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -168,11 +167,11 @@ export default function SalonHenna() {
   const scallopH = (22 * winW) / 390;
 
   // (68 = 54 for the hint chip plus the 14 a long polished nail can reach above the fingertips.)
-  // Keep the hand down to the cuff in view on short phones (300px is the design's size) and let it grow on tall ones (up to 520): the
-  // arm below the cuff may hang under the scalloped edge and the panel.
+  // Keep the hands down to the cuff in view on short phones and let them grow on tall ones (both hands
+  // across the canvas, a hand up to 520 wide): the arms below the cuff may hang under the scalloped edge and the panel.
   const onCanvasLayout = (e: LayoutChangeEvent) => {
     const { width: w, height: h } = e.nativeEvent.layout;
-    const next = fitHand(h, 68, scallopH + 6, Math.max(MAX_HAND_W, Math.min(w, 520)));
+    const next = fitPair(w, h, 68, scallopH + 6);
     setFit((f) => (f.handW === next.handW && f.bleed === next.bleed ? f : next));
   };
 
@@ -237,15 +236,19 @@ export default function SalonHenna() {
           accessibilityRole="button"
           accessibilityLabel={
             done
-              ? 'A hand with a full henna design in fresh dark paste'
-              : 'Ink the next part of the stencil. A hand with a faded henna stencil, partly inked in'
+              ? 'Two hands with a full henna design in fresh dark paste'
+              : 'Ink the next part of the stencil on both hands. Two hands with a faded henna stencil, partly inked in'
           }
           style={{ marginBottom: -fit.bleed }}
         >
-          <View>
-            <HennaHand design={design} tone={tone} width={handW} stage="paste" nails={draftNails} />
-            {inking ? <InkSweep part={inking} tone={tone} progress={progress} handW={handW} /> : null}
-          </View>
+          <HennaHand
+            design={design}
+            tone={tone}
+            width={handW}
+            stage="paste"
+            nails={draftNails}
+            overlay={inking ? <InkSweep part={inking} tone={tone} progress={progress} handW={handW} /> : null}
+          />
         </Pressable>
       </View>
 
@@ -268,7 +271,7 @@ export default function SalonHenna() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
           <Text style={{ fontFamily: fonts.heading, fontSize: 19, color: colors.cream, includeFontPadding: false }}>
-            Bloom &amp; vines
+            Bloom &amp; vines · both hands
           </Text>
           <Text style={{ fontFamily: fonts.bodyHeavy, fontSize: 13, color: colors.cream }}>
             {inked.length} of {PARTS.length} inked
