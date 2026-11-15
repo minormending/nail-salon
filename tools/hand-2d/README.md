@@ -5,7 +5,7 @@ The hand the app actually ships: **flat 2D SVG**, drawn face-on, as a henna
 
 There are two hands in use, for two jobs. `codexhand.py` places nails on the **nail chair** hand:
 back of the hand, fingers curled so the nails face you, thumb up, the wrist running off the bottom —
-the pose nail charts use. `sheet.py` is the **henna** hand: a practice
+the pose nail charts use. `openhand.py` now places the **henna** on Codex's open-hand redraw, in the nail hand's line style; `sheet.py` was the earlier henna hand: a practice
 sheet, fine even outline, slender fingers, forearm included. Both are fine line
 on white. `twod.py` holds the
 earlier Mela-proportions hand (chunky, filled, heavy keyline), kept because the
@@ -27,6 +27,7 @@ python3 strips.py               # the stain and skin-tone contact sheets
 | file | what it does |
 | --- | --- |
 | `nails.py` | **in use** — fifteen nail shapes as parametric outlines |
+| `openhand.py` | **in use** — the henna hand: henna on Codex's open-hand redraw (back of the hand, fingers spread), every stage and tone (the raster lives on the canvas, not here) |
 | `skintones.py` | **in use** — the tone palette; tints the nail hand under its line art (`python3 skintones.py <hand.png> <outdir>`); henna stains multiply with skin, with a light edge on the three deepest tones |
 | `codexhand.py` | **in use** — nail placement on Codex's clean redraw of the chart hand (the raster lives on the canvas, not here) |
 | `pose2.py` | superseded by `codexhand.py` — my own drawing of the nail-chair hand |

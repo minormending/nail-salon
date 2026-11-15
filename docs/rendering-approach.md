@@ -38,6 +38,14 @@ along the nail so Natural exactly covers the drawn one. The raster is kept on
 the design canvas and out of this repo until the chart's licence is settled —
 it is a derivative of that chart.
 
+### The henna hand
+
+Henna now sits on a second Codex redraw: the back of an open hand, fingers
+spread, drawn to match the nail hand's line and weight so the two read as one
+artist's work. A mandala on the back of the hand, vines up each finger and the
+thumb, a cuff across the wrist (`tools/hand-2d/openhand.py`). The practice-sheet
+hand (`sheet.py`) is superseded.
+
 ### Skin tones
 
 Six skin tones plus the plain colouring-book outline, chosen at first launch
