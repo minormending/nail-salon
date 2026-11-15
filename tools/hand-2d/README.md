@@ -3,8 +3,11 @@
 The hand the app actually ships: **flat 2D SVG**, drawn face-on, as a henna
 **practice sheet**. No bake, no projection, no perspective, nothing rendered.
 
-Two hand datasets live here. `sheet.py` is the one in use — the practice-sheet
-hand, fine even outline, slender fingers, forearm included. `twod.py` holds the
+There are two hands in use, for two jobs. `pose2.py` is the **nail chair**:
+back of the hand, fingers curled over a towel so the nails face you, thumb up —
+the pose nail charts use. `sheet.py` is the **henna** hand: a practice
+sheet, fine even outline, slender fingers, forearm included. Both are fine line
+on white. `twod.py` holds the
 earlier Mela-proportions hand (chunky, filled, heavy keyline), kept because the
 geometry helpers it exports are shared.
 
@@ -23,6 +26,8 @@ python3 strips.py               # the stain and skin-tone contact sheets
 
 | file | what it does |
 | --- | --- |
+| `nails.py` | **in use** — fifteen nail shapes as parametric outlines |
+| `pose2.py` | **in use** — the nail-chair hand: fingers curled over a towel |
 | `sheet.py` | **in use** — practice-sheet geometry, and the shared helpers' caller |
 | `sheetbuild.py` | **in use** — one merged contour, henna, plain nails, wrist band |
 | `twod.py` | shared maths, plus the earlier Mela-proportions hand |

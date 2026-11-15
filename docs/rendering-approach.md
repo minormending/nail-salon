@@ -20,6 +20,36 @@ sheets are a settled genre, and they answer it:
 Everything rejected before this failed the same way: it made the hand the thing
 you look at — shaded, heavily outlined, brightly manicured.
 
+### Two hands, two jobs
+
+Henna needs the back of the hand flat and the forearm free, so the henna canvas
+is the practice sheet. Nails need the fingertips turned toward you, so the nail
+chair uses the pose every nail chart uses: back of the hand, fingers curled
+over a towel in a diagonal staircase, nails stepping down to the right, thumb
+up. Both are fine line on white. Drawn in `tools/hand-2d/pose2.py` — my own
+drawing in that pose, not a trace of any chart.
+
+Two things made the nail hand read as a hand rather than a glove: the fingers
+**overlap** (packed closer than one diameter, each knuckle arc emerging from
+behind the one before) and they **arch** over the knuckle rather than running
+straight. Four separate straight capsules side by side read as a glove however
+they are shaded.
+
+### Fifteen nail shapes
+
+`tools/hand-2d/nails.py` defines natural, round, round long, oval, square,
+almond, pointed, stiletto, arrow head, edge, rock peak, ballerina, lipstick,
+flare and trapeze as parametric outlines with the cuticle at the origin. The
+web app's five (oval, round, almond, square, coffin) are a subset; its
+`coffin` is the chart's **ballerina**. Each digit's cuticle position and angle
+are fixed by the pose, so changing shape swaps five path strings and nothing
+else — the hand never redraws. Long shapes hang off the fingertip, which is how
+the web app already treats them.
+
+Three of the pointed shapes are easy to confuse, so they are kept apart on
+purpose: **arrow head** has a ~90° apex, **rock peak** a squat ~120° gable, and
+**edge** a tapered body with a raised ridge down the middle.
+
 ### Drawing one contour
 
 Merge every part into a single path, stroke it at **double** the target weight
