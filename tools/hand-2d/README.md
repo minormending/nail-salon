@@ -3,7 +3,7 @@
 The hand the app actually ships: **flat 2D SVG**, drawn face-on, as a henna
 **practice sheet**. No bake, no projection, no perspective, nothing rendered.
 
-There are two hands in use, for two jobs. `pose2.py` is the **nail chair**:
+There are two hands in use, for two jobs. `codexhand.py` places nails on the **nail chair** hand:
 back of the hand, fingers curled so the nails face you, thumb up, the wrist running off the bottom —
 the pose nail charts use. `sheet.py` is the **henna** hand: a practice
 sheet, fine even outline, slender fingers, forearm included. Both are fine line
@@ -27,7 +27,8 @@ python3 strips.py               # the stain and skin-tone contact sheets
 | file | what it does |
 | --- | --- |
 | `nails.py` | **in use** — fifteen nail shapes as parametric outlines |
-| `pose2.py` | **in use** — the nail-chair hand: fingers curled, wrist open at the bottom |
+| `codexhand.py` | **in use** — nail placement on Codex's clean redraw of the chart hand (the raster lives on the canvas, not here) |
+| `pose2.py` | superseded by `codexhand.py` — my own drawing of the nail-chair hand |
 | `sheet.py` | **in use** — practice-sheet geometry, and the shared helpers' caller |
 | `sheetbuild.py` | **in use** — one merged contour, henna, plain nails, wrist band |
 | `twod.py` | shared maths, plus the earlier Mela-proportions hand |

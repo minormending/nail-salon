@@ -27,14 +27,16 @@ is the practice sheet. Nails need the fingertips turned toward you, so the nail
 chair uses the pose every nail chart uses: back of the hand, fingers curled
 in a diagonal staircase, nails stepping down to the right, thumb up. The charts
 show the hand gripping a towel; ours drops it and lets the wrist run off the
-bottom of the frame, which keeps the screen to the hand alone. Both are fine line on white. Drawn in `tools/hand-2d/pose2.py` — my own
-drawing in that pose, not a trace of any chart.
+bottom of the frame, which keeps the screen to the hand alone. Both are fine line on white.
 
-Two things made the nail hand read as a hand rather than a glove: the fingers
-**overlap** (packed closer than one diameter, each knuckle arc emerging from
-behind the one before) and they **arch** over the knuckle rather than running
-straight. Four separate straight capsules side by side read as a glove however
-they are shaded.
+The nail hand is a raster: Codex's clean line-art redraw of the chart's
+"Natural" panel, towel removed. My own vector drawing of the pose
+(`tools/hand-2d/pose2.py`) never got the pinky side of the hand right; the
+redraw does. The nail shapes stay vector and ours: `tools/hand-2d/codexhand.py`
+measures the five nails Codex drew and lays each shape over them, stretched
+along the nail so Natural exactly covers the drawn one. The raster is kept on
+the design canvas and out of this repo until the chart's licence is settled —
+it is a derivative of that chart.
 
 ### Fifteen nail shapes
 
