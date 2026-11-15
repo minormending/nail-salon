@@ -138,10 +138,10 @@
   {
    "id": "t7",
    "label": "Green",
-   "skin": "#5AA64B",
+   "skin": "#8CC181",
    "line": "#2B1A26",
-   "edge": "#8CC181",
-   "ghost": "#B5D7AE",
+   "edge": "#AED4A7",
+   "ghost": "#CBE3C6",
    "stain": {
     "paste": "#3B3326",
     "orange": "#D2691E",

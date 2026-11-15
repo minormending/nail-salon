@@ -47,5 +47,5 @@ export const TONES: { id: ToneId; label: string; skin: string; line: string }[] 
   { id: 't4', label: 'Medium', skin: '#B47A54', line: '#24121C' },
   { id: 't5', label: 'Medium deep', skin: '#83533A', line: '#1A0C12' },
   { id: 't6', label: 'Deepest', skin: '#553324', line: '#120709' },
-  { id: 't7', label: 'Green', skin: '#5AA64B', line: '#2B1A26' },
+  { id: 't7', label: 'Green', skin: '#8CC181', line: '#2B1A26' },
 ];

@@ -18,7 +18,7 @@ TONES = [  # id, label, skin, line
     ("t4", "Medium", "#B47A54", "#24121C"),
     ("t5", "Medium deep", "#83533A", "#1A0C12"),
     ("t6", "Deepest", "#553324", "#120709"),
-    ("t7", "Green", "#5AA64B", "#2B1A26"),
+    ("t7", "Green", "#8CC181", "#2B1A26"),
 ]
 
 
