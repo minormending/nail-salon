@@ -87,7 +87,7 @@ export const useStore = create<State & Actions>()(
       items: [],
       draftNails: emptyNailDesign(),
       draftHenna: emptyHennaDesign(),
-      settings: { remind: false, speed: 'real' },
+      settings: { remind: true, speed: 'real' },
       // A future paid unlock must keep the Studio open for these installs.
       earlyFamily: false,
       firstLaunchAt: 0,

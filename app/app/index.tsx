@@ -6,8 +6,11 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { Bunting } from '../src/components/Bunting';
 import { Button } from '../src/components/Button';
 import { HardDrop } from '../src/components/HardDrop';
+import { HennaHand } from '../src/components/HennaHand';
 import { IconButton } from '../src/components/IconButton';
+import { NailHand } from '../src/components/NailHand';
 import { Screen } from '../src/components/Screen';
+import { emptyNailDesign, useStore, type HennaDesign } from '../src/state/store';
 import { border, colors, fonts } from '../src/theme';
 
 function PaisleyMark() {
@@ -90,8 +93,13 @@ function PictureBox({ children }: { children?: React.ReactNode }) {
   );
 }
 
+// The art on the two room cards: almond nails all in magenta, and a finished three-part stencil.
+const SALON_ART = emptyNailDesign('almond', '#D81E5B');
+const STUDIO_ART: HennaDesign = { source: 'stencil', parts: ['gol', 'vines', 'cuff'] };
+
 export default function Home() {
   const router = useRouter();
+  const tone = useStore((s) => s.tone);
   const { width } = useWindowDimensions();
 
   return (
@@ -152,8 +160,9 @@ export default function Home() {
             blurbFont={fonts.bodySemi}
             onPress={() => router.push('/salon/nails')}
           >
-            {/* TODO(art): wire the almond-nail hand art (magenta almond nails) in here. */}
-            <PictureBox />
+            <PictureBox>
+              <NailHand design={SALON_ART} tone={tone} width={100} />
+            </PictureBox>
           </RoomCard>
 
           <RoomCard
@@ -166,8 +175,11 @@ export default function Home() {
             blurbFont={fonts.bodyBold}
             onPress={() => router.push('/studio')}
           >
-            {/* TODO(art): wire the finished reddish-brown henna hand art in here. */}
-            <PictureBox />
+            <PictureBox>
+              <View style={{ alignSelf: 'stretch', flex: 1, alignItems: 'center', paddingTop: 2 }}>
+                <HennaHand design={STUDIO_ART} tone={tone} width={112} stage="brown" />
+              </View>
+            </PictureBox>
           </RoomCard>
         </View>
 
