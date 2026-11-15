@@ -5,8 +5,8 @@ diagonal staircase -- each one a broad, foreshortened arc from its knuckle
 down-left to its nail -- so the nails step down to the right and hang in front
 of the fabric. The top of the silhouette IS the row of knuckle arcs.
 
-My own drawing in the pose nail charts use; not a trace. In the app the cloth
-is a salon towel, which is also where a label or a price can sit.
+My own drawing in the pose nail charts use; not a trace. The chart's cloth is
+gone: the hand ends in a wrist whose lines run off the bottom of the frame.
 """
 import numpy as np
 import twod as T
@@ -31,28 +31,15 @@ FINGERS = {
 THUMB = [(66, 286, 27.0), (64, 240, 26.0), (68, 194, 23.0), (76, 152, 19.5),
          (85, 116, 16.5), (93, 88, 14.6), (99, 68, 13.6)]
 
-# its top-left edge runs underneath the thumb, so no stray line shows between
-# the thumb and the index
-BODY = [(56, 250), (70, 170), (96, 112), (128, 100), (168, 124), (206, 158), (242, 194),
-        (276, 214), (298, 246), (304, 300), (56, 304)]
-
-# the towel: top edge runs behind the fingers and across the thumb's root
-def _cloth():
-    """Soft and irregular, inset from the frame, with a wavy hem: a towel the
-    hand is holding, not a bag it is standing in."""
-    rng = np.random.default_rng(7)
-    top = [(x, 286 + 6 * np.sin(x / 21.0) + rng.uniform(-2, 2) - 20 * max(0, (x - 262) / 44) ** 1.5)
-           for x in np.linspace(18, 306, 20)]
-    right = [(306 - 5 * np.sin(y / 23.0) - 0.04 * (y - 270), y) for y in np.linspace(270, 440, 7)][1:]
-    hem = [(x, 446 + 9 * np.sin(x / 17.0) + rng.uniform(-3, 3)) for x in np.linspace(298, 22, 16)]
-    left = [(20 + 6 * np.sin(y / 19.0), y) for y in np.linspace(440, 296, 7)][1:]
-    return top + right + hem + left
+# Back of the hand and wrist, open at the bottom. Its top-left edge runs
+# underneath the thumb, so no stray line shows between the thumb and the index;
+# its left edge comes out from under the thumb's outer edge and becomes the wrist.
+BODY = [(86, 476), (74, 430), (54, 380), (43, 330), (39, 292), (38.6, 266), (56, 250), (70, 170),
+        (96, 112), (128, 100), (168, 124), (206, 158), (242, 194), (276, 214), (298, 246),
+        (304, 300), (298, 345), (282, 395), (264, 440), (256, 476)]
 
 
-CLOTH = _cloth()
-
-
-def tube(spine, k=3, steps=12, bow=0.0):
+def tube(spine, k=3, steps=12, bow=0.0, open_base=None):
     C = T.catmull(spine, 18)
     if bow:
         # arch the finger over its knuckle: push the middle out to the upper right
@@ -74,7 +61,14 @@ def tube(spine, k=3, steps=12, bow=0.0):
                 for s in np.linspace(0, np.pi, steps)[1:-1]]
 
     pts = (T._dec(left, k) + arc(P[-1], R[-1], np.arctan2(nm[-1, 1], nm[-1, 0]))
-           + T._dec(list(right[::-1]), k) + arc(P[0], R[0], np.arctan2(-nm[0, 1], -nm[0, 0])))
+           + T._dec(list(right[::-1]), k))
+    if open_base:
+        # no cap at the root: both edges just stop, and the fill closes the gap.
+        # The inner edge stops sooner, where the thumb melts into the palm.
+        while pts[0][1] > open_base:
+            pts.pop(0)
+        return T.smooth([pts[0]] + pts + [pts[-1]], close=False), C
+    pts += arc(P[0], R[0], np.arctan2(-nm[0, 1], -nm[0, 0]))
     return T.smooth(pts), C
 
 
@@ -104,14 +98,12 @@ def wrinkle(C):
         c[0] + r * np.cos(a0), c[1] + r * np.sin(a0), r, r, c[0] + r * np.cos(a1), c[1] + r * np.sin(a1))
 
 
-def hand(shape="natural", lw=1.5, nail_attrs=None, towel=True):
+def hand(shape="natural", lw=1.5, nail_attrs=None):
     g = '<g fill="#FFFFFF" stroke="%s" stroke-width="%.2f" stroke-linejoin="round" stroke-linecap="round">' % (LINE, lw)
-    o = [g, '<path d="%s"/>' % T.smooth(BODY)]
-    th, thC = tube(THUMB)
+    o = [g, '<path d="%s" stroke="none"/>' % T.smooth(BODY),
+         '<path d="%s" fill="none"/>' % T.smooth([BODY[0]] + BODY + [BODY[-1]], close=False)]
+    th, thC = tube(THUMB, open_base=232)
     o.append('<path d="%s"/>' % th)
-    if towel:
-        o.append('<path d="%s"/>' % T.smooth(CLOTH))
-        o.append('<path d="M 284 300 C 278 336, 284 384, 290 440 M 44 318 C 52 352, 48 400, 40 446 " fill="none" stroke-width="%.2f"/>' % (lw * 0.7))
     frames = {"thumb": thC}
     for name in ("pinky", "ring", "middle", "index"):
         d, C = tube(FINGERS[name], bow=5.0)
@@ -137,9 +129,9 @@ def svg(shape="natural", bg="#FFFFFF", **kw):
 DIGITS = ("thumb", "pinky", "ring", "middle", "index")
 
 
-def body(lw=1.5, towel=True):
+def body(lw=1.5):
     """Everything except the nails -- the part that never changes with shape."""
-    full = hand("natural", lw=lw, towel=towel)
+    full = hand("natural", lw=lw)
     return full[:full.rindex('<g stroke=')]
 
 

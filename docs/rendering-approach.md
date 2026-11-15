@@ -25,8 +25,9 @@ you look at — shaded, heavily outlined, brightly manicured.
 Henna needs the back of the hand flat and the forearm free, so the henna canvas
 is the practice sheet. Nails need the fingertips turned toward you, so the nail
 chair uses the pose every nail chart uses: back of the hand, fingers curled
-over a towel in a diagonal staircase, nails stepping down to the right, thumb
-up. Both are fine line on white. Drawn in `tools/hand-2d/pose2.py` — my own
+in a diagonal staircase, nails stepping down to the right, thumb up. The charts
+show the hand gripping a towel; ours drops it and lets the wrist run off the
+bottom of the frame, which keeps the screen to the hand alone. Both are fine line on white. Drawn in `tools/hand-2d/pose2.py` — my own
 drawing in that pose, not a trace of any chart.
 
 Two things made the nail hand read as a hand rather than a glove: the fingers
