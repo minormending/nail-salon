@@ -811,12 +811,9 @@ function NailsLayer({
 export const HandArt = React.memo(function HandArt({
   which,
   tone,
-  arm = 0,
 }: {
   which: 'nailHand' | 'openHand';
   tone: ToneId;
-  /** Nail hand only: lengthens the forearm by this many art units below the drawing's bottom edge. */
-  arm?: number;
 }) {
   const t = TONES.find((x) => x.id === tone) ?? TONES[0];
   const art = vectors[which];
@@ -824,7 +821,6 @@ export const HandArt = React.memo(function HandArt({
     <>
       <Path d={art.skin} fill={t.skin} />
       <Path d={art.ink} fill={t.line} fillRule="evenodd" />
-      {arm > 0 && which === 'nailHand' ? <ArmExtension skin={t.skin} line={t.line} length={arm} /> : null}
     </>
   );
 });
@@ -843,12 +839,10 @@ const ARM_OVERLAP = 16;
 export const CHAIR_ARM = 1500;
 
 /**
- * Carries both forearm outlines straight down below the drawing: skin first, then the two outline
- * bands over it, laid over the drawing's last rows so the join does not show.
+ * Carries both forearm outlines straight down below the drawing, from `y0` to `y1` (art units):
+ * skin first, then the two outline bands over it.
  */
-function ArmExtension({ skin, line, length }: { skin: string; line: string; length: number }) {
-  const y0 = ARM_BOTTOM - ARM_OVERLAP;
-  const y1 = ARM_BOTTOM + length;
+function ArmExtension({ skin, line, y0, y1 }: { skin: string; line: string; y0: number; y1: number }) {
   const l = (y: number) => ARM_L.a + ARM_L.b * y - 0.5;
   const r = (y: number) => ARM_R.a + ARM_R.b * y + 0.5;
   const quad = (xa: (y: number) => number, xb: (y: number) => number) =>
@@ -876,7 +870,7 @@ function HandSvg({
   design: NailDesign;
   tone: ToneId;
   hands: Hands;
-  /** Art units of extra forearm below the drawing (the Svg then paints past its bottom edge). */
+  /** Art units of extra forearm below the drawing, in a second Svg of its own below the first. */
   arm?: number;
   /** Size to draw at. */
   width: number;
@@ -892,21 +886,44 @@ function HandSvg({
   const { line, sw } = ink(tone, logicalWidth, span.w);
   const viewBox = crop ? `${crop.x} ${crop.y} ${crop.w} ${crop.h}` : `${span.x0} ${VB[1]} ${span.w} ${VB[3]}`;
 
+  // The longer forearms are a second Svg of their own, just below the first and sized to hold them
+  // (Android's Svg paints nothing outside its own bounds). Same art-to-screen mapping as the first.
+  const k = width / (crop ? crop.w : span.w);
+  const vx = crop ? crop.x : span.x0;
+  const vy = crop ? crop.y : VB[1];
+  const vw = crop ? crop.w : span.w;
+  const aTop = (ARM_BOTTOM - ARM_OVERLAP - vy) * k;
+  // (in the crisp window nothing below the window's bottom edge is needed)
+  const aH = crop ? Math.min(arm * k, crop.height - aTop) : arm * k;
+  const aY0 = ARM_BOTTOM - ARM_OVERLAP;
+  const t = TONES.find((x) => x.id === tone) ?? TONES[0];
+
   return (
-    <Svg
-      width={width}
-      height={height}
-      viewBox={viewBox}
-      accessibilityLabel={label}
-      style={arm > 0 ? { overflow: 'visible' } : undefined}
-    >
-      {handsIn(hands).map((h) => (
-        <G key={h} transform={handTransform(h, hands)}>
-          <HandArt which="nailHand" tone={tone} arm={arm} />
-          <NailsLayer design={design} hand={h} uid={`${uid}${h[0]}`} line={line} sw={sw} />
-        </G>
-      ))}
-    </Svg>
+    <>
+      <Svg width={width} height={height} viewBox={viewBox} accessibilityLabel={label}>
+        {handsIn(hands).map((h) => (
+          <G key={h} transform={handTransform(h, hands)}>
+            <HandArt which="nailHand" tone={tone} />
+            <NailsLayer design={design} hand={h} uid={`${uid}${h[0]}`} line={line} sw={sw} />
+          </G>
+        ))}
+      </Svg>
+      {arm > 0 && aH > 0 ? (
+        <Svg
+          pointerEvents="none"
+          width={width}
+          height={aH}
+          viewBox={`${vx} ${aY0} ${vw} ${aH / k}`}
+          style={{ position: 'absolute', left: 0, top: aTop }}
+        >
+          {handsIn(hands).map((h) => (
+            <G key={h} transform={handTransform(h, hands)}>
+              <ArmExtension skin={t.skin} line={t.line} y0={aY0} y1={aY0 + aH / k} />
+            </G>
+          ))}
+        </Svg>
+      ) : null}
+    </>
   );
 }
 
