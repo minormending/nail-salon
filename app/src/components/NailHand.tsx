@@ -23,7 +23,7 @@ import Svg, {
 import vectors from '../art/handVectors.json';
 import nails from '../art/nails.json';
 import { NAIL_ORDER, lookOf, nailKey, nailSpokenName, sameNail, withLook, type NailRef } from '../lib/nailNames';
-import { DIGITS, handNails, type Digit, type Hand, type NailDesign, type NailLook, type ToneId } from '../state/store';
+import { DIGITS, handNails, lookShape, type Digit, type Hand, type NailDesign, type NailLook, type ToneId } from '../state/store';
 import { colors, TONES } from '../theme';
 
 /* ------------------------------------------------------------------ geometry */
@@ -788,7 +788,7 @@ function NailsLayer({
     <>
       {DIGITS.map((dg) => {
         const p = PLACES[dg];
-        const d = nailPath(design.shape, dg);
+        const d = nailPath(lookShape(design, hand, dg), dg);
         const look = looks[dg];
         const k = 1 / closeK(d);
         const { len, hw } = nailMetrics(d);
@@ -990,9 +990,13 @@ type Fx = {
   id: number;
   nail: NailRef;
   /** A brush stroke of new polish / pattern, a sticker set down or lifted off by tweezers, or (reduce motion) a cross-fade. */
-  kind: 'paint' | 'pop' | 'unpop' | 'fade';
-  /** The nail as it ends up. */
+  kind: 'paint' | 'pop' | 'unpop' | 'fade' | 'reshape';
+  /** The nail as it ends up, and the shape it ends up in. */
   to: NailLook;
+  shape: string;
+  /** reshape: the nail as it was, fading out over the new one. */
+  fromLook?: NailLook;
+  fromShape?: string;
   /** The sticker that is placed / removed. */
   sticker?: StickerPos;
   /** A wet-sheen glint after a new colour. */
@@ -1004,7 +1008,9 @@ type Fx = {
 };
 
 const fxMs = (fx: Fx) =>
-  fx.kind === 'fade'
+  fx.kind === 'reshape'
+    ? GHOST_MS
+    : fx.kind === 'fade'
     ? FADE_MS
     : fx.kind === 'paint'
       ? FLY_MS + STROKE_MS + (fx.glint ? GLINT_MS : LIFT_MS)
@@ -1088,7 +1094,6 @@ const TweezerArm = React.memo(function TweezerArm({ side }: { side: -1 | 1 }) {
  */
 const FxLayer = React.memo(function FxLayer({
   fx,
-  shape,
   uid,
   line,
   sw,
@@ -1098,7 +1103,6 @@ const FxLayer = React.memo(function FxLayer({
   onDone,
 }: {
   fx: Fx;
-  shape: string;
   uid: string;
   line: string;
   sw: number;
@@ -1122,7 +1126,9 @@ const FxLayer = React.memo(function FxLayer({
   const { digit, hand } = fx.nail;
   const p = PLACES[digit];
   const mirrored = hand === 'right';
-  const d = nailPath(shape, digit);
+  // (A reshape draws the nail as it was, fading out over the new one.)
+  const d = nailPath(fx.kind === 'reshape' ? (fx.fromShape ?? fx.shape) : fx.shape, digit);
+  const shown = fx.kind === 'reshape' ? (fx.fromLook ?? fx.to) : fx.to;
   const { len, hw, bot } = nailMetrics(d);
   const unit = 1 / closeK(d);
   const rho = mirrored ? -p.rotate : p.rotate;
@@ -1177,6 +1183,7 @@ const FxLayer = React.memo(function FxLayer({
     return { transform: [{ translateY: (Hr + band) * g }] };
   });
   const fade = useAnimatedStyle(() => ({ opacity: clamp01(prog.value / FADE_MS) }));
+  const fadeOut = useAnimatedStyle(() => ({ opacity: 1 - easeOut(prog.value / GHOST_MS) }));
 
   // ---- tools
   const start = fx.from ?? { x: A.x + 90, y: A.y - 90 };
@@ -1290,14 +1297,14 @@ const FxLayer = React.memo(function FxLayer({
     </Svg>
   ) : null;
 
-  if (fx.kind === 'fade') {
+  if (fx.kind === 'fade' || fx.kind === 'reshape') {
     return (
-      <Animated.View pointerEvents="none" style={[frameStyle, fade]}>
+      <Animated.View pointerEvents="none" style={[frameStyle, fx.kind === 'reshape' ? fadeOut : fade]}>
         <View style={plateBox}>
           <Svg width={w * k} height={Hr} viewBox={plateView}>
             <G transform={flip}>
-              <NailPaint uid={`${uid}p`} d={d} look={fx.to} line={line} strokeWidth={sw} unit={unit} />
-              <NailStickers uid={`${uid}q`} d={d} stickers={fx.to.stickers} hw={hw} len={len} />
+              <NailPaint uid={`${uid}p`} d={d} look={shown} line={line} strokeWidth={sw} unit={unit} />
+              <NailStickers uid={`${uid}q`} d={d} stickers={shown.stickers} hw={hw} len={len} />
             </G>
           </Svg>
         </View>
@@ -1705,6 +1712,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
   const height = VB[3] * scale;
   const uid = useId().replace(/[^A-Za-z0-9]/g, '');
   const { line, sw } = ink(tone, width, span.w);
+  const shapeOf = (n: NailRef) => lookShape(design, n.hand, n.digit);
 
   // The halo on the selected nail: a new one fades in, the previous one fades out and is dropped.
   const zoomKey = zoom ? nailKey(zoom) : null;
@@ -1760,33 +1768,39 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
     if (old === design) return;
     const wasReset = live.current.resetN !== lastReset.current;
     lastReset.current = live.current.resetN;
-    if (old.shape !== design.shape) {
-      setBase(design);
-      setFx(null);
-      setGhost({ id: ++seq.current, design: old });
-      return;
-    }
+    const eff = (d: NailDesign, n: NailRef) => lookShape(d, n.hand, n.digit);
+    const reshaped = NAIL_ORDER.filter((n) => eff(old, n) !== eff(design, n));
     const changed = NAIL_ORDER.filter((n) => !sameLook(lookOf(old, n), lookOf(design, n)));
-    if (!changed.length) return;
-    const instant = () => {
-      setBase(design);
-      setFx(null);
-    };
     const { crisp: on, reduceMotion: calm, toolFrom: tf } = live.current;
-    if (changed.length > 1 || wasReset) {
-      // Start again: whatever was playing lands, and the old look fades out over the new.
+    const fadeOld = () => {
+      // Several nails at once (a shape, a whole-hands colour, Start again): whatever was playing
+      // lands, and the old look fades out over the new.
       setBase(design);
       setFx(null);
       setGhost({ id: ++seq.current, design: old });
+    };
+    if (!reshaped.length && !changed.length) return;
+    if (wasReset || reshaped.length > 1 || changed.length > 1) return fadeOld();
+    const one = reshaped[0] ?? changed[0];
+    if (!zoomRef.current) return fadeOld();
+    if (!on || !sameNail(one, zoomRef.current)) {
+      setBase(design);
+      setFx(null);
       return;
     }
-    if (!on || !zoomRef.current || !sameNail(changed[0], zoomRef.current)) return instant();
-    const nail = changed[0];
+    const nail = one;
     const a = lookOf(old, nail);
     const b = lookOf(design, nail);
+    const id = ++seq.current;
+    const shape = eff(design, nail);
+    if (reshaped.length) {
+      // This nail's own shape changed: the old nail fades out over the new one.
+      setBase(design);
+      setFx({ id, nail, kind: calm ? 'fade' : 'reshape', to: b, shape, fromLook: a, fromShape: eff(old, nail) });
+      return;
+    }
     let next: Fx | null = null;
     let baseLook = b;
-    const id = ++seq.current;
     if (a.color !== b.color || a.pattern !== b.pattern) {
       baseLook = a;
       const mark = b.pattern === 'french' ? '#FFFFFF' : b.pattern === 'plain' ? b.color : isLight(b.color) ? colors.plum : colors.cream;
@@ -1795,6 +1809,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
         nail,
         kind: calm ? 'fade' : 'paint',
         to: b,
+        shape,
         glint: a.color !== b.color,
         bristle: a.color !== b.color ? b.color : mark,
         from: tf ? { x: tf.x, y: tf.y } : undefined,
@@ -1803,13 +1818,17 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
       let i = a.stickers.findIndex((s, j) => !b.stickers[j] || JSON.stringify(s) !== JSON.stringify(b.stickers[j]));
       if (i < 0) i = a.stickers.length - 1;
       baseLook = calm ? a : b;
-      next = { id, nail, kind: calm ? 'fade' : 'unpop', to: b, sticker: a.stickers[i] };
+      next = { id, nail, kind: calm ? 'fade' : 'unpop', to: b, shape, sticker: a.stickers[i] };
     } else if (b.stickers.length) {
       const last = b.stickers[b.stickers.length - 1];
       baseLook = calm ? a : { ...b, stickers: b.stickers.slice(0, -1) };
-      next = { id, nail, kind: calm ? 'fade' : 'pop', to: b, sticker: last };
+      next = { id, nail, kind: calm ? 'fade' : 'pop', to: b, shape, sticker: last };
     }
-    if (!next) return instant();
+    if (!next) {
+      setBase(design);
+      setFx(null);
+      return;
+    }
     // Anything still playing lands at once; this one starts.
     setBase(designOf(design.shape, (n) => (sameNail(n, nail) ? baseLook : lookOf(design, n))));
     setFx(next);
@@ -1837,7 +1856,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
   let ty = 0;
   let sc = 1;
   if (zoom) {
-    const c = pairNailCentre(zoom, design.shape);
+    const c = pairNailCentre(zoom, shapeOf(zoom));
     sc = Math.max(ZOOM, ZOOM_PX / scale);
     tx = -sc * ((c.x - span.x0) * scale - width / 2);
     ty = -sc * ((c.y - VB[1]) * scale - height / 2) - shift;
@@ -1871,7 +1890,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
   let win: { left: number; top: number; w: number; h: number; crop: { x: number; y: number; w: number; h: number; height: number } } | null = null;
   if (crisp && zoom && view) {
     // The window is the canvas, centred on the nail; it shows the art at `scale * sc` px a unit.
-    const c = pairNailCentre(zoom, design.shape);
+    const c = pairNailCentre(zoom, shapeOf(zoom));
     const aw = view.w / (scale * sc);
     const ah = view.h / (scale * sc);
     win = {
@@ -1889,7 +1908,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
         <HaloLayer
           key={h.id}
           halo={h}
-          shape={design.shape}
+          shape={lookShape(design, h.nail.hand, h.nail.digit)}
           line={line}
           sw={sw}
           frame={frame}
@@ -1921,7 +1940,6 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
             <FxLayer
               key={fx.id}
               fx={fx}
-              shape={design.shape}
               uid={`${uid}f${fx.id}`}
               line={line}
               sw={sw}
@@ -1968,11 +1986,11 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
       )}
       {/* Screen readers: one invisible button per nail (the touch layer above them is skipped). */}
       {NAIL_ORDER.map((n) => {
-        const c = pairNailCentre(n, design.shape);
+        const c = pairNailCentre(n, shapeOf(n));
         return (
           <Pressable
             key={nailKey(n)}
-            onPress={() => (sameNail(n, zoom) ? onNailTap?.(nailFrame(n.digit, design.shape).centre) : onNailPress(n))}
+            onPress={() => (sameNail(n, zoom) ? onNailTap?.(nailFrame(n.digit, shapeOf(n)).centre) : onNailPress(n))}
             accessibilityRole="button"
             accessibilityLabel={`${nailSpokenName(n)} nail`}
             accessibilityState={{ selected: sameNail(zoom, n) }}
@@ -2008,7 +2026,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
             // On (or just off) the zoomed nail: that is a touch on the nail. Otherwise a
             // neighbouring nail glides in; nothing near any nail zooms out.
             const lo = toNailLocal(zoom, vx, vy);
-            const spot = spotOnNail(zoom.digit, design.shape, lo.x, lo.y);
+            const spot = spotOnNail(zoom.digit, shapeOf(zoom), lo.x, lo.y);
             if (spot) {
               onNailTap?.(spot);
               return;
@@ -2031,11 +2049,11 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
 /* ------------------------------------------------------------- small drawings */
 
 /** A nail shape as a button icon (so a child who can't read picks by shape), filled with `fill`. */
-export function ShapeIcon({ shape, fill }: { shape: string; fill: string }) {
+export function ShapeIcon({ shape, fill, size = 1 }: { shape: string; fill: string; size?: number }) {
   const d = nailPath(shape, 'middle');
   const s = 5.5 / nailMetrics(nailPath('natural', 'middle')).hw;
   return (
-    <Svg width={17} height={36} viewBox="-7.5 -26.5 15 31">
+    <Svg width={17 * size} height={36 * size} viewBox="-7.5 -26.5 15 31">
       <G transform={`scale(${s})`}>
         <Path d={d} fill={fill} stroke={colors.plum} strokeWidth={1.6 / s} strokeLinejoin="round" />
       </G>
@@ -2055,10 +2073,10 @@ export const PATTERNS: { id: NailLook['pattern']; name: string; color: string }[
 ];
 
 /** A little nail showing what a pattern looks like, for the Pattern buttons. */
-export function PatternIcon({ pattern, color }: { pattern: NailLook['pattern']; color: string }) {
+export function PatternIcon({ pattern, color, size = 1 }: { pattern: NailLook['pattern']; color: string; size?: number }) {
   const uid = 'ico' + useId().replace(/[^A-Za-z0-9]/g, '');
   return (
-    <Svg width={18} height={30} viewBox="-7.5 -21 15 26">
+    <Svg width={18 * size} height={30 * size} viewBox="-7.5 -21 15 26">
       <NailPaint uid={uid} d={NAIL_ICON} look={{ color, pattern }} line={colors.plum} strokeWidth={1.6} unit={5 / 26} />
     </Svg>
   );

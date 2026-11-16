@@ -126,9 +126,11 @@ function HennaNails({
       >
         {DIGITS.map((dg) => {
           const p = PLACES[dg];
-          const d = openPath(shape, dg);
           const look = looks[dg];
-          const chairD = nailPath(shape, dg);
+          // Each nail in its own shape (or the design's).
+          const nailShape = look.shape ?? shape;
+          const d = openPath(nailShape, dg);
+          const chairD = nailPath(nailShape, dg);
           const chair = nailMetrics(chairD);
           const open = nailMetrics(d);
           // chair nail -> this nail, for the pattern tiles

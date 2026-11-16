@@ -1,5 +1,5 @@
 import type { Digit, Hand, NailDesign, NailLook } from '../state/store';
-import { DIGITS, HANDS, handNails } from '../state/store';
+import { BARE_NAIL, DIGITS, HANDS, handNails, lookShape } from '../state/store';
 
 /** The polish bottles in the Salon, by their names in the canvas. */
 export const BOTTLES: { name: string; hex: string }[] = [
@@ -124,21 +124,34 @@ export function nearestBottle(hex: string): { name: string; hex: string } {
   return best;
 }
 
-/** "Turquoise stilettos": the colour most nails wear plus the shape. Three or more colours is "Rainbow". */
+/**
+ * "Turquoise stilettos": the colour most nails wear plus the shape most nails have. Bare nails do not
+ * count for colour (all bare is "Bare nails"); three or more colours is "Rainbow".
+ */
 export function nailName(design: NailDesign): string {
   const counts = new Map<string, number>();
   const order: string[] = [];
+  const shapes = new Map<string, number>();
+  const shapeOrder: string[] = [];
   // Right hand first (thumb to little finger), so a tie goes to the colour the right thumb wears.
   const all: NailRef[] = [...DIGITS.map((digit) => ({ hand: 'right' as const, digit })), ...DIGITS.map((digit) => ({ hand: 'left' as const, digit }))];
   for (const r of all) {
-    const name = nearestBottle(lookOf(design, r).color).name;
+    const look = lookOf(design, r);
+    const sh = lookShape(design, r.hand, r.digit);
+    if (!shapes.has(sh)) shapeOrder.push(sh);
+    shapes.set(sh, (shapes.get(sh) ?? 0) + 1);
+    if (look.color.toUpperCase() === BARE_NAIL) continue;
+    const name = nearestBottle(look.color).name;
     if (!counts.has(name)) order.push(name);
     counts.set(name, (counts.get(name) ?? 0) + 1);
   }
+  if (!order.length) return 'Bare nails';
   let colour = order[0];
   if (order.length >= 3) colour = 'Rainbow';
   else {
     for (const name of order) if ((counts.get(name) ?? 0) > (counts.get(colour) ?? 0)) colour = name;
   }
-  return `${colour} ${shapePlural(design.shape)}`;
+  let shape = shapeOrder[0];
+  for (const sh of shapeOrder) if ((shapes.get(sh) ?? 0) > (shapes.get(shape) ?? 0)) shape = sh;
+  return `${colour} ${shapePlural(shape)}`;
 }

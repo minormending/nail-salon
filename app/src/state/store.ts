@@ -17,12 +17,19 @@ export type NailLook = {
    * (y is negative toward the tip). Without it they are the old close-up's canvas coordinates.
    */
   stickers: { kind: string; x: number; y: number; frame?: 'nail' }[];
+  /** This nail's own shape; missing means the design's `shape`. */
+  shape?: string;
+  /**
+   * True once the child changed THIS nail while zoomed on it (colour, shape, pattern or stickers).
+   * The whole-hands colour and shape taps only reach nails that are not styled yet.
+   */
+  styled?: boolean;
 };
 /** The two hands. The drawn nail-chair hand is a right hand; the drawn open hand is a left hand. */
 export type Hand = 'left' | 'right';
 export const HANDS: Hand[] = ['left', 'right'];
 /**
- * Both hands share one shape. `nails` is the right hand (the drawn nail-chair hand, and every
+ * `shape` is the default shape ("all nails"); a nail can have its own (`NailLook.shape`). `nails` is the right hand (the drawn nail-chair hand, and every
  * design saved before there were two hands); `left` is the left hand, missing in older saves,
  * which then show a bare left hand.
  */
@@ -95,10 +102,13 @@ export type Actions = {
   setSettings: (patch: Partial<Settings>) => void;
 };
 
+/** The magenta nails every design used to start with (kept to recognise untouched old saves). */
 export const DEFAULT_POLISH = '#D81E5B';
+/** A pale natural nail: what a nail looks like before any polish, fine on every skin tone. */
+export const BARE_NAIL = '#F7E6DA';
 
-export function emptyNailDesign(shape = 'almond', color = DEFAULT_POLISH): NailDesign {
-  const look = (): NailLook => ({ color, pattern: 'plain', stickers: [] });
+export function emptyNailDesign(shape = 'oval', color = BARE_NAIL): NailDesign {
+  const look = (): NailLook => ({ color, pattern: 'plain', stickers: [], styled: false });
   return {
     shape,
     nails: { thumb: look(), index: look(), middle: look(), ring: look(), pinky: look() },
@@ -110,8 +120,13 @@ export function emptyNailDesign(shape = 'almond', color = DEFAULT_POLISH): NailD
 export function handNails(design: NailDesign, hand: Hand): Record<Digit, NailLook> {
   if (hand === 'right') return design.nails;
   if (design.left) return design.left;
-  const bare = (): NailLook => ({ color: '#FFFFFF', pattern: 'plain', stickers: [] });
+  const bare = (): NailLook => ({ color: '#FFFFFF', pattern: 'plain', stickers: [], styled: false });
   return { thumb: bare(), index: bare(), middle: bare(), ring: bare(), pinky: bare() };
+}
+
+/** The shape a nail is drawn in: its own, or the design's default. */
+export function lookShape(design: NailDesign, hand: Hand, digit: Digit): string {
+  return handNails(design, hand)[digit].shape ?? design.shape;
 }
 
 /** Which hand a Studio mark is on (older marks were all drawn on the left hand). */
@@ -121,8 +136,27 @@ export function emptyHennaDesign(source: HennaDesign['source'] = 'stencil'): Hen
   return { source, parts: [], strokes: [], stamps: [], mirror: false };
 }
 
-/** Version 1 kept a single shared `draftHenna`; version 2 splits it by source. */
-export const STORE_VERSION = 2;
+/**
+ * Version 1 kept a single shared `draftHenna`; version 2 splits it by source; version 3 adds
+ * per-nail shapes and `styled`.
+ */
+export const STORE_VERSION = 3;
+
+/** Old designs: a nail that still looks untouched (magenta, plain, no stickers) is not styled; any other is. */
+function withStyledFlags(design: NailDesign | undefined): NailDesign | undefined {
+  if (!design || typeof design !== 'object' || !design.nails) return design;
+  const fix = (hand?: Record<Digit, NailLook>) =>
+    hand &&
+    (Object.fromEntries(
+      DIGITS.map((d) => {
+        const l = hand[d];
+        if (!l || l.styled !== undefined) return [d, l];
+        const untouched = l.color?.toUpperCase() === DEFAULT_POLISH && l.pattern === 'plain' && !l.stickers?.length;
+        return [d, { ...l, styled: !untouched }];
+      }),
+    ) as Record<Digit, NailLook>);
+  return { ...design, nails: fix(design.nails) as Record<Digit, NailLook>, left: fix(design.left) };
+}
 
 /**
  * Moves a persisted v1 `draftHenna` into `draftStencil` or `draftStudio` (whichever matches its
@@ -130,16 +164,24 @@ export const STORE_VERSION = 2;
  */
 export function migrateStore(persisted: unknown, version: number): unknown {
   if (!persisted || typeof persisted !== 'object') return persisted;
-  const old = persisted as Record<string, unknown>;
-  if (version >= 2) return old;
-  const { draftHenna, ...rest } = old;
-  const d = draftHenna as HennaDesign | undefined;
-  const has = d && typeof d === 'object';
-  return {
-    ...rest,
-    draftStencil: has && d.source !== 'studio' ? d : emptyHennaDesign('stencil'),
-    draftStudio: has && d.source === 'studio' ? d : emptyHennaDesign('studio'),
-  };
+  let old = persisted as Record<string, unknown>;
+  if (version < 2) {
+    const { draftHenna, ...rest } = old;
+    const d = draftHenna as HennaDesign | undefined;
+    const has = d && typeof d === 'object';
+    old = {
+      ...rest,
+      draftStencil: has && d.source !== 'studio' ? d : emptyHennaDesign('stencil'),
+      draftStudio: has && d.source === 'studio' ? d : emptyHennaDesign('studio'),
+    };
+  }
+  if (version < 3) {
+    const items = Array.isArray(old.items)
+      ? (old.items as Item[]).map((it) => (it.nails ? { ...it, nails: withStyledFlags(it.nails) } : it))
+      : old.items;
+    old = { ...old, items, draftNails: withStyledFlags(old.draftNails as NailDesign | undefined) };
+  }
+  return old;
 }
 
 export const useStore = create<State & Actions>()(
