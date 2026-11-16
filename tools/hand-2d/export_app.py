@@ -19,7 +19,7 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import codexhand as CH, nails as NL, openhand as OH, skintones as ST, sheetbuild as SB, vectorize as VZ
+import codexhand as CH, hennastyles as HS, nails as NL, openhand as OH, skintones as ST, sheetbuild as SB, vectorize as VZ
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 ORIG = os.path.join(ROOT, "art-private", "original")
@@ -246,6 +246,26 @@ def export_henna():
     print("partBounds", bounds)
 
 
+def export_henna_styles():
+    """Add the Salon stencil's designs to henna.json (hennastyles.py): five per position of the
+    open hand. Only adds keys -- sections, styles, designs, designBounds, sectionHit -- and
+    leaves every existing key as it was. Run after export_henna."""
+    path = os.path.join(ART, "henna.json")
+    out = json.load(open(path))
+    defs = out["defs"]
+    designs = {sec: {i: plain(f) for i, f in d.items()} for sec, d in HS.all_designs().items()}
+    bounds = {sec: {i: render_bbox(defs, f) for i, f in d.items()} for sec, d in designs.items()}
+    out.update({
+        "sections": HS.SECTIONS,
+        "styles": {g: HS.style_list(g) for g in ("gol", "finger", "cuff")},
+        "designs": designs,
+        "designBounds": bounds,
+        "sectionHit": HS.section_hit(),
+    })
+    json.dump(out, open(path, "w"), indent=1)
+    print("henna styles: %d designs" % sum(len(d) for d in designs.values()))
+
+
 # ---------------------------------------------------------------- vector hands
 def export_vector_hands():
     """Both hands as crisp vector paths (ink + skin) in raster pixel coordinates."""
@@ -258,5 +278,6 @@ if __name__ == "__main__":
     export_nails()
     export_open_nails()
     export_henna()
+    export_henna_styles()
     export_vector_hands()
     print("ok")

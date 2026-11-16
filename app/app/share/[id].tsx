@@ -157,7 +157,10 @@ export default function Share() {
               >
                 {item.name}
               </Text>
-              <Text style={{ fontFamily: fonts.bodyHeavy, fontSize: 11.5, letterSpacing: 0.5, color: frame.ink }}>
+              <Text
+                numberOfLines={1}
+                style={{ flexShrink: 0, fontFamily: fonts.bodyHeavy, fontSize: 11.5, letterSpacing: 0.5, color: frame.ink }}
+              >
                 {caption}
               </Text>
             </View>

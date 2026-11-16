@@ -14,6 +14,7 @@ import {
   VB_W,
   overlayXml,
   pairWidth,
+  sectionList,
   splitHands,
   type HennaStage,
   type PartId,
@@ -162,6 +163,13 @@ type Props = {
   overlay?: ReactNode;
   /** Lengthens the forearms by this many viewBox units below the raster's bottom (0: as drawn). */
   armExtend?: number;
+  /** Drawn on each hand between the skin and the henna (e.g. a highlight behind the chosen section). */
+  under?: ReactNode;
+  /**
+   * A stencil with sections: draw the sections still to ink as dashed guides (the Salon). Off, only
+   * the inked sections show (a saved henna). Stencils with the old `parts` always show their guides.
+   */
+  guides?: boolean;
 };
 
 /** One hand: the raster, its henna overlay and (if given) its nails. */
@@ -173,6 +181,7 @@ function OneHand({
   nails,
   overlay,
   armExtend = 0,
+  under,
 }: {
   hand: Hand;
   xml: string;
@@ -181,12 +190,14 @@ function OneHand({
   nails?: NailDesign;
   overlay?: ReactNode;
   armExtend?: number;
+  under?: ReactNode;
 }) {
   const height = (VB_H * width) / VB_W;
   return (
     <View style={{ width, height, overflow: nails || armExtend > 0 ? 'visible' : 'hidden' }}>
       <View style={{ width, height, overflow: 'hidden' }}>
         <HandRaster tone={tone} width={width} />
+        {under}
         <SvgXml xml={xml} width={width} height={height} style={{ position: 'absolute', left: 0, top: 0 }} />
         {overlay}
       </View>
@@ -204,10 +215,11 @@ function OneHand({
  * on the hand it was made on, clipped to the hand. The right hand is the left hand mirrored, so
  * a mark keeps its own-hand coordinates there and the nails too.
  */
-export function HennaHand({ design, tone, width, stage, nails, hands = 'both', overlay, armExtend }: Props) {
+export function HennaHand({ design, tone, width, stage, nails, hands = 'both', overlay, armExtend, under, guides = false }: Props) {
   const height = (VB_H * width) / VB_W;
   const both = hands === 'both';
   const parts = design.parts;
+  const sections = design.sections;
   const strokes = design.strokes;
   const stamps = design.stamps;
   const xml = useMemo(() => {
@@ -218,6 +230,10 @@ export function HennaHand({ design, tone, width, stage, nails, hands = 'both', o
         right: overlayXml({ tone, stage, layers: marks.right }),
       };
     }
+    if (sections) {
+      const one = overlayXml({ tone, stage, sections: sectionList(sections, !guides) });
+      return { left: one, right: one };
+    }
     const inked = (parts ?? []) as PartId[];
     const one = overlayXml({
       tone,
@@ -226,12 +242,12 @@ export function HennaHand({ design, tone, width, stage, nails, hands = 'both', o
       guides: PARTS.map((p) => p.id).filter((id) => !inked.includes(id)),
     });
     return { left: one, right: one };
-  }, [design.source, parts, strokes, stamps, tone, stage]);
+  }, [design.source, parts, sections, guides, strokes, stamps, tone, stage]);
 
   if (!both) {
     return (
       <View style={{ width, height }}>
-        <OneHand hand="left" xml={xml.left} tone={tone} width={width} nails={nails} overlay={overlay} armExtend={armExtend} />
+        <OneHand hand="left" xml={xml.left} tone={tone} width={width} nails={nails} overlay={overlay} armExtend={armExtend} under={under} />
       </View>
     );
   }
@@ -239,7 +255,7 @@ export function HennaHand({ design, tone, width, stage, nails, hands = 'both', o
   return (
     <View style={{ width: pairWidth(width), height }}>
       <View style={{ position: 'absolute', left: -pad, top: 0, width, height }}>
-        <OneHand hand="left" xml={xml.left} tone={tone} width={width} nails={nails} overlay={overlay} armExtend={armExtend} />
+        <OneHand hand="left" xml={xml.left} tone={tone} width={width} nails={nails} overlay={overlay} armExtend={armExtend} under={under} />
       </View>
       <View
         style={{
@@ -251,7 +267,7 @@ export function HennaHand({ design, tone, width, stage, nails, hands = 'both', o
           transform: [{ scaleX: -1 }],
         }}
       >
-        <OneHand hand="right" xml={xml.right} tone={tone} width={width} nails={nails} overlay={overlay} armExtend={armExtend} />
+        <OneHand hand="right" xml={xml.right} tone={tone} width={width} nails={nails} overlay={overlay} armExtend={armExtend} under={under} />
       </View>
     </View>
   );

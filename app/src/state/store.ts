@@ -3,6 +3,7 @@ import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { defaultSections, sectionsFromParts } from '../lib/hennaSections';
 import type { ToneId } from '../theme';
 
 export type { ToneId };
@@ -56,9 +57,15 @@ export type Stamp = {
   /** The hand it's on, in that hand's own drawing coordinates; missing means left (older saves). */
   hand?: Hand;
 };
+/** The Salon stencil's sections: the back of the hand, the five fingers, the wrist. */
+export type Section = 'gol' | 'thumb' | 'index' | 'middle' | 'ring' | 'pinky' | 'cuff';
+export type SectionState = { style: string; inked: boolean };
 export type HennaDesign = {
   source: 'stencil' | 'studio';
+  /** Old stencils (before sections): which of the three parts were inked. Read only when `sections` is missing. */
   parts?: ('gol' | 'vines' | 'cuff')[];
+  /** The stencil's sections, each in its chosen style, inked or still a ghost guide. */
+  sections?: Partial<Record<Section, SectionState>>;
   strokes?: Stroke[];
   stamps?: Stamp[];
   mirror?: boolean;
@@ -133,14 +140,15 @@ export function lookShape(design: NailDesign, hand: Hand, digit: Digit): string 
 export const markHand = (m: { hand?: Hand }): Hand => m.hand ?? 'left';
 
 export function emptyHennaDesign(source: HennaDesign['source'] = 'stencil'): HennaDesign {
+  if (source === 'stencil') return { source, sections: defaultSections(), strokes: [], stamps: [], mirror: false };
   return { source, parts: [], strokes: [], stamps: [], mirror: false };
 }
 
 /**
  * Version 1 kept a single shared `draftHenna`; version 2 splits it by source; version 3 adds
- * per-nail shapes and `styled`.
+ * per-nail shapes and `styled`; version 4 turns a stencil's `parts` into `sections`.
  */
-export const STORE_VERSION = 3;
+export const STORE_VERSION = 4;
 
 /** Old designs: a nail that still looks untouched (magenta, plain, no stickers) is not styled; any other is. */
 function withStyledFlags(design: NailDesign | undefined): NailDesign | undefined {
@@ -156,6 +164,13 @@ function withStyledFlags(design: NailDesign | undefined): NailDesign | undefined
       }),
     ) as Record<Digit, NailLook>);
   return { ...design, nails: fix(design.nails) as Record<Digit, NailLook>, left: fix(design.left) };
+}
+
+/** An old stencil (inked `parts`) as one with sections; anything else passes through. */
+function withSections(design: HennaDesign | undefined): HennaDesign | undefined {
+  if (!design || typeof design !== 'object' || design.source === 'studio' || design.sections) return design;
+  const { parts, ...rest } = design;
+  return { ...rest, sections: sectionsFromParts(parts) };
 }
 
 /**
@@ -180,6 +195,12 @@ export function migrateStore(persisted: unknown, version: number): unknown {
       ? (old.items as Item[]).map((it) => (it.nails ? { ...it, nails: withStyledFlags(it.nails) } : it))
       : old.items;
     old = { ...old, items, draftNails: withStyledFlags(old.draftNails as NailDesign | undefined) };
+  }
+  if (version < 4) {
+    const items = Array.isArray(old.items)
+      ? (old.items as Item[]).map((it) => (it.henna ? { ...it, henna: withSections(it.henna) } : it))
+      : old.items;
+    old = { ...old, items, draftStencil: withSections(old.draftStencil as HennaDesign | undefined) };
   }
   return old;
 }

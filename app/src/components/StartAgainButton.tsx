@@ -15,7 +15,7 @@ import { Icon } from './Icon';
 const CHIP_MS = 150;
 const SHOWN_MS = 6000;
 
-function useReduceMotion(): boolean {
+export function useReduceMotion(): boolean {
   const [on, setOn] = useState(false);
   useEffect(() => {
     let live = true;

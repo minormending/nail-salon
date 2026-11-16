@@ -6,12 +6,14 @@ import {
   useStore,
   type Hand,
   type HennaDesign,
+  type Section,
   type Item,
   type NailDesign,
   type Stamp,
   type Stroke,
 } from '../state/store';
 import { henna as HENNA, type ToneId } from '../theme';
+import { anyInked, boundsOf, fragmentOf, fullSections, SECTION_HIT, SECTION_IDS } from './hennaSections';
 import { scheduleReminder } from './stain';
 
 /* ------------------------------------------------------------------ geometry */
@@ -372,7 +374,11 @@ export function marksXml(strokes: StudioStroke[], stamps: Stamp[], tone: Tone, s
 
 /** One stencil part as an inked shape (edge first, then fill) or a dashed guide. */
 export function partXml(part: PartId, tone: Tone, stage: HennaStage): string {
-  const frag = hennaArt.parts[part];
+  return fragXml(hennaArt.parts[part], tone, stage);
+}
+
+/** Any stencil fragment (no paint of its own) as an inked shape (edge first, then fill) or a dashed guide. */
+export function fragXml(frag: string, tone: Tone, stage: HennaStage): string {
   const paint = paintFor(tone, stage);
   if (stage === 'ghost') {
     return `<g fill="none" stroke="${paint.ghost}" stroke-width="3.4" stroke-dasharray="10 8" stroke-linejoin="round">${frag}</g>`;
@@ -393,6 +399,8 @@ export function overlayXml(opts: {
   /** Stencil parts to ink at `stage`; the others in `guides` are drawn as ghost guides. */
   parts?: PartId[];
   guides?: PartId[];
+  /** Stencil sections in their styles: inked ones at `stage`, the others as ghost guides. */
+  sections?: { id: Section; style: string; inked: boolean }[];
   layers?: OverlayLayer[];
 }): string {
   const tone = toneById(opts.tone);
@@ -400,6 +408,9 @@ export function overlayXml(opts: {
   let body = '';
   for (const g of opts.guides ?? []) body += partXml(g, tone, 'ghost');
   for (const p of opts.parts ?? []) body += partXml(p, tone, opts.stage);
+  const secs = opts.sections ?? [];
+  for (const x of secs) if (!x.inked) body += fragXml(fragmentOf(x.id, x.style), tone, 'ghost');
+  for (const x of secs) if (x.inked) body += fragXml(fragmentOf(x.id, x.style), tone, opts.stage);
   if (opts.layers) {
     let marks = '';
     for (const l of opts.layers) {
@@ -414,6 +425,67 @@ export function overlayXml(opts: {
     body +
     `</svg>`
   );
+}
+
+/** A stencil's sections as the overlay's list (every section, in order), inked or not. */
+export function sectionList(sections: HennaDesign['sections'], onlyInked = false) {
+  const f = fullSections(sections);
+  return SECTION_IDS.map((id) => ({ id, style: f[id].style, inked: f[id].inked })).filter((x) => !onlyInked || x.inked);
+}
+
+/** One section's design as a small standalone picture in the paste colour (for the style cards). */
+export function designThumbXml(section: Section, style: string, color = HENNA.paste): string {
+  const [x, y, w, h] = boundsOf(section, style);
+  const pad = Math.max(w, h) * 0.08;
+  const defs = hennaArt.defs.replace('<defs>', '').replace('</defs>', '');
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x - pad} ${y - pad} ${w + 2 * pad} ${h + 2 * pad}">` +
+    `<defs>${defs}</defs><g fill="${color}">${fragmentOf(section, style)}</g></svg>`
+  );
+}
+
+/** The chosen sections' shapes as a soft highlight (a magenta blob behind them) for the Salon, one picture. */
+export function glowXml(list: { id: Section; style: string }[]): string {
+  const defs = hennaArt.defs.replace('<defs>', '').replace('</defs>', '');
+  const body = list
+    .map(
+      (x) =>
+        `<g fill="#D81E5B" stroke="#D81E5B" stroke-width="20" stroke-linejoin="round" stroke-linecap="round">${fragmentOf(x.id, x.style)}</g>`,
+    )
+    .join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VB_W} ${VB_H}"><defs>${defs}</defs>${body}</svg>`;
+}
+
+/**
+ * Which section a touch lands on. `x`, `y` are px in a pair's box (`pairWidth(handW)` wide) drawn
+ * with hand width `handW`; the right hand is the left mirrored, so its touches are reflected back
+ * onto the drawing. The smallest section box that holds the point wins; a touch just outside
+ * every box takes the nearest one if it is close.
+ */
+export function sectionAtPoint(x: number, y: number, handW: number): Section | null {
+  const k = handW / VB_W;
+  const pad = PAIR_PAD * handW;
+  const right = x > pairWidth(handW) / 2;
+  const u = right ? handW - (x - (1 - PAIR_OVERLAP) * handW + pad) : x + pad;
+  const px = u / k;
+  const py = y / k;
+  let best: Section | null = null;
+  let bestScore = Infinity;
+  for (const id of SECTION_IDS) {
+    const r = SECTION_HIT[id];
+    if (!r) continue;
+    const dx = Math.max(r[0] - px, 0, px - (r[0] + r[2]));
+    const dy = Math.max(r[1] - py, 0, py - (r[1] + r[3]));
+    const dist = Math.hypot(dx, dy);
+    if (dist > 70) continue;
+    // inside beats near; among the inside ones the smallest box
+    const score = dist > 0 ? 1e9 + dist : r[2] * r[3];
+    if (score < bestScore) {
+      bestScore = score;
+      best = id;
+    }
+  }
+  return best;
 }
 
 /** A single motif as a small standalone picture (for the library and icons). */
@@ -483,7 +555,9 @@ export const otherHand = (hand: Hand): Hand => (hand === 'left' ? 'right' : 'lef
 export const designIsEmpty = (d: HennaDesign) =>
   d.source === 'studio'
     ? !(d.strokes?.length || d.stamps?.length)
-    : !d.parts?.length;
+    : d.sections
+      ? !anyInked(d.sections)
+      : !d.parts?.length;
 
 /**
  * The polish painted on the nail chair, as a copy for a stencil henna to carry (it shows on the open
