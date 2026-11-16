@@ -13,7 +13,7 @@ import {
   type Stroke,
 } from '../state/store';
 import { henna as HENNA, type ToneId } from '../theme';
-import { anyInked, boundsOf, fragmentOf, fullSections, SECTION_HIT, SECTION_IDS } from './hennaSections';
+import { anyInked, boundsOf, fragmentOf, fullSections, regionOf, SECTION_HIT, SECTION_IDS } from './hennaSections';
 import { scheduleReminder } from './stain';
 
 /* ------------------------------------------------------------------ geometry */
@@ -444,16 +444,33 @@ export function designThumbXml(section: Section, style: string, color = HENNA.pa
   );
 }
 
-/** The chosen sections' shapes as a soft highlight (a magenta blob behind them) for the Salon, one picture. */
-export function glowXml(list: { id: Section; style: string }[]): string {
-  const defs = hennaArt.defs.replace('<defs>', '').replace('</defs>', '');
+/**
+ * The chosen sections as one soft highlight: a smooth translucent magenta region per section (a
+ * capsule along a finger, an ellipse over the back of the hand, a band across the wrist) with a
+ * thin edge. `px` is how many image units a screen pixel is, so the edge stays about 2 px.
+ */
+export function glowXml(list: { id: Section; style: string }[], px = 4): string {
+  const paint = `fill="#D81E5B" fill-opacity="0.22" stroke="#D81E5B" stroke-opacity="0.55" stroke-width="${(2 * px).toFixed(1)}" stroke-linejoin="round"`;
   const body = list
-    .map(
-      (x) =>
-        `<g fill="#D81E5B" stroke="#D81E5B" stroke-width="20" stroke-linejoin="round" stroke-linecap="round">${fragmentOf(x.id, x.style)}</g>`,
-    )
+    .map((x) => {
+      const r = regionOf(x.id, x.style);
+      if (r.kind === 'ellipse') return `<ellipse cx="${r.cx}" cy="${r.cy}" rx="${r.rx}" ry="${r.ry}" ${paint}/>`;
+      if (r.kind === 'band')
+        return `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="${r.h / 2}" ${paint}/>`;
+      // a capsule: two round ends of radius r joined by straight sides
+      const dx = r.x2 - r.x1;
+      const dy = r.y2 - r.y1;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = (-dy / len) * r.r;
+      const ny = (dx / len) * r.r;
+      const f = (n: number) => n.toFixed(1);
+      const d =
+        `M${f(r.x1 + nx)} ${f(r.y1 + ny)} A${r.r} ${r.r} 0 0 1 ${f(r.x1 - nx)} ${f(r.y1 - ny)} ` +
+        `L${f(r.x2 - nx)} ${f(r.y2 - ny)} A${r.r} ${r.r} 0 0 1 ${f(r.x2 + nx)} ${f(r.y2 + ny)} Z`;
+      return `<path d="${d}" ${paint}/>`;
+    })
     .join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VB_W} ${VB_H}"><defs>${defs}</defs>${body}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VB_W} ${VB_H}">${body}</svg>`;
 }
 
 /**

@@ -75,3 +75,29 @@ export function hennaName(s: Partial<Record<Section, SectionState>> | undefined)
   if (styles.size > 1) return `${back} & mixed fingers`;
   return `${back} & ${styleName('index', f.index.style).toLowerCase()}`;
 }
+
+/*
+ * The soft region a chosen section is highlighted with (left open hand, image units). Each stays
+ * inside the hand's outline by construction: fingers are round-ended capsules along the digit from
+ * the tip to the knuckles (a little narrower than the finger), the back of the hand an ellipse around
+ * the design, the wrist a rounded band across the cuff.
+ */
+export type Region =
+  | { kind: 'capsule'; x1: number; y1: number; x2: number; y2: number; r: number }
+  | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
+  | { kind: 'band'; x: number; y: number; w: number; h: number };
+
+const FINGER_REGION: Record<string, Region> = {
+  thumb: { kind: 'capsule', x1: 850, y1: 648, x2: 742, y2: 764, r: 32 },
+  index: { kind: 'capsule', x1: 631, y1: 190, x2: 606, y2: 520, r: 37 },
+  middle: { kind: 'capsule', x1: 495, y1: 100, x2: 481, y2: 505, r: 37 },
+  ring: { kind: 'capsule', x1: 354, y1: 170, x2: 360, y2: 495, r: 33 },
+  pinky: { kind: 'capsule', x1: 217, y1: 305, x2: 240, y2: 540, r: 31 },
+};
+
+export function regionOf(s: Section, style: string): Region {
+  const [x, y, w, h] = boundsOf(s, style);
+  if (s === 'gol') return { kind: 'ellipse', cx: x + w / 2, cy: y + h / 2, rx: w / 2 + 16, ry: h / 2 + 16 };
+  if (s === 'cuff') return { kind: 'band', x: x - 12, y: y - 12, w: w + 24, h: h + 24 };
+  return FINGER_REGION[s];
+}

@@ -192,7 +192,7 @@ function InkSweep({
   );
 }
 
-/** The chosen sections' soft magenta highlight, breathing with `breath` (drawn behind the henna on each hand). */
+/** The chosen sections' soft magenta region highlight, breathing with `breath` (drawn behind the henna on each hand). */
 function SectionGlow({
   list,
   handW,
@@ -203,7 +203,8 @@ function SectionGlow({
   breath: Animated.Value;
 }) {
   const key = list.map((x) => `${x.id}:${x.style}`).join(',');
-  const xml = useMemo(() => glowXml(list), [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const px = VB_W / handW;
+  const xml = useMemo(() => glowXml(list, px), [key, px]); // eslint-disable-line react-hooks/exhaustive-deps
   const height = (VB_H * handW) / VB_W;
   return (
     <Animated.View
@@ -436,23 +437,23 @@ export default function SalonHenna() {
   const handH = (VB_H * handW) / VB_W;
 
   // The chosen section's highlight breathes gently (steady with reduce-motion).
-  const breath = useRef(new Animated.Value(0.45)).current;
+  const breath = useRef(new Animated.Value(0.9)).current;
   useEffect(() => {
     if (reduceMotion) {
-      breath.setValue(0.45);
+      breath.setValue(0.9);
       return;
     }
     const native = Platform.OS !== 'web';
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(breath, {
-          toValue: 0.7,
+          toValue: 1,
           duration: 1100,
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: native,
         }),
         Animated.timing(breath, {
-          toValue: 0.28,
+          toValue: 0.6,
           duration: 1100,
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: native,
