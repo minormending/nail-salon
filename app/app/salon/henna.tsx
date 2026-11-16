@@ -8,7 +8,7 @@ import { Button } from '../../src/components/Button';
 import { HennaHand } from '../../src/components/HennaHand';
 import { Icon } from '../../src/components/Icon';
 import { IconButton } from '../../src/components/IconButton';
-import { StartAgainButton } from '../../src/components/StartAgainButton';
+import { StartAgainButton, useUndoChip } from '../../src/components/StartAgainButton';
 import { RoomTabs } from '../../src/components/RoomTabs';
 import { Screen } from '../../src/components/Screen';
 import { SkinToneButton } from '../../src/components/SkinToneButton';
@@ -154,6 +154,7 @@ export default function SalonHenna() {
 
   // Start again: the inked parts fade back to the ghost guides (the old hands cross-fade out on top).
   // It hands back an Undo that brings the inking back the same way.
+  const undoChip = useUndoChip([draft, inking]);
   const [fading, setFading] = useState<HennaDesign | null>(null);
   const fade = useRef(new Animated.Value(0)).current;
   const crossFade = (from: HennaDesign) => {
@@ -215,7 +216,7 @@ export default function SalonHenna() {
         backTo="/"
         right={
           <>
-            <StartAgainButton onConfirm={reset} disabled={!!inking} dismissWhen={[draft, inking]} />
+            <StartAgainButton onConfirm={reset} disabled={!!inking} undo={undoChip} />
             <IconButton
               icon="camera"
               accessibilityLabel="Save a picture"
@@ -375,6 +376,7 @@ export default function SalonHenna() {
           />
         )}
       </View>
+      {undoChip.chip}
     </Screen>
   );
 }

@@ -29,7 +29,7 @@ import { Button } from '../../src/components/Button';
 import { HardDrop } from '../../src/components/HardDrop';
 import { Icon, type IconName } from '../../src/components/Icon';
 import { IconButton } from '../../src/components/IconButton';
-import { StartAgainButton } from '../../src/components/StartAgainButton';
+import { StartAgainButton, useUndoChip } from '../../src/components/StartAgainButton';
 import { RoomTabs } from '../../src/components/RoomTabs';
 import { Screen } from '../../src/components/Screen';
 import { SkinToneButton } from '../../src/components/SkinToneButton';
@@ -172,6 +172,7 @@ export default function SalonNails() {
   // Stickers are picked, then placed where the child taps the zoomed nail. With none picked,
   // a tap on a placed sticker takes it off.
   const [resetN, setResetN] = useState(0);
+  const undoChip = useUndoChip([stored, zoom, mode, pick]);
   const onNailTap = (spot: { x: number; y: number }) => {
     if (!zoom || !look || mode !== 'stickers') return;
     if (pick) {
@@ -221,7 +222,7 @@ export default function SalonNails() {
         right={
           <>
             <StartAgainButton
-              dismissWhen={[stored, zoom, mode, pick]}
+              undo={undoChip}
               onConfirm={() => {
                 // The nails fade back (the hands cross-fade the old look out) and the camera backs off.
                 // Undo puts back the design, the zoom, the switch row and the picked sticker.
@@ -479,6 +480,7 @@ export default function SalonNails() {
           </View>
         )}
       </View>
+      {undoChip.chip}
     </Screen>
   );
 }
