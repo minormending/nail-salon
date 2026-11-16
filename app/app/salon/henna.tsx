@@ -153,18 +153,26 @@ export default function SalonHenna() {
   }, [next, inking, progress, setDraftStencil]);
 
   // Start again: the inked parts fade back to the ghost guides (the old hands cross-fade out on top).
+  // It hands back an Undo that brings the inking back the same way.
   const [fading, setFading] = useState<HennaDesign | null>(null);
   const fade = useRef(new Animated.Value(0)).current;
+  const crossFade = (from: HennaDesign) => {
+    setFading(from);
+    fade.setValue(1);
+    Animated.timing(fade, { toValue: 0, duration: 250, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(
+      () => setFading(null),
+    );
+  };
   const reset = () => {
     if (inking) return;
-    if (inked.length) {
-      setFading(design);
-      fade.setValue(1);
-      Animated.timing(fade, { toValue: 0, duration: 250, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(
-        () => setFading(null),
-      );
-    }
+    if (!inked.length) return; // nothing inked: nothing to start again, nothing to undo
+    const was = draft;
+    crossFade(design);
     setDraftStencil(emptyHennaDesign('stencil'));
+    return () => {
+      crossFade(useStore.getState().draftStencil);
+      setDraftStencil(was);
+    };
   };
 
   const dry = () => {
@@ -207,7 +215,7 @@ export default function SalonHenna() {
         backTo="/"
         right={
           <>
-            <StartAgainButton onConfirm={reset} disabled={!!inking} />
+            <StartAgainButton onConfirm={reset} disabled={!!inking} dismissWhen={[draft, inking]} />
             <IconButton
               icon="camera"
               accessibilityLabel="Save a picture"

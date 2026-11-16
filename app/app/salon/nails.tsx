@@ -221,12 +221,22 @@ export default function SalonNails() {
         right={
           <>
             <StartAgainButton
+              dismissWhen={[stored, zoom, mode, pick]}
               onConfirm={() => {
                 // The nails fade back (the hands cross-fade the old look out) and the camera backs off.
+                // Undo puts back the design, the zoom, the switch row and the picked sticker.
+                const was = { draft: stored, zoom, mode, pick };
                 setDraft(emptyNailDesign());
                 setZoom(null);
                 setPick(null);
                 setResetN((n) => n + 1);
+                return () => {
+                  setDraft(was.draft);
+                  setZoom(was.zoom);
+                  setModeRaw(was.mode);
+                  setPick(was.pick);
+                  setResetN((n) => n + 1);
+                };
               }}
             />
             <IconButton

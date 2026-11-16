@@ -1,31 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Platform, Pressable, Text } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import { AccessibilityInfo, Pressable, Text } from 'react-native';
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { border, colors, fonts, radius } from '../theme';
+import { HardDrop } from './HardDrop';
 import { Icon } from './Icon';
 
 /*
- * "Start again" is easy to hit by accident, so it takes two taps: the first turns the button
- * marigold and opens a little speech bubble ("Tap again to start over"); a second tap within three
- * seconds does it. Waiting, or touching anything else, puts it back and changes nothing.
+ * "Start again" resets at once. Right after, a small Undo chip hangs below the button for a few
+ * seconds: tapping it puts everything back exactly as it was. Any other change dismisses it.
  */
 
-const ARMED_MS = 3000;
-const BUBBLE_MS = 150;
-const HINT = 'Tap again to start over';
-
-/** Screens call this on any touch; every armed button that was not itself touched stands down. */
-const outsideListeners = new Set<() => void>();
-export function notifyOutsideTouch() {
-  outsideListeners.forEach((f) => f());
-}
+const CHIP_MS = 150;
+const SHOWN_MS = 6000;
 
 function useReduceMotion(): boolean {
   const [on, setOn] = useState(false);
@@ -43,95 +30,83 @@ function useReduceMotion(): boolean {
   return on;
 }
 
-export function StartAgainButton({ onConfirm, disabled }: { onConfirm: () => void; disabled?: boolean }) {
-  const [armed, setArmed] = useState(false);
-  const [shown, setShown] = useState(false);
+const NOT_SET = Symbol('not set');
+const same = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
+
+type Props = {
+  /**
+   * Does the reset. Return a function that puts everything back and the Undo chip appears; return
+   * nothing and there is no Undo.
+   */
+  onConfirm: () => (() => void) | void;
+  disabled?: boolean;
+  /**
+   * The state the screen could change after the reset (painting, inking, zooming...). When any of
+   * these changes while the chip is up, the chip goes away and the undo is dropped.
+   */
+  dismissWhen?: readonly unknown[];
+};
+
+export function StartAgainButton({ onConfirm, disabled, dismissWhen = [] }: Props) {
   const reduce = useReduceMotion();
-  const pulse = useSharedValue(1);
-  const bubble = useSharedValue(0);
+  const [chip, setChip] = useState<{ undo: () => void } | null>(null);
+  const [shown, setShown] = useState(false);
+  const chipAnim = useSharedValue(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const self = useRef(0);
-  const node = useRef<unknown>(null);
+  const baseline = useRef<readonly unknown[] | typeof NOT_SET>(NOT_SET);
 
-  const stand = useCallback(() => {
+  const dismiss = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
-    setArmed(false);
-    bubble.value = withTiming(0, { duration: BUBBLE_MS });
+    setChip(null);
+    chipAnim.value = withTiming(0, { duration: CHIP_MS });
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setShown(false), BUBBLE_MS + 30);
-  }, [bubble]);
+    hideTimer.current = setTimeout(() => setShown(false), CHIP_MS + 30);
+  }, [chipAnim]);
 
-  // A touch anywhere else stands the button down (checked a tick later, once its own touch is known).
-  const armedRef = useRef(false);
-  useEffect(() => {
-    armedRef.current = armed;
-  }, [armed]);
-  useEffect(() => {
-    const listener = (e?: Event) => {
-      if (!armedRef.current) return;
-      // (On the web the touched element tells us at once whether it was the button.)
-      const dom = node.current as { contains?: (n: unknown) => boolean } | null;
-      if (e && 'target' in e && dom?.contains?.(e.target)) return;
-      setTimeout(() => {
-        if (armedRef.current && Date.now() - self.current > 80) stand();
-      }, 0);
-    };
-    outsideListeners.add(listener as () => void);
-    // (Touch screens report through the Screen's touch capture; a mouse on the web does not.)
-    const doc = Platform.OS === 'web' ? (globalThis as { document?: Document }).document : undefined;
-    doc?.addEventListener('pointerdown', listener as EventListener, true);
-    return () => {
-      outsideListeners.delete(listener as () => void);
-      doc?.removeEventListener('pointerdown', listener as EventListener, true);
+  useEffect(
+    () => () => {
       if (timer.current) clearTimeout(timer.current);
       if (hideTimer.current) clearTimeout(hideTimer.current);
-      cancelAnimation(pulse);
-      cancelAnimation(bubble);
-    };
-  }, [stand, pulse, bubble]);
+      cancelAnimation(chipAnim);
+    },
+    [chipAnim],
+  );
+
+  // The first render after a reset is the baseline; any later change drops the chip.
   useEffect(() => {
-    if (disabled && armed) stand();
-  }, [disabled, armed, stand]);
+    if (!chip) return;
+    if (baseline.current === NOT_SET) baseline.current = dismissWhen;
+    else if (!same(baseline.current, dismissWhen)) dismiss();
+  });
 
   const press = () => {
     if (disabled) return;
-    if (armed) {
-      stand();
-      onConfirm();
-      return;
-    }
+    const undo = onConfirm();
+    AccessibilityInfo.announceForAccessibility(undo ? 'Started again. Undo is available.' : 'Started again.');
+    if (!undo) return;
+    baseline.current = NOT_SET;
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    setArmed(true);
+    setChip({ undo });
     setShown(true);
-    if (!reduce) pulse.value = withSequence(withTiming(1.08, { duration: 90 }), withTiming(1, { duration: 110 }));
-    bubble.value = withTiming(1, { duration: BUBBLE_MS });
-    AccessibilityInfo.announceForAccessibility(HINT);
+    chipAnim.value = withTiming(1, { duration: CHIP_MS });
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(stand, ARMED_MS);
+    timer.current = setTimeout(dismiss, SHOWN_MS);
   };
 
-  const buttonStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
-  const bubbleStyle = useAnimatedStyle(() => ({
-    opacity: bubble.value,
-    transform: reduce ? [] : [{ scale: 0.92 + 0.08 * bubble.value }],
+  const chipStyle = useAnimatedStyle(() => ({
+    opacity: chipAnim.value,
+    transform: reduce ? [] : [{ scale: 0.92 + 0.08 * chipAnim.value }],
   }));
 
   return (
-    <Animated.View style={[{ zIndex: 30 }, buttonStyle]}>
+    <Animated.View style={{ zIndex: 30 }}>
       <Pressable
-        ref={node as React.Ref<React.ComponentRef<typeof Pressable>>}
         onPress={press}
-        onPressIn={() => {
-          self.current = Date.now();
-        }}
-        onTouchStartCapture={() => {
-          self.current = Date.now();
-        }}
         accessibilityRole="button"
         accessibilityLabel="Start again"
-        accessibilityHint={armed ? HINT : undefined}
         accessibilityState={{ disabled: !!disabled }}
         style={({ pressed }) => ({
           width: 46,
@@ -141,7 +116,7 @@ export function StartAgainButton({ onConfirm, disabled }: { onConfirm: () => voi
           borderWidth: border,
           borderColor: colors.plum,
           borderRadius: radius.iconButton,
-          backgroundColor: armed ? colors.marigold : colors.cream,
+          backgroundColor: colors.cream,
           opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
         })}
       >
@@ -149,45 +124,34 @@ export function StartAgainButton({ onConfirm, disabled }: { onConfirm: () => voi
       </Pressable>
       {shown && (
         <Animated.View
-          pointerEvents="none"
-          importantForAccessibility="no-hide-descendants"
-          style={[
-            {
-              position: 'absolute',
-              top: 46 + 9,
-              right: 0,
-              width: 222,
+          style={[{ position: 'absolute', top: 46 + 8, right: 0, transformOrigin: 'right top' }, chipStyle]}
+          pointerEvents={chip ? 'auto' : 'none'}
+        >
+          <HardDrop
+            onPress={() => {
+              const undo = chip?.undo;
+              dismiss();
+              undo?.();
+              AccessibilityInfo.announceForAccessibility('Put back.');
+            }}
+            drop={3}
+            radius={999}
+            accessibilityLabel="Undo start again"
+            face={{
+              height: 44,
               flexDirection: 'row',
               alignItems: 'center',
-              gap: 8,
-              paddingVertical: 9,
-              paddingHorizontal: 12,
-              borderWidth: border,
-              borderColor: colors.plum,
-              borderRadius: 14,
+              gap: 7,
+              paddingLeft: 14,
+              paddingRight: 18,
               backgroundColor: colors.cream,
-              transformOrigin: 'right top',
-            },
-            bubbleStyle,
-          ]}
-        >
-          {/* the little point, aimed up at the button */}
-          <Animated.View
-            style={{
-              position: 'absolute',
-              top: -8,
-              right: 15,
-              width: 13,
-              height: 13,
-              borderLeftWidth: border,
-              borderTopWidth: border,
-              borderColor: colors.plum,
-              backgroundColor: colors.cream,
-              transform: [{ rotate: '45deg' }],
             }}
-          />
-          <Icon name="fresh" size={18} color={colors.plum} />
-          <Text style={{ flex: 1, fontFamily: fonts.bodyHeavy, fontSize: 13, color: colors.plum }}>{HINT}</Text>
+          >
+            <Icon name="undo" size={19} color={colors.plum} />
+            <Text style={{ fontFamily: fonts.heading, fontSize: 16, color: colors.plum, includeFontPadding: false }}>
+              Undo
+            </Text>
+          </HardDrop>
         </Animated.View>
       )}
     </Animated.View>
