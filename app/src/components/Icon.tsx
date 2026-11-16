@@ -78,6 +78,15 @@ const DEFS = {
   },
   check: { sw: 3.4, shapes: [p('M5 12.5 L10 17.5 L19 7')] },
   undo: { sw: 2.4, shapes: [p('M4 11 h11 a4.5 4.5 0 1 1 0 9 h-2.5'), p('M4 11 l4.5-4.5'), p('M4 11 l4.5 4.5')] },
+  // "Start again": a nearly full circular arrow with a small sparkle in the middle
+  fresh: {
+    sw: 2.2,
+    shapes: [
+      p('M 17.46 5.49 A 8.5 8.5 0 1 1 9.09 4.01'),
+      p('M 5.03 2.92 L 9.09 4.01 L 6.68 7.45'),
+      p('M 12 9 L 12.9 11.1 L 15 12 L 12.9 12.9 L 12 15 L 11.1 12.9 L 9 12 L 11.1 11.1 Z'),
+    ],
+  },
   redo: { sw: 2.4, shapes: [p('M20 11 H9 a4.5 4.5 0 1 0 0 9 h2.5'), p('M20 11 l-4.5-4.5'), p('M20 11 l-4.5 4.5')] },
   layers: { sw: 2.4, round: false, shapes: [p('M12 3 L21 8 L12 13 L3 8 Z'), p('M3 12.5 L12 17.5 L21 12.5'), p('M3 17 L12 22 L21 17')] },
   mirror: { sw: 2.3, shapes: [p('M12 3 V21 M9 7 L3 17 H9 Z M15 7 L21 17 H15 Z')] },

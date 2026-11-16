@@ -8,6 +8,7 @@ import { Button } from '../../src/components/Button';
 import { HennaHand } from '../../src/components/HennaHand';
 import { Icon } from '../../src/components/Icon';
 import { IconButton } from '../../src/components/IconButton';
+import { StartAgainButton } from '../../src/components/StartAgainButton';
 import { RoomTabs } from '../../src/components/RoomTabs';
 import { Screen } from '../../src/components/Screen';
 import { SkinToneButton } from '../../src/components/SkinToneButton';
@@ -151,8 +152,18 @@ export default function SalonHenna() {
     });
   }, [next, inking, progress, setDraftStencil]);
 
+  // Start again: the inked parts fade back to the ghost guides (the old hands cross-fade out on top).
+  const [fading, setFading] = useState<HennaDesign | null>(null);
+  const fade = useRef(new Animated.Value(0)).current;
   const reset = () => {
     if (inking) return;
+    if (inked.length) {
+      setFading(design);
+      fade.setValue(1);
+      Animated.timing(fade, { toValue: 0, duration: 250, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(
+        () => setFading(null),
+      );
+    }
     setDraftStencil(emptyHennaDesign('stencil'));
   };
 
@@ -196,7 +207,7 @@ export default function SalonHenna() {
         backTo="/"
         right={
           <>
-            <IconButton icon="undo" accessibilityLabel="Start again" onPress={reset} />
+            <StartAgainButton onConfirm={reset} disabled={!!inking} />
             <IconButton
               icon="camera"
               accessibilityLabel="Save a picture"
@@ -255,15 +266,29 @@ export default function SalonHenna() {
           }
           style={{ marginBottom: fit.raise - fit.bleed }}
         >
-          <HennaHand
-            design={design}
-            tone={tone}
-            width={handW}
-            stage="paste"
-            nails={draftNails}
-            armExtend={fit.arm}
-            overlay={inking ? <InkSweep part={inking} tone={tone} progress={progress} handW={handW} /> : null}
-          />
+          <View>
+            <HennaHand
+              design={design}
+              tone={tone}
+              width={handW}
+              stage="paste"
+              nails={draftNails}
+              armExtend={fit.arm}
+              overlay={inking ? <InkSweep part={inking} tone={tone} progress={progress} handW={handW} /> : null}
+            />
+            {fading && (
+              <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, opacity: fade }}>
+                <HennaHand
+                  design={fading}
+                  tone={tone}
+                  width={handW}
+                  stage="paste"
+                  nails={draftNails}
+                  armExtend={fit.arm}
+                />
+              </Animated.View>
+            )}
+          </View>
         </Pressable>
       </View>
 

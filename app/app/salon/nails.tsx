@@ -29,6 +29,7 @@ import { Button } from '../../src/components/Button';
 import { HardDrop } from '../../src/components/HardDrop';
 import { Icon, type IconName } from '../../src/components/Icon';
 import { IconButton } from '../../src/components/IconButton';
+import { StartAgainButton } from '../../src/components/StartAgainButton';
 import { RoomTabs } from '../../src/components/RoomTabs';
 import { Screen } from '../../src/components/Screen';
 import { SkinToneButton } from '../../src/components/SkinToneButton';
@@ -125,6 +126,7 @@ export default function SalonNails() {
   // Stickers are picked, then placed where the child taps the zoomed nail. With none picked,
   // a tap on a placed sticker takes it off.
   const [pick, setPick] = useState<string | null>(null);
+  const [resetN, setResetN] = useState(0);
   const onNailTap = (spot: { x: number; y: number }) => {
     if (!zoom || !look) return;
     if (pick) {
@@ -172,12 +174,13 @@ export default function SalonNails() {
         backTo="/"
         right={
           <>
-            <IconButton
-              icon="undo"
-              accessibilityLabel="Start again"
-              onPress={() => {
+            <StartAgainButton
+              onConfirm={() => {
+                // The nails fade back (the hands cross-fade the old look out) and the camera backs off.
                 setDraft(emptyNailDesign());
                 setZoom(null);
+                setPick(null);
+                setResetN((n) => n + 1);
               }}
             />
             <IconButton
@@ -231,6 +234,7 @@ export default function SalonNails() {
             view={area}
             zoom={zoom}
             toolFrom={toolFrom}
+            resetN={resetN}
             onNailPress={(n) => {
               if (!sameNail(n, zoom)) setZoom(n);
             }}

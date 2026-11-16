@@ -31,6 +31,8 @@ export function TopBar({ title, backTo, hideBack, right }: Props) {
         alignItems: 'center',
         gap: 8,
         paddingHorizontal: 14,
+        // above the screen below it, so a speech bubble hanging off a header button is not covered
+        zIndex: 20,
       }}
     >
       {!hideBack && <IconButton icon="back" accessibilityLabel="Back" onPress={goBack} />}

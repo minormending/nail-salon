@@ -1652,6 +1652,8 @@ type ZoomProps = {
    * `n` changes with every tap; read when the change to the design arrives.
    */
   toolFrom?: { x: number; y: number; n: number };
+  /** Bump this when the whole design is reset (Start again): the old nails fade out over the new, whatever changed. */
+  resetN?: number;
   /** A touch (or a screen reader's tap) on a nail. */
   onNailPress: (n: NailRef) => void;
   /** A touch on the hands that is not on a nail. */
@@ -1697,7 +1699,7 @@ function designOf(shape: string, pick: (n: NailRef) => NailLook): NailDesign {
  * It also plays what the child just changed (a sweep of new polish, a sticker popping on or off,
  * a shape cross-fade); nails that were already painted never animate again.
  */
-export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom, onNailPress, onOffPress, onNailTap }: ZoomProps) {
+export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom, resetN = 0, onNailPress, onOffPress, onNailTap }: ZoomProps) {
   const span = SPAN.both;
   const scale = width / span.w;
   const height = VB[3] * scale;
@@ -1746,15 +1748,18 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
   const latest = useRef(design);
   const seq = useRef(0);
   const zoomRef = useRef(zoom);
-  const live = useRef({ crisp, reduceMotion, toolFrom });
+  const live = useRef({ crisp, reduceMotion, toolFrom, resetN });
+  const lastReset = useRef(resetN);
   useEffect(() => {
-    live.current = { crisp, reduceMotion, toolFrom };
+    live.current = { crisp, reduceMotion, toolFrom, resetN };
     zoomRef.current = zoom;
   });
   useEffect(() => {
     const old = latest.current;
     latest.current = design;
     if (old === design) return;
+    const wasReset = live.current.resetN !== lastReset.current;
+    lastReset.current = live.current.resetN;
     if (old.shape !== design.shape) {
       setBase(design);
       setFx(null);
@@ -1768,7 +1773,14 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
       setFx(null);
     };
     const { crisp: on, reduceMotion: calm, toolFrom: tf } = live.current;
-    if (!on || changed.length > 1 || !zoomRef.current || !sameNail(changed[0], zoomRef.current)) return instant();
+    if (changed.length > 1 || wasReset) {
+      // Start again: whatever was playing lands, and the old look fades out over the new.
+      setBase(design);
+      setFx(null);
+      setGhost({ id: ++seq.current, design: old });
+      return;
+    }
+    if (!on || !zoomRef.current || !sameNail(changed[0], zoomRef.current)) return instant();
     const nail = changed[0];
     const a = lookOf(old, nail);
     const b = lookOf(design, nail);
