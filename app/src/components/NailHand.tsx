@@ -13,6 +13,7 @@ import Svg, {
   Circle,
   ClipPath,
   Defs,
+  Ellipse,
   G,
   Path,
   Pattern,
@@ -24,6 +25,7 @@ import vectors from '../art/handVectors.json';
 import nails from '../art/nails.json';
 import { NAIL_ORDER, lookOf, nailKey, nailSpokenName, sameNail, withLook, type NailRef } from '../lib/nailNames';
 import { DIGITS, handNails, lookShape, type Digit, type Hand, type NailDesign, type NailLook, type ToneId } from '../state/store';
+import { GLITTER, RAINBOW, isLight, isSpecial, markColour, swatchHex } from '../lib/polish';
 import { colors, TONES } from '../theme';
 
 /* ------------------------------------------------------------------ geometry */
@@ -195,7 +197,7 @@ export function stickerLocal(
 ): { x: number; y: number; scale: number } {
   const at = stickerRaw(sticker, halfWidth, nailLength);
   if (!outline) return at;
-  const f = fitSpot(outline, at.x, at.y, GLYPH_R * at.scale);
+  const f = fitSpot(outline, at.x, at.y, glyphR(sticker.kind) * at.scale);
   return { x: f.x, y: f.y, scale: at.scale };
 }
 
@@ -408,7 +410,7 @@ export function stickerAt(look: NailLook, digit: Digit, shape: string, x: number
   const d = nailPath(shape, digit);
   for (let i = look.stickers.length - 1; i >= 0; i--) {
     const p = stickerLocal(look.stickers[i], hw, len, d);
-    if (Math.hypot(x - p.x, y - p.y) <= 15 * p.scale + 0.25 * hw) return i;
+    if (Math.hypot(x - p.x, y - p.y) <= 0.95 * glyphR(look.stickers[i].kind) * p.scale + 0.25 * hw) return i;
   }
   return -1;
 }
@@ -417,7 +419,7 @@ export function stickerAt(look: NailLook, digit: Digit, shape: string, x: number
 export function newSticker(kind: string, digit: Digit, shape: string, x: number, y: number): StickerPos {
   const { hw } = nailFrame(digit, shape);
   // Moved in until the whole glyph is on the nail.
-  const f = fitSpot(nailPath(shape, digit), x, y, GLYPH_R * STICKER_K * hw);
+  const f = fitSpot(nailPath(shape, digit), x, y, glyphR(kind) * STICKER_K * hw);
   return { kind, x: f.x / hw, y: f.y / hw, frame: 'nail' };
 }
 
@@ -430,7 +432,48 @@ export const STICKERS = [
   { kind: 'flower', name: 'Flower' },
   { kind: 'moon', name: 'Moon' },
   { kind: 'pearl', name: 'Pearl' },
+  { kind: 'sun', name: 'Sun' },
+  { kind: 'rainbow', name: 'Rainbow' },
+  { kind: 'cloud', name: 'Cloud' },
+  { kind: 'butterfly', name: 'Butterfly' },
+  { kind: 'bow', name: 'Bow' },
+  { kind: 'crown', name: 'Crown' },
+  { kind: 'cherry', name: 'Cherry' },
+  { kind: 'strawberry', name: 'Strawberry' },
+  { kind: 'icecream', name: 'Ice cream' },
+  { kind: 'cupcake', name: 'Cupcake' },
+  { kind: 'paw', name: 'Paw print' },
+  { kind: 'cat', name: 'Cat' },
+  { kind: 'note', name: 'Music note' },
+  { kind: 'bolt', name: 'Lightning bolt' },
+  { kind: 'sparkle', name: 'Sparkle' },
+  { kind: 'leaf', name: 'Leaf' },
+  { kind: 'snowflake', name: 'Snowflake' },
+  { kind: 'shell', name: 'Shell' },
 ] as const;
+
+/** How far each sticker reaches from its middle (glyph units, outline included), for fitting it inside a nail. */
+const GLYPH_RADIUS: Record<string, number> = {
+  sun: 16.5,
+  rainbow: 15,
+  cloud: 14.5,
+  butterfly: 15,
+  bow: 15,
+  crown: 14.5,
+  cherry: 15,
+  strawberry: 14.5,
+  icecream: 15.5,
+  cupcake: 14.5,
+  paw: 14,
+  cat: 15,
+  note: 14.5,
+  bolt: 15,
+  sparkle: 15,
+  leaf: 14,
+  snowflake: 15,
+  shell: 13.5,
+};
+const glyphR = (kind: string) => GLYPH_RADIUS[kind] ?? GLYPH_R;
 
 const INK = colors.plum;
 
@@ -491,6 +534,223 @@ export function StickerGlyph({ kind }: { kind: string }) {
           <Circle cx={-2.6} cy={-2.6} r={2.2} fill={colors.blush} />
         </G>
       );
+    case 'sun':
+      return (
+        <G>
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+            <Path
+              key={a}
+              d="M -2.4 -10.5 L 0 -15 L 2.4 -10.5 Z"
+              transform={`rotate(${a})`}
+              fill={colors.marigold}
+              stroke={INK}
+              strokeWidth={1.8}
+              strokeLinejoin="round"
+            />
+          ))}
+          <Circle r={8} fill={colors.marigold} stroke={INK} strokeWidth={2.2} />
+          <Circle cx={-2.6} cy={-2.6} r={1.8} fill="#FFFFFF" opacity={0.85} />
+        </G>
+      );
+    case 'rainbow':
+      return (
+        <G transform="translate(0 3)">
+          {(
+            [
+              [13.5, 10, colors.magentaBright],
+              [10, 6.5, colors.marigold],
+              [6.5, 3, colors.turquoise],
+            ] as const
+          ).map(([ro, ri, c]) => (
+            <Path
+              key={ro}
+              d={`M ${-ro} 6 A ${ro} ${ro} 0 0 1 ${ro} 6 L ${ri} 6 A ${ri} ${ri} 0 0 0 ${-ri} 6 Z`}
+              fill={c}
+              stroke={INK}
+              strokeWidth={1.8}
+              strokeLinejoin="round"
+            />
+          ))}
+        </G>
+      );
+    case 'cloud':
+      return (
+        <Path
+          d="M -9 6 A 5 5 0 0 1 -9 -4 A 6.5 6.5 0 0 1 3 -8 A 5.5 5.5 0 0 1 11 -1 A 4.5 4.5 0 0 1 10 6 Z"
+          fill="#FFFFFF"
+          stroke={INK}
+          strokeWidth={2.2}
+          strokeLinejoin="round"
+        />
+      );
+    case 'butterfly':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M -1 -1 C -6 -13 -15 -11 -13 -3 C -12 1 -6 1 -1 0 Z" fill={colors.turquoise} stroke={INK} strokeWidth={2} />
+          <Path d="M 1 -1 C 6 -13 15 -11 13 -3 C 12 1 6 1 1 0 Z" fill={colors.turquoise} stroke={INK} strokeWidth={2} />
+          <Path d="M -1 1 C -10 2 -12 11 -6 11 C -3 11 -1 6 -1 1 Z" fill={colors.magentaBright} stroke={INK} strokeWidth={2} />
+          <Path d="M 1 1 C 10 2 12 11 6 11 C 3 11 1 6 1 1 Z" fill={colors.magentaBright} stroke={INK} strokeWidth={2} />
+          <Rect x={-1.5} y={-6.5} width={3} height={15} rx={1.5} fill={INK} />
+          <Path d="M -0.8 -6 C -2 -10 -4 -12 -6 -12 M 0.8 -6 C 2 -10 4 -12 6 -12" fill="none" stroke={INK} strokeWidth={1.4} strokeLinecap="round" />
+        </G>
+      );
+    case 'bow':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M -2 1 L -13 -8 C -15 -3 -15 4 -13 9 Z" fill={colors.magentaBright} stroke={INK} strokeWidth={2.2} />
+          <Path d="M 2 1 L 13 -8 C 15 -3 15 4 13 9 Z" fill={colors.magentaBright} stroke={INK} strokeWidth={2.2} />
+          <Path d="M -2 4 L -6 13 L -1 11 Z M 2 4 L 6 13 L 1 11 Z" fill={colors.blush} stroke={INK} strokeWidth={1.8} />
+          <Rect x={-3.6} y={-3.6} width={7.2} height={9.2} rx={3} fill={colors.blush} stroke={INK} strokeWidth={2.2} />
+        </G>
+      );
+    case 'crown':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M -12 9 L -13 -6 L -6 0 L 0 -10 L 6 0 L 13 -6 L 12 9 Z" fill={colors.marigold} stroke={INK} strokeWidth={2.2} />
+          <Path d="M -12 4.5 H 12" stroke={INK} strokeWidth={1.6} />
+          <Circle cx={-13} cy={-6} r={2} fill={colors.magentaBright} stroke={INK} strokeWidth={1.4} />
+          <Circle cx={0} cy={-10} r={2} fill={colors.turquoise} stroke={INK} strokeWidth={1.4} />
+          <Circle cx={13} cy={-6} r={2} fill={colors.magentaBright} stroke={INK} strokeWidth={1.4} />
+        </G>
+      );
+    case 'cherry':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M -5 2 C -4 -6 0 -9 6 -11 M 5 4 C 6 -3 6 -7 6 -11" fill="none" stroke={INK} strokeWidth={1.8} strokeLinecap="round" />
+          <Path d="M 6 -11 C 9 -15 14 -12 13 -8 C 10 -7 7 -8 6 -11 Z" fill={'#0E8A6E'} stroke={INK} strokeWidth={1.8} />
+          <Circle cx={-5.5} cy={7} r={5.4} fill={colors.magentaBright} stroke={INK} strokeWidth={2.2} />
+          <Circle cx={5.5} cy={8.5} r={5.4} fill={colors.magentaBright} stroke={INK} strokeWidth={2.2} />
+          <Circle cx={-7.3} cy={5} r={1.3} fill="#FFFFFF" opacity={0.85} />
+          <Circle cx={3.7} cy={6.5} r={1.3} fill="#FFFFFF" opacity={0.85} />
+        </G>
+      );
+    case 'strawberry':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M 0 13 C -10 9 -12 -2 -8 -6 C -4 -9 4 -9 8 -6 C 12 -2 10 9 0 13 Z" fill={colors.magentaBright} stroke={INK} strokeWidth={2.2} />
+          <Path d="M -7 -7 L -4 -12 L 0 -9 L 4 -12 L 7 -7 L 0 -5 Z" fill={'#0E8A6E'} stroke={INK} strokeWidth={1.8} />
+          {(
+            [
+              [-4, -1],
+              [3, -2],
+              [-1, 3],
+              [-5, 5],
+              [5, 4],
+              [0, 8],
+            ] as const
+          ).map(([x, y]) => (
+            <Circle key={`${x},${y}`} cx={x} cy={y} r={1} fill={colors.cream} />
+          ))}
+        </G>
+      );
+    case 'icecream':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M -6.5 -1 L 6.5 -1 L 0 14 Z" fill={colors.marigold} stroke={INK} strokeWidth={2.2} />
+          <Path d="M -3.5 3 L 3.5 3 M -1.8 7.5 L 1.8 7.5" stroke={INK} strokeWidth={1.2} strokeLinecap="round" />
+          <Path d="M -8 -2 C -10 -12 10 -12 8 -2 C 6 -1 5 1 3 -1 C 1 1 -1 1 -3 -1 C -5 1 -6 -1 -8 -2 Z" fill={colors.blush} stroke={INK} strokeWidth={2.2} />
+          <Circle cx={1.5} cy={-13} r={2.2} fill={colors.magentaBright} stroke={INK} strokeWidth={1.6} />
+        </G>
+      );
+    case 'cupcake':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M -8.5 0 L 8.5 0 L 6.5 11 L -6.5 11 Z" fill={colors.turquoise} stroke={INK} strokeWidth={2.2} />
+          <Path d="M -3 1 L -2.2 10.5 M 3 1 L 2.2 10.5 M 0 1 L 0 10.5" stroke={INK} strokeWidth={1.2} strokeLinecap="round" />
+          <Path d="M -10 0 C -11 -6 -5 -6 -4.5 -9 C -3 -13 3 -12 3.5 -9 C 8 -8 11 -5 10 0 Z" fill={colors.blush} stroke={INK} strokeWidth={2.2} />
+          <Circle cx={0} cy={-13} r={2} fill={colors.magentaBright} stroke={INK} strokeWidth={1.6} />
+        </G>
+      );
+    case 'paw':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M -5.5 9 C -10 6 -7 -1 0 -1 C 7 -1 10 6 5.5 9 C 3 10.5 -3 10.5 -5.5 9 Z" fill={colors.blush} stroke={INK} strokeWidth={2.2} />
+          {(
+            [
+              [-8, -4.5],
+              [-3, -9.5],
+              [3, -9.5],
+              [8, -4.5],
+            ] as const
+          ).map(([x, y]) => (
+            <Circle key={x} cx={x} cy={y} r={3} fill={colors.blush} stroke={INK} strokeWidth={2} />
+          ))}
+        </G>
+      );
+    case 'cat':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M -10 -2 L -10 -13 L -3 -8 L 3 -8 L 10 -13 L 10 -2 C 10 6 5 11 0 11 C -5 11 -10 6 -10 -2 Z" fill={colors.marigold} stroke={INK} strokeWidth={2.2} />
+          <Path d="M -8 -9 L -5 -7.5 L -8 -5 Z M 8 -9 L 5 -7.5 L 8 -5 Z" fill={colors.blush} />
+          <Circle cx={-3.8} cy={-1} r={1.5} fill={INK} />
+          <Circle cx={3.8} cy={-1} r={1.5} fill={INK} />
+          <Path d="M -1.8 3 L 1.8 3 L 0 5 Z" fill={colors.magentaBright} stroke={INK} strokeWidth={1} />
+          <Path d="M 0 5 V 6.5 M -3 7.5 Q 0 9 0 6.5 Q 0 9 3 7.5" fill="none" stroke={INK} strokeWidth={1.2} strokeLinecap="round" />
+          <Path d="M -10 3 L -14 2 M -10 5.5 L -14 6.5 M 10 3 L 14 2 M 10 5.5 L 14 6.5" stroke={INK} strokeWidth={1.2} strokeLinecap="round" />
+        </G>
+      );
+    case 'note':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M 1 -13 L 1 7" stroke={INK} strokeWidth={5.4} strokeLinecap="butt" />
+          <Path d="M 1 -13 L 1 7" stroke={colors.turquoise} strokeWidth={2} />
+          <Path d="M 1 -13 C 5 -10 11 -9 10 -2 C 9 -6 6 -7 1 -6 Z" fill={colors.turquoise} stroke={INK} strokeWidth={2} />
+          <Ellipse cx={-3.5} cy={8} rx={5.2} ry={4} transform="rotate(-20 -3.5 8)" fill={colors.turquoise} stroke={INK} strokeWidth={2.2} />
+        </G>
+      );
+    case 'bolt':
+      return (
+        <Path
+          d="M 3 -14 L -8 2 L -1 2 L -4 14 L 9 -3 L 2 -3 Z"
+          fill={colors.marigold}
+          stroke={INK}
+          strokeWidth={2.2}
+          strokeLinejoin="round"
+        />
+      );
+    case 'sparkle':
+      return (
+        <G strokeLinejoin="round">
+          <Path
+            d="M 0 -14 C 1.5 -5 5 -1.5 14 0 C 5 1.5 1.5 5 0 14 C -1.5 5 -5 1.5 -14 0 C -5 -1.5 -1.5 -5 0 -14 Z"
+            fill={colors.cream}
+            stroke={INK}
+            strokeWidth={2.2}
+          />
+          <Path d="M 9 -12 L 10 -9 L 13 -8 L 10 -7 L 9 -4 L 8 -7 L 5 -8 L 8 -9 Z" fill={colors.blush} stroke={INK} strokeWidth={1.2} />
+        </G>
+      );
+    case 'leaf':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M -10 11 C -13 -4 -2 -12 11 -11 C 12 3 4 13 -10 11 Z" fill={'#0E8A6E'} stroke={INK} strokeWidth={2.2} />
+          <Path d="M -9 10 C -3 4 2 -2 8 -8" fill="none" stroke={colors.cream} strokeWidth={1.6} strokeLinecap="round" />
+        </G>
+      );
+    case 'snowflake':
+      return (
+        <G strokeLinecap="round">
+          {[0, 60, 120].map((a) => (
+            <G key={a} rotation={a}>
+              <Path d="M 0 -13 V 13 M -4.5 -8.5 L 0 -5 L 4.5 -8.5 M -4.5 8.5 L 0 5 L 4.5 8.5" stroke={INK} strokeWidth={4.6} fill="none" strokeLinejoin="round" />
+            </G>
+          ))}
+          {[0, 60, 120].map((a) => (
+            <G key={`i${a}`} rotation={a}>
+              <Path d="M 0 -13 V 13 M -4.5 -8.5 L 0 -5 L 4.5 -8.5 M -4.5 8.5 L 0 5 L 4.5 8.5" stroke={colors.cream} strokeWidth={2} fill="none" strokeLinejoin="round" />
+            </G>
+          ))}
+          <Circle r={2} fill={colors.turquoise} stroke={INK} strokeWidth={1.4} />
+        </G>
+      );
+    case 'shell':
+      return (
+        <G strokeLinejoin="round">
+          <Path d="M 0 11 C -13 8 -14 -4 -8 -8 C -4 -12 4 -12 8 -8 C 14 -4 13 8 0 11 Z" fill={colors.blush} stroke={INK} strokeWidth={2.2} />
+          <Path d="M 0 10 L -8 -6 M 0 10 L -3.5 -9 M 0 10 L 3.5 -9 M 0 10 L 8 -6" stroke={INK} strokeWidth={1.3} strokeLinecap="round" />
+          <Rect x={-3.6} y={9} width={7.2} height={3.4} rx={1.4} fill={colors.marigold} stroke={INK} strokeWidth={1.4} />
+        </G>
+      );
     case 'gem':
     default:
       return (
@@ -510,13 +770,6 @@ export function StickerGlyph({ kind }: { kind: string }) {
 }
 
 /* --------------------------------------------------------------------- paint */
-
-function isLight(hex: string): boolean {
-  const h = hex.replace('#', '');
-  const n = parseInt(h.length === 3 ? h.replace(/(.)/g, '$1$1') : h, 16);
-  const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-  return lum > 0.75;
-}
 
 /**
  * A French tip as plain geometry: the part of the nail outline `d` that lies beyond the smile
@@ -589,6 +842,155 @@ function frenchTip(d: string): { tip: string; smile: string } {
   return out;
 }
 
+/* ------------------------------------------------------------ special polishes */
+
+/*
+ * The rainbow and the glitters are plain geometry (no clip paths, so nothing can spill past the
+ * nail on any platform): bands are slices of the nail's outline polygon, sparkles are placed only
+ * where they fit inside it, in a fixed order seeded per nail.
+ */
+
+/** Where the polygon's edges cross the horizontal line at y: its extent there. */
+function polyRow(poly: number[][], y: number): [number, number] | null {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    if (yi === yj || y < Math.min(yi, yj) || y > Math.max(yi, yj)) continue;
+    const x = xi + ((xj - xi) * (y - yi)) / (yj - yi);
+    if (x < lo) lo = x;
+    if (x > hi) hi = x;
+  }
+  return lo === Infinity ? null : [lo, hi];
+}
+
+/** The part of the polygon between y = ya and y = yb, as a closed path (flat top and bottom). */
+function polySlab(poly: number[][], ya: number, yb: number, ymin: number, ymax: number): string {
+  const left: string[] = [];
+  const right: string[] = [];
+  const steps = 6;
+  for (let i = 0; i <= steps; i++) {
+    const y = ya + ((yb - ya) * i) / steps;
+    const row = polyRow(poly, Math.min(ymax - 0.02, Math.max(ymin + 0.02, y)));
+    if (!row) continue;
+    left.push(`${row[0].toFixed(2)} ${y.toFixed(2)}`);
+    right.push(`${row[1].toFixed(2)} ${y.toFixed(2)}`);
+  }
+  return left.length > 1 ? `M ${left.join(' L ')} L ${right.reverse().join(' L ')} Z` : '';
+}
+
+type Bounds = { x0: number; x1: number; y0: number; y1: number };
+function polyBounds(poly: number[][]): Bounds {
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  for (const [x, y] of poly) {
+    x0 = Math.min(x0, x);
+    x1 = Math.max(x1, x);
+    y0 = Math.min(y0, y);
+    y1 = Math.max(y1, y);
+  }
+  return { x0, x1, y0, y1 };
+}
+
+/** Equal bands from the cuticle end (bottom, larger y) to the free edge, as path strings. */
+function bandPaths(poly: number[][], n: number): string[] {
+  const { y0, y1 } = polyBounds(poly);
+  const h = (y1 - y0) / n;
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const yb = y1 - i * h + (i ? 0.4 : 0); // a hair of overlap toward the cuticle: no seams
+    const ya = y1 - (i + 1) * h;
+    out.push(polySlab(poly, ya, yb, y0, y1));
+  }
+  return out;
+}
+
+function seeded(seed: string): () => number {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  let a = h >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+type Spark = { x: number; y: number; r: number; star: boolean; colour: number };
+const sparkCache = new Map<string, Spark[]>();
+/** Sparkles scattered inside the polygon, the same every time for the same polygon and seed. */
+function sparkles(poly: number[][], seed: string, count?: number): Spark[] {
+  const b = polyBounds(poly);
+  const hw = (b.x1 - b.x0) / 2;
+  const len = b.y1 - b.y0;
+  const n = count ?? Math.max(7, Math.min(20, Math.round((2 * hw * len) / 1000)));
+  const key = `${b.x0.toFixed(1)},${b.y0.toFixed(1)},${len.toFixed(1)}|${seed}|${n}`;
+  const hit = sparkCache.get(key);
+  if (hit) return hit;
+  const rnd = seeded(seed + key);
+  const out: Spark[] = [];
+  for (let tries = 0; tries < 400 && out.length < n; tries++) {
+    const star = rnd() < 0.55;
+    const r = hw * (star ? 0.14 + rnd() * 0.1 : 0.05 + rnd() * 0.035);
+    const x = b.x0 + rnd() * (b.x1 - b.x0);
+    const y = b.y0 + rnd() * len;
+    if (!insidePoly(poly, x, y) || nearestOnPoly(poly, x, y).dist < r * 1.15) continue;
+    if (out.some((o) => Math.hypot(o.x - x, o.y - y) < (o.r + r) * 1.5 + hw * 0.1)) continue;
+    out.push({ x, y, r, star, colour: out.length % 2 });
+  }
+  sparkCache.set(key, out);
+  return out;
+}
+
+const sparkStar = (x: number, y: number, r: number) => {
+  const k = r * 0.3;
+  return `M ${x} ${y - r} L ${x + k} ${y - k} L ${x + r} ${y} L ${x + k} ${y + k} L ${x} ${y + r} L ${x - k} ${y + k} L ${x - r} ${y} L ${x - k} ${y - k} Z`;
+};
+
+/** A special polish filling `poly` (or `base`, the exact path to flood): rainbow bands, or glitter on a pale base. */
+export function SpecialFill({
+  poly,
+  color,
+  seed,
+  base,
+  count,
+}: {
+  poly: number[][];
+  color: 'rainbow' | 'glitter-gold' | 'glitter-pink';
+  seed: string;
+  base: string;
+  count?: number;
+}) {
+  if (color === 'rainbow') {
+    return (
+      <>
+        <Path d={base} fill={RAINBOW[0]} />
+        {bandPaths(poly, RAINBOW.length).map((bd, i) => (bd ? <Path key={i} d={bd} fill={RAINBOW[i]} /> : null))}
+      </>
+    );
+  }
+  const g = GLITTER[color];
+  return (
+    <>
+      <Path d={base} fill={g.base} />
+      {sparkles(poly, seed, count).map((sp, i) =>
+        sp.star ? (
+          <Path key={i} d={sparkStar(sp.x, sp.y, sp.r)} fill={g.sparks[sp.colour]} />
+        ) : (
+          <Circle key={i} cx={sp.x} cy={sp.y} r={sp.r} fill={g.sparks[sp.colour]} />
+        ),
+      )}
+    </>
+  );
+}
+
 type PaintProps = {
   /** Unique, letters and digits only: names this nail's pattern and clip defs. */
   uid: string;
@@ -599,19 +1001,24 @@ type PaintProps = {
   strokeWidth: number;
   /** Local units per canvas unit; scales the pattern tiles (the canvas close-up is 1/CLOSE_K). */
   unit?: number;
+  /** Names this nail for its glitter (so it sparkles the same wherever it is drawn); defaults to its outline. */
+  seed?: string;
 };
 
 /**
  * A painted nail in its local frame: colour, dots / stripes (SVG patterns), or a French tip,
  * then the outline. Stickers and the sheen are drawn over it by the caller.
  */
-export function NailPaint({ uid, d, look, line, strokeWidth, unit = 1 / CLOSE_K }: PaintProps) {
+export function NailPaint({ uid, d, look, line, strokeWidth, unit = 1 / CLOSE_K, seed }: PaintProps) {
   const fillId = `${uid}f`;
   const { color, pattern } = look;
-  const dot = isLight(color) ? colors.plum : colors.cream;
+  const special = isSpecial(color);
+  const dot = markColour(color);
   const u = unit;
 
-  const fill = pattern === 'dots' || pattern === 'stripes' ? `url(#${fillId})` : color;
+  // A special polish is drawn first and the pattern's marks go over it (a pattern on a plain colour is one fill).
+  const marks = pattern === 'dots' || pattern === 'stripes';
+  const fill = special ? 'none' : marks ? `url(#${fillId})` : color;
 
   // French: the white tip over the colour, its edge a gentle curve across the nail.
   const french = pattern === 'french' ? frenchTip(d) : null;
@@ -621,7 +1028,7 @@ export function NailPaint({ uid, d, look, line, strokeWidth, unit = 1 / CLOSE_K 
       <Defs>
         {pattern === 'dots' && (
           <Pattern id={fillId} width={26 * u} height={26 * u} patternUnits="userSpaceOnUse">
-            <Rect width={26 * u} height={26 * u} fill={color} />
+            {!special && <Rect width={26 * u} height={26 * u} fill={color} />}
             <Circle cx={6.5 * u} cy={6.5 * u} r={4.2 * u} fill={dot} />
             <Circle cx={19.5 * u} cy={19.5 * u} r={4.2 * u} fill={dot} />
           </Pattern>
@@ -634,12 +1041,19 @@ export function NailPaint({ uid, d, look, line, strokeWidth, unit = 1 / CLOSE_K 
             patternUnits="userSpaceOnUse"
             patternTransform="rotate(35)"
           >
-            <Rect width={22 * u} height={22 * u} fill={color} />
+            {!special && <Rect width={22 * u} height={22 * u} fill={color} />}
             <Rect width={9 * u} height={22 * u} fill={dot} />
           </Pattern>
         )}
       </Defs>
-      <Path d={d} fill={fill} />
+      {special ? (
+        <>
+          <SpecialFill poly={nailOutline(d)} color={color} seed={seed ?? d} base={d} />
+          {marks && <Path d={d} fill={`url(#${fillId})`} />}
+        </>
+      ) : (
+        <Path d={d} fill={fill} />
+      )}
       {french && (
         <>
           {french.tip ? <Path d={french.tip} fill="#FFFFFF" /> : null}
@@ -794,7 +1208,7 @@ function NailsLayer({
         const { len, hw } = nailMetrics(d);
         return (
           <G key={dg} transform={`translate(${p.x} ${p.y}) rotate(${p.rotate})`}>
-            <NailPaint uid={`${uid}${dg}`} d={d} look={look} line={line} strokeWidth={sw} unit={k} />
+            <NailPaint uid={`${uid}${dg}`} d={d} look={look} line={line} strokeWidth={sw} unit={k} seed={`${hand}${dg}`} />
             <NailStickers uid={`${uid}${dg}`} d={d} stickers={look.stickers} hw={hw} len={len} />
           </G>
         );
@@ -1028,6 +1442,7 @@ const OVERLAY_SS = Platform.OS === 'ios' ? 2.7 : 1;
 
 /* The tools, drawn once. Mela style: flat fills, plum outlines. */
 
+const TUFT = 'M 18 53 C 15.5 70 18 92 24 108 C 30 92 32.5 70 30 53 Z';
 const BRUSH_S = 1.35;
 const BRUSH = { w: 48 * BRUSH_S, h: 112 * BRUSH_S, tipX: 24 * BRUSH_S, tipY: 108 * BRUSH_S };
 /** A polish brush: bottle-cap handle, a short stem and a tapered tuft in `colour`; the tip is at the bottom. */
@@ -1037,13 +1452,14 @@ const BrushArt = React.memo(function BrushArt({ colour }: { colour: string }) {
       <Rect x={11} y={2} width={26} height={38} rx={7} fill={colors.plum} />
       <Path d="M 15 11 V 30" stroke={colors.cream} strokeWidth={2.4} strokeLinecap="round" opacity={0.55} />
       <Rect x={16} y={39} width={16} height={14} rx={3} fill={colors.plum} />
-      <Path
-        d="M 18 53 C 15.5 70 18 92 24 108 C 30 92 32.5 70 30 53 Z"
-        fill={colour}
-        stroke={colors.plum}
-        strokeWidth={2.5}
-        strokeLinejoin="round"
-      />
+      {isSpecial(colour) ? (
+        <>
+          <SpecialFill poly={nailOutline(TUFT)} color={colour} seed="tuft" base={TUFT} count={6} />
+          <Path d={TUFT} fill="none" stroke={colors.plum} strokeWidth={2.5} strokeLinejoin="round" />
+        </>
+      ) : (
+        <Path d={TUFT} fill={colour} stroke={colors.plum} strokeWidth={2.5} strokeLinejoin="round" />
+      )}
     </Svg>
   );
 });
@@ -1303,7 +1719,7 @@ const FxLayer = React.memo(function FxLayer({
         <View style={plateBox}>
           <Svg width={w * k} height={Hr} viewBox={plateView}>
             <G transform={flip}>
-              <NailPaint uid={`${uid}p`} d={d} look={shown} line={line} strokeWidth={sw} unit={unit} />
+              <NailPaint uid={`${uid}p`} d={d} look={shown} line={line} strokeWidth={sw} unit={unit} seed={`${hand}${digit}`} />
               <NailStickers uid={`${uid}q`} d={d} stickers={shown.stickers} hw={hw} len={len} />
             </G>
           </Svg>
@@ -1320,7 +1736,7 @@ const FxLayer = React.memo(function FxLayer({
             <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: w * k, height: Hr }, innerStyle]}>
               <Svg width={w * k} height={Hr} viewBox={plateView}>
                 <G transform={flip}>
-                  <NailPaint uid={`${uid}p`} d={d} look={fx.to} line={line} strokeWidth={sw} unit={unit} />
+                  <NailPaint uid={`${uid}p`} d={d} look={fx.to} line={line} strokeWidth={sw} unit={unit} seed={`${hand}${digit}`} />
                   <NailStickers uid={`${uid}q`} d={d} stickers={fx.to.stickers} hw={hw} len={len} />
                 </G>
               </Svg>
@@ -1803,7 +2219,7 @@ export function ZoomHand({ design, tone, width, zoom, shift = 0, view, toolFrom,
     let baseLook = b;
     if (a.color !== b.color || a.pattern !== b.pattern) {
       baseLook = a;
-      const mark = b.pattern === 'french' ? '#FFFFFF' : b.pattern === 'plain' ? b.color : isLight(b.color) ? colors.plum : colors.cream;
+      const mark = b.pattern === 'french' ? '#FFFFFF' : b.pattern === 'plain' ? b.color : markColour(b.color);
       next = {
         id,
         nail,
@@ -2055,7 +2471,7 @@ export function ShapeIcon({ shape, fill, size = 1 }: { shape: string; fill: stri
   return (
     <Svg width={17 * size} height={36 * size} viewBox="-7.5 -26.5 15 31">
       <G transform={`scale(${s})`}>
-        <Path d={d} fill={fill} stroke={colors.plum} strokeWidth={1.6 / s} strokeLinejoin="round" />
+        <Path d={d} fill={swatchHex(fill)} stroke={colors.plum} strokeWidth={1.6 / s} strokeLinejoin="round" />
       </G>
     </Svg>
   );
@@ -2083,17 +2499,40 @@ export function PatternIcon({ pattern, color, size = 1 }: { pattern: NailLook['p
 }
 
 /** The polish bottle on the Salon shelf. */
+const BOTTLE_BODY =
+  'M 6 20 H 24 a 4 4 0 0 1 4 4 V 45 a 5 5 0 0 1 -5 5 H 7 a 5 5 0 0 1 -5 -5 V 24 a 4 4 0 0 1 4 -4 Z';
+let bottlePoly: number[][] | null = null;
+/** The bottle's body as a polygon (rounded corners), for slicing into rainbow bands. */
+function bodyPoly(): number[][] {
+  if (bottlePoly) return bottlePoly;
+  const pts: number[][] = [];
+  const arc = (cx: number, cy: number, r: number, a0: number, a1: number) => {
+    for (let i = 0; i <= 6; i++) {
+      const a = ((a0 + ((a1 - a0) * i) / 6) * Math.PI) / 180;
+      pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+  };
+  arc(24, 24, 4, -90, 0);
+  arc(23, 45, 5, 0, 90);
+  arc(7, 45, 5, 90, 180);
+  arc(6, 24, 4, 180, 270);
+  bottlePoly = pts;
+  return pts;
+}
+
 export function Bottle({ hex }: { hex: string }) {
   return (
     <Svg width={30} height={52} viewBox="0 0 30 52">
       <Rect x={10} y={2} width={10} height={13} rx={2.5} fill={colors.plum} />
       <Rect x={8.5} y={14} width={13} height={5} rx={1.5} fill={colors.plum} />
-      <Path
-        d="M 6 20 H 24 a 4 4 0 0 1 4 4 V 45 a 5 5 0 0 1 -5 5 H 7 a 5 5 0 0 1 -5 -5 V 24 a 4 4 0 0 1 4 -4 Z"
-        fill={hex}
-        stroke={colors.plum}
-        strokeWidth={2.4}
-      />
+      {isSpecial(hex) ? (
+        <>
+          <SpecialFill poly={bodyPoly()} color={hex} seed="bottle" base={BOTTLE_BODY} count={8} />
+          <Path d={BOTTLE_BODY} fill="none" stroke={colors.plum} strokeWidth={2.4} />
+        </>
+      ) : (
+        <Path d={BOTTLE_BODY} fill={hex} stroke={colors.plum} strokeWidth={2.4} />
+      )}
       <Path d="M 8 27 V 41" stroke="#FFFFFF" strokeWidth={2.6} strokeLinecap="round" opacity={0.7} />
     </Svg>
   );

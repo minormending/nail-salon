@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, type GestureResponderEvent, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -10,7 +11,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import {
   Bottle,
@@ -389,7 +390,7 @@ export default function SalonNails() {
                 </View>
               )}
               {mode === 'stickers' && (
-                <View accessibilityLabel="Stickers: pick one, then tap the nail" style={{ flexDirection: 'row', gap: 8, paddingTop: 1 }}>
+                <FadeScroller label="Stickers: pick one, then tap the nail" step={60} gap={8} padRight={30} top={1}>
                   {STICKERS.map((st) => {
                     const on = st.kind === pick;
                     return (
@@ -400,7 +401,7 @@ export default function SalonNails() {
                         radius={14}
                         accessibilityLabel={st.name}
                         accessibilityState={{ selected: on }}
-                        style={{ flex: 1, transform: [{ translateY: on ? -3 : 0 }] }}
+                        style={{ width: 52, transform: [{ translateY: on ? -3 : 0 }] }}
                         face={{
                           height: 49,
                           alignItems: 'center',
@@ -414,7 +415,7 @@ export default function SalonNails() {
                       </HardDrop>
                     );
                   })}
-                </View>
+                </FadeScroller>
               )}
             </View>
           </>
@@ -424,39 +425,38 @@ export default function SalonNails() {
           </View>
         )}
 
-        <View
-          accessibilityLabel={zoom ? 'Polish for this nail' : 'Polish for the nails not styled yet'}
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            marginTop: zoom ? 8 : 12,
-            marginBottom: 14,
-          }}
-        >
-          {BOTTLES.map((b) => {
-            const on = b.hex.toLowerCase() === current?.toLowerCase();
-            return (
-              <Pressable
-                key={b.hex}
-                onPress={(e) => withTool(e, () => paint(b.hex))}
-                accessibilityRole="button"
-                accessibilityLabel={b.name}
-                accessibilityState={{ selected: on }}
-                style={{
-                  width: 46,
-                  height: 66,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 14,
-                  borderWidth: border,
-                  borderColor: on ? colors.plum : 'transparent',
-                  backgroundColor: on ? colors.cream : 'transparent',
-                }}
-              >
-                <Bottle hex={b.hex} />
-              </Pressable>
-            );
-          })}
+        <View style={{ marginTop: zoom ? 8 : 12, marginBottom: 14, height: 66 }}>
+          <FadeScroller
+            label={zoom ? 'Polish for this nail' : 'Polish for the nails not styled yet'}
+            step={52}
+            gap={6}
+            padRight={30}
+          >
+            {BOTTLES.map((b) => {
+              const on = b.hex.toLowerCase() === current?.toLowerCase();
+              return (
+                <Pressable
+                  key={b.hex}
+                  onPress={(e) => withTool(e, () => paint(b.hex))}
+                  accessibilityRole="button"
+                  accessibilityLabel={b.name}
+                  accessibilityState={{ selected: on }}
+                  style={{
+                    width: 46,
+                    height: 66,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 14,
+                    borderWidth: border,
+                    borderColor: on ? colors.plum : 'transparent',
+                    backgroundColor: on ? colors.cream : 'transparent',
+                  }}
+                >
+                  <Bottle hex={b.hex} />
+                </Pressable>
+              );
+            })}
+          </FadeScroller>
         </View>
 
         {zoom ? (
@@ -666,6 +666,71 @@ function ModeSwitch({
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * A row that scrolls sideways, one whole button at a time (`step` px), with a soft fade at the right
+ * edge while there is more to see. The fade follows the scroll on the UI thread (no re-renders).
+ */
+function FadeScroller({
+  children,
+  label,
+  step,
+  gap,
+  padRight,
+  top = 0,
+}: {
+  children: React.ReactNode;
+  label: string;
+  step: number;
+  gap: number;
+  padRight: number;
+  top?: number;
+}) {
+  const x = useSharedValue(0);
+  const content = useSharedValue(0);
+  const view = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    x.value = e.contentOffset.x;
+  });
+  const fade = useAnimatedStyle(() => ({
+    opacity: Math.min(1, Math.max(0, (content.value - view.value - x.value) / 24)),
+  }));
+  const gid = 'fade' + React.useId().replace(/[^A-Za-z0-9]/g, '');
+  return (
+    <View style={{ flex: 1 }}>
+      <Animated.ScrollView
+        horizontal
+        accessibilityLabel={label}
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={step}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        scrollEventThrottle={16}
+        onScroll={onScroll}
+        onLayout={(e) => {
+          view.value = e.nativeEvent.layout.width;
+        }}
+        onContentSizeChange={(w) => {
+          content.value = w;
+        }}
+        contentContainerStyle={{ gap, paddingRight: padRight, paddingTop: top }}
+      >
+        {children}
+      </Animated.ScrollView>
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 34 }, fade]}>
+        <Svg width={34} height="100%">
+          <Defs>
+            <LinearGradient id={gid} x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0" stopColor={colors.magenta} stopOpacity={0} />
+              <Stop offset="1" stopColor={colors.magenta} stopOpacity={1} />
+            </LinearGradient>
+          </Defs>
+          <Rect x={0} y={0} width={34} height="100%" fill={`url(#${gid})`} />
+        </Svg>
+      </Animated.View>
     </View>
   );
 }

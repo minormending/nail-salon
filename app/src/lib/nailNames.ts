@@ -1,15 +1,26 @@
 import type { Digit, Hand, NailDesign, NailLook } from '../state/store';
+import { isSpecial } from './polish';
 import { BARE_NAIL, DIGITS, HANDS, handNails, lookShape } from '../state/store';
 
-/** The polish bottles in the Salon, by their names in the canvas. */
+/** The polish bottles in the Salon: 14 colours, then three specials (rainbow, two glitters; `hex` is their id). */
 export const BOTTLES: { name: string; hex: string }[] = [
   { name: 'Magenta', hex: '#D81E5B' },
+  { name: 'Red', hex: '#E53935' },
+  { name: 'Orange', hex: '#F57C00' },
   { name: 'Marigold', hex: '#F5A623' },
-  { name: 'Turquoise', hex: '#16A0BD' },
+  { name: 'Sunshine', hex: '#FDD835' },
+  { name: 'Mint', hex: '#7FD6B5' },
   { name: 'Leaf', hex: '#0E8A6E' },
+  { name: 'Sky', hex: '#64B5F6' },
+  { name: 'Turquoise', hex: '#16A0BD' },
+  { name: 'Lavender', hex: '#B39DDB' },
+  { name: 'Purple', hex: '#7B1FA2' },
   { name: 'Plum', hex: '#40163C' },
   { name: 'Blush', hex: '#F4B6C2' },
   { name: 'Clear', hex: '#FFFFFF' },
+  { name: 'Rainbow', hex: 'rainbow' },
+  { name: 'Gold glitter', hex: 'glitter-gold' },
+  { name: 'Pink glitter', hex: 'glitter-pink' },
 ];
 
 /** The six shapes the Salon offers (the Studio has all fifteen), in the canvas order. */
@@ -108,12 +119,14 @@ function rgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-/** The bottle whose colour is closest to `hex`. */
+/** The bottle whose colour is closest to `hex` (a special polish is its own bottle). */
 export function nearestBottle(hex: string): { name: string; hex: string } {
+  if (isSpecial(hex)) return BOTTLES.find((b) => b.hex === hex) ?? BOTTLES[0];
   const [r, g, b] = rgb(hex);
   let best = BOTTLES[0];
   let bestD = Infinity;
   for (const bt of BOTTLES) {
+    if (isSpecial(bt.hex)) continue;
     const [r2, g2, b2] = rgb(bt.hex);
     const d = (r - r2) ** 2 + (g - g2) ** 2 + (b - b2) ** 2;
     if (d < bestD) {
