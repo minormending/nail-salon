@@ -19,7 +19,7 @@
       "package": "com.minormending.paisley",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#FFF3DC",
+        "backgroundColor": "#025F70",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
